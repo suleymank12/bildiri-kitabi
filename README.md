@@ -539,7 +539,7 @@ SQL Server 2022 (Developer sürümü; Microsoft lisansı, üretim dışı kullan
 
 ## Bilinen eksikler ve sınırlamalar
 
-Case'in zorunlu maddelerinin tamamı karşılanmıştır (bkz. Kabul kriterleri). Aşağıdakiler, case'te beklenmeyen veya bilinçli olarak kapsam dışında bırakılan konulardır; gerçek bir üretim ortamında ele alınması gerekenler ayrıca belirtilmiştir.
+Case'in zorunlu maddelerinin tamamı karşılanmıştır (bkz. [Kabul kriterleri](#kabul-kriterleri)). Aşağıdakiler, case'te beklenmeyen veya bilinçli olarak kapsam dışında bırakılan konulardır; gerçek bir üretim ortamında ele alınması gerekenler ayrıca belirtilmiştir.
 
 - **Kimlik doğrulama yok:** kullanıcı kaydı ve girişi kapsam dışıdır; uygulamaya erişebilen herkes tüm kitapları görebilir ve silebilir.
 - **Word biçim sadakati sınırlıdır.** Desteklenmeyenler: görseller, çizimler ve grafikler (metin kutularının metni hariç atlanır); liste numaraları ve madde işaretleri (numaralandırma tanımları okunmaz, yalnızca metin basılır); asılı girinti (negatif ilk satır girintisi); dikey hücre birleştirme ve tablo kenarlık/gölgelendirme ayrıntıları; yazı rengi, vurgulama ve üstü çizili metin; sayfa yönü, sütunlar ve kaynak kenar boşlukları (kitap kendi A4 düzenini kullanır); son notlar ve yorumlar. Yazı tipi aileleri serif ve sans olmak üzere ikiye eşlenir. `keepNext` mümkün olduğunca uygulanır, bir sayfadan uzun bloklarda uygulanamaz.
