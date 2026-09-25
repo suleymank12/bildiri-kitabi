@@ -1,5 +1,6 @@
 using BildiriKitabi.Core.Books;
 using BildiriKitabi.Core.Titles;
+using Microsoft.AspNetCore.Mvc;
 
 namespace BildiriKitabi.Api.Contracts;
 
@@ -81,14 +82,16 @@ public sealed record BookSummaryDto(
 
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int TotalCount);
 
-public sealed record PaperOrderRequest(IReadOnlyList<Guid>? PaperIds);
+public sealed record PaperOrderRequest(IReadOnlyList<Guid> PaperIds);
 
 /// <summary>multipart/form-data body of <c>POST /api/books</c>.</summary>
 public sealed class CreateBookForm
 {
     /// <summary>Book name, 3–150 characters.</summary>
+    [FromForm(Name = "name")]
     public string? Name { get; set; }
 
     /// <summary>Exactly ten .docx files, in book order.</summary>
+    [FromForm(Name = "files")]
     public IReadOnlyList<IFormFile>? Files { get; set; }
 }

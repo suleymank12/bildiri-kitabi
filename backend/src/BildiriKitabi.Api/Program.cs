@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using BildiriKitabi.Api.Hosting;
 using BildiriKitabi.Api.Http;
@@ -5,6 +6,7 @@ using BildiriKitabi.Api.Problems;
 using BildiriKitabi.Core.Configuration;
 using BildiriKitabi.Infrastructure;
 using BildiriKitabi.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Net.Http.Headers;
 using Scalar.AspNetCore;
@@ -19,9 +21,17 @@ AddValidatedOptions<RateLimitingOptions>(RateLimitingOptions.SectionName);
 
 builder.Services.AddBookApplication(builder.Environment.ContentRootPath);
 
+// JSON is camelCase with enums as strings and numbers as plain numbers, both for MVC and for the OpenAPI
+// document (which reads the minimal-API options), so generated client types match the wire format.
 builder.Services
-    .AddControllers()
-    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+    .AddControllers(options =>
+    {
+        options.OutputFormatters.RemoveType<StringOutputFormatter>();
+        options.OutputFormatters.OfType<SystemTextJsonOutputFormatter>().Single().SupportedMediaTypes.Remove("text/json");
+        options.InputFormatters.OfType<SystemTextJsonInputFormatter>().Single().SupportedMediaTypes.Remove("text/json");
+    })
+    .AddJsonOptions(options => ConfigureJson(options.JsonSerializerOptions));
+builder.Services.ConfigureHttpJsonOptions(options => ConfigureJson(options.SerializerOptions));
 builder.Services.AddApiProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenApi();
@@ -82,6 +92,12 @@ if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", false))
 }
 
 await app.RunAsync();
+
+static void ConfigureJson(JsonSerializerOptions options)
+{
+    options.Converters.Add(new JsonStringEnumConverter());
+    options.NumberHandling = JsonNumberHandling.Strict;
+}
 
 void AddValidatedOptions<TOptions>(string section)
     where TOptions : class =>
