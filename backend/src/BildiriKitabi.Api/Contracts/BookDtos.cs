@@ -9,6 +9,7 @@ public sealed record BookErrorDto(string Code, string Message);
 public sealed record PaperDto(
     Guid Id,
     int Order,
+    int UploadOrder,
     string FileName,
     string Title,
     TitleSource TitleSource,
@@ -51,6 +52,7 @@ public sealed record BookDetailDto(
             .Select(p => new PaperDto(
                 p.Id,
                 p.Order,
+                p.UploadOrder,
                 p.OriginalFileName,
                 p.Title,
                 p.TitleSource,

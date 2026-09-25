@@ -8,7 +8,11 @@ internal sealed class PaperConfiguration : IEntityTypeConfiguration<Paper>
 {
     public void Configure(EntityTypeBuilder<Paper> builder)
     {
-        builder.ToTable("Bildiriler", table => table.HasCheckConstraint("CK_Bildiriler_SiraNo", "[SiraNo] >= 1"));
+        builder.ToTable("Bildiriler", table =>
+        {
+            table.HasCheckConstraint("CK_Bildiriler_SiraNo", "[SiraNo] >= 1");
+            table.HasCheckConstraint("CK_Bildiriler_YuklemeSirasi", "[YuklemeSirasi] >= 1");
+        });
 
         // Same sequential GUID strategy as Kitaplar (see BookConfiguration).
         builder.HasKey(p => p.Id);
@@ -16,6 +20,7 @@ internal sealed class PaperConfiguration : IEntityTypeConfiguration<Paper>
 
         builder.Property(p => p.BookId).HasColumnName("KitapId");
         builder.Property(p => p.Order).HasColumnName("SiraNo");
+        builder.Property(p => p.UploadOrder).HasColumnName("YuklemeSirasi");
         builder.Property(p => p.OriginalFileName).HasColumnName("OrijinalDosyaAdi").HasMaxLength(Paper.FileNameMaxLength).IsRequired();
         builder.Property(p => p.StorageKey).HasColumnName("DepolamaAnahtari").HasMaxLength(Book.StorageKeyMaxLength).IsRequired();
         builder.Property(p => p.SizeBytes).HasColumnName("DosyaBoyutuBayt");

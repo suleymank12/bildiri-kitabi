@@ -87,6 +87,7 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
         var reordered = (await response.Content.ReadFromJsonAsync<BookDetailDto>(ApiHost.Json, TestContext.Current.CancellationToken))!;
         reordered.Papers.Select(p => p.Id).ShouldBe(reversed);
         reordered.Papers.Select(p => p.Order).ShouldBe(Enumerable.Range(1, 10));
+        reordered.Papers.Select(p => p.UploadOrder).ShouldBe(Enumerable.Range(1, 10).Reverse());
 
         (await api.GenerateAsync(book.Id)).ShouldBe(HttpStatusCode.Accepted);
         var completed = await api.WaitForFinalStatusAsync(book.Id);

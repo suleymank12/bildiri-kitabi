@@ -107,3 +107,40 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260925195659_AddPaperUploadOrder'
+)
+BEGIN
+    ALTER TABLE [Bildiriler] ADD [YuklemeSirasi] int NOT NULL DEFAULT 0;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260925195659_AddPaperUploadOrder'
+)
+BEGIN
+    EXEC(N'UPDATE [Bildiriler] SET [YuklemeSirasi] = [SiraNo]');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260925195659_AddPaperUploadOrder'
+)
+BEGIN
+    EXEC(N'ALTER TABLE [Bildiriler] ADD CONSTRAINT [CK_Bildiriler_YuklemeSirasi] CHECK ([YuklemeSirasi] >= 1)');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260925195659_AddPaperUploadOrder'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260925195659_AddPaperUploadOrder', N'10.0.12');
+END;
+
+COMMIT;
+GO
+

@@ -22,6 +22,7 @@ public sealed class Paper
 
         Book = book;
         Order = order;
+        UploadOrder = order;
         OriginalFileName = fileName.Length <= FileNameMaxLength ? fileName : fileName[..FileNameMaxLength];
         SizeBytes = sizeBytes;
         Sha256 = sha256;
@@ -45,6 +46,9 @@ public sealed class Paper
     public Book Book { get; private set; }
 
     public int Order { get; private set; }
+
+    /// <summary>Position in the upload; never changes, so the client can tell whether the order was edited.</summary>
+    public int UploadOrder { get; private set; }
 
     public string OriginalFileName { get; private set; }
 

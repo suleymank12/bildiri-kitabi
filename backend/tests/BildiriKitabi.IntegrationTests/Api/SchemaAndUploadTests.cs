@@ -73,7 +73,7 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
 
         var checks = await _api.QueryAsync("SELECT name, definition FROM sys.check_constraints", r => (Name: r.GetString(0), Definition: r.GetString(1)));
         checks.Select(c => c.Name).ShouldBe(
-            ["CK_Bildiriler_SiraNo", "CK_Kitaplar_Basarisiz_Mesaj", "CK_Kitaplar_Durum", "CK_Kitaplar_IlerlemeYuzdesi", "CK_Kitaplar_Tamamlandi_Pdf"],
+            ["CK_Bildiriler_SiraNo", "CK_Bildiriler_YuklemeSirasi", "CK_Kitaplar_Basarisiz_Mesaj", "CK_Kitaplar_Durum", "CK_Kitaplar_IlerlemeYuzdesi", "CK_Kitaplar_Tamamlandi_Pdf"],
             ignoreOrder: true);
         checks.Single(c => c.Name == "CK_Kitaplar_Durum").Definition.ShouldContain("'Failed'");
 
@@ -124,6 +124,7 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
         book.Status.ShouldBe(BookStatus.Uploaded);
         book.PdfUrl.ShouldBeNull();
         book.Papers.Select(p => p.Order).ShouldBe(Enumerable.Range(1, 10));
+        book.Papers.Select(p => p.UploadOrder).ShouldBe(Enumerable.Range(1, 10));
         book.Papers.Select(p => p.FileName).ShouldBe(TestPaths.PaperFiles.Select(Path.GetFileName).ToList()!);
         book.Papers.ShouldAllBe(p => p.TitleSource == TitleSource.TitleStyle && p.StartPage == null && p.SizeBytes > 0);
         book.Papers[0].Title.ShouldBe("KENTSEL TARIMDA AKILLI SULAMA SİSTEMLERİNİN SU TÜKETİMİNE ETKİSİ");
