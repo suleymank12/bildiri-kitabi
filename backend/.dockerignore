@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/TestResults/
+tests/
+database/
+**/*.user
+**/*.suo
+**/.vs/
+**/App_Data/
+**/*.trx
+Dockerfile
+.dockerignore
