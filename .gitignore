@@ -30,6 +30,9 @@ npm-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Browser automation output (screenshots, snapshots)
+.playwright-mcp/
+
 # IDE / OS
 .idea/
 .vscode/*
