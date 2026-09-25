@@ -164,7 +164,7 @@ public sealed partial class BookCommandService(
     [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookId} queued for generation")]
     private static partial void LogQueued(ILogger logger, Guid bookId);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Book {BookId} could not be enqueued; it stays queued for the startup recovery")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Book {BookId} could not be enqueued; it stays queued and the queued-book sweeper sends it later")]
     private static partial void LogEnqueueFailed(ILogger logger, Exception exception, Guid bookId);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookId} deleted")]

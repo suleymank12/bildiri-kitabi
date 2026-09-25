@@ -1,4 +1,6 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Unicode;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace BildiriKitabi.Api.Http;
@@ -6,7 +8,11 @@ namespace BildiriKitabi.Api.Http;
 /// <summary><c>/health</c> as JSON: the overall status and one entry per check (no exception details).</summary>
 public static class HealthResponse
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    // Turkish letters are written as they are (the output is JSON, never embedded in HTML).
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+    };
 
     public static Task WriteAsync(HttpContext context, HealthReport report)
     {
