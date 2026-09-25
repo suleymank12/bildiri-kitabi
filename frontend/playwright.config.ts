@@ -10,6 +10,7 @@ const baseURL = `http://localhost:${frontendPort}`;
  */
 export default defineConfig({
   testDir: 'e2e',
+  globalTeardown: './e2e/support/global-teardown.ts',
   outputDir: 'test-results',
   timeout: 90_000,
   expect: { timeout: 15_000 },
