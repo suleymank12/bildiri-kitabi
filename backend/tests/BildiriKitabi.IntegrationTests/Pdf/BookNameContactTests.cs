@@ -1,6 +1,5 @@
 using BildiriKitabi.Core.Books;
 using BildiriKitabi.Core.Documents;
-using BildiriKitabi.Core.Sanitization;
 using BildiriKitabi.Infrastructure.Docx;
 using BildiriKitabi.Infrastructure.Pdf;
 using BildiriKitabi.IntegrationTests.Books;
@@ -22,7 +21,7 @@ public sealed class BookNameContactTests
 
         pdf.Page(1).Text.ShouldContain(NameWithContacts);
         pdf.Information["Title"].ShouldBe(NameWithContacts);
-        pdf.Page(3).Text.ShouldContain("0312 555 12 34");
+        pdf.Page(4).HeaderText.ShouldBe(NameWithContacts);
     }
 
     [Fact]
@@ -50,37 +49,20 @@ public sealed class BookNameContactTests
     }
 
     [Fact]
-    public void A_phone_number_cut_short_in_the_running_head_is_not_a_leak()
+    public void A_phone_number_in_the_running_head_is_printed_whole_and_is_not_a_leak()
     {
-        const string phone = "+90 312 555 12 34";
-        const string name = "Ulusal Bilim Kongresi Kitabı " + phone;
+        const string name = "Ulusal Bilim Kongresi Kitabı +90 312 555 12 34";
 
         var book = SampleBookFixture.CreateGenerator().Generate(name, [SamplePaper()], cancellationToken: TestContext.Current.CancellationToken);
 
-        // The running head really shows a shortened number that on its own still looks like a phone number.
-        var runningHead = RunningHead(new BookPdf(book.Pdf).Page(3));
-        runningHead.ShouldContain("…");
-        runningHead.ShouldNotContain(phone);
-        var fullDigits = string.Concat(phone.Where(char.IsAsciiDigit));
-        var shortened = ContactInfoDetector.Find(runningHead)
-            .Where(m => m.Kind == ContactKind.Phone)
-            .Select(m => string.Concat(runningHead.Substring(m.Start, m.Length).Where(char.IsAsciiDigit)))
-            .ToList();
-        shortened.ShouldHaveSingleItem(runningHead);
-        fullDigits.ShouldStartWith(shortened[0]);
-        shortened[0].ShouldNotBe(fullDigits);
+        // Page 4 is the first left-hand page of the paper: its running head is the book name, never shortened.
+        new BookPdf(book.Pdf).Page(4).HeaderText.ShouldBe(name);
     }
 
     private static PaperSource SamplePaper()
     {
         var path = TestPaths.PaperFiles[0];
         return new PaperSource(Path.GetFileName(path), () => File.OpenRead(path));
-    }
-
-    private static string RunningHead(BookPdfPage page)
-    {
-        var body = page.BodyText;
-        return page.Text.Replace(body, string.Empty, StringComparison.Ordinal);
     }
 
     /// <summary>Renders the papers exactly as read from the .docx, as if the sanitizer had been switched off.</summary>

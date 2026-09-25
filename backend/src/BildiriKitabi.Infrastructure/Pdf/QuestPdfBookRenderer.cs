@@ -2,6 +2,7 @@ using System.Globalization;
 using BildiriKitabi.Core.Books;
 using BildiriKitabi.Core.Documents;
 using QuestPDF.Drawing.Exceptions;
+using QuestPDF.Elements;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -19,6 +20,9 @@ public sealed class QuestPdfBookRenderer : IBookRenderer
     private const float MarginCm = 2.5f;
     private const float BodyFontSize = 11f;
     private const float RunningHeadFontSize = 9f;
+
+    // Running heads shrink in these steps until they fit on one line; at the smallest size they wrap instead.
+    private static readonly float[] RunningHeadSizes = [9f, 8.5f, 8f, 7.5f, 7f];
     private const float TocLineHeight = 1.3f;
 
     // Natural single-line height of Liberation Serif/Sans relative to the font size (ascent + descent + gap).
@@ -149,14 +153,7 @@ public sealed class QuestPdfBookRenderer : IBookRenderer
             ConfigurePage(page);
             page.Header().Column(header =>
             {
-                header.Item().Row(row =>
-                {
-                    row.RelativeItem(2).Text(book.Title).ClampLines(1, "…").FontSize(RunningHeadFontSize)
-                        .FontFamily(QuestPdfSetup.SansFonts).FontColor(MutedColor);
-                    row.ConstantItem(16);
-                    row.RelativeItem(3).Text(paper.Title).ClampLines(1, "…").FontSize(RunningHeadFontSize)
-                        .FontFamily(QuestPdfSetup.SansFonts).FontColor(MutedColor).AlignRight();
-                });
+                header.Item().Dynamic(new RunningHead(book.Title, paper.Title));
                 header.Item().PaddingTop(4).LineHorizontal(0.5f).LineColor(RuleColor);
                 header.Item().Height(14);
             });
@@ -374,4 +371,47 @@ public sealed class QuestPdfBookRenderer : IBookRenderer
 
     private static bool IsExternalLink(string url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+
+    /// <summary>
+    /// The running head of a paper page, as in a printed book: the book name on left-hand (even) pages, aligned left,
+    /// and the paper title on right-hand (odd) pages, aligned right. It is never cut short: the largest size of
+    /// <see cref="RunningHeadSizes"/> that fits on one line is used, measured by QuestPDF itself with the real glyph
+    /// widths of the embedded fonts (including fallback fonts and kerning); at the smallest size a long text wraps.
+    /// </summary>
+    private sealed class RunningHead(string bookTitle, string paperTitle) : IDynamicComponent
+    {
+        public DynamicComponentComposeResult Compose(DynamicContext context)
+        {
+            var leftPage = context.PageNumber % 2 == 0;
+            var text = leftPage ? bookTitle : paperTitle;
+            var width = context.AvailableSize.Width;
+            var size = RunningHeadSizes.FirstOrDefault(s => FitsOnOneLine(context, text, s, width), RunningHeadSizes[^1]);
+            var element = context.CreateElement(container => container.Width(width).Text(content =>
+            {
+                if (leftPage)
+                {
+                    content.AlignLeft();
+                }
+                else
+                {
+                    content.AlignRight();
+                }
+
+                content.Span(text).Style(RunningHeadStyle(size));
+            }));
+            return new DynamicComponentComposeResult { Content = element, HasMoreContent = false };
+        }
+
+        private static bool FitsOnOneLine(DynamicContext context, string text, float size, float width)
+        {
+            // Measured without a width limit, the text keeps to one line: its width is the natural line width. The
+            // height check guards against a wrapped measurement.
+            var line = context.CreateElement(container => container.Text(text).Style(RunningHeadStyle(size)));
+            var oneLine = context.CreateElement(container => container.Text("Ay").Style(RunningHeadStyle(size)));
+            return line.Size.Width <= width && line.Size.Height <= oneLine.Size.Height + 0.01f;
+        }
+
+        private static TextStyle RunningHeadStyle(float size) =>
+            TextStyle.Default.FontFamily(QuestPdfSetup.SansFonts).FontSize(size).FontColor(MutedColor);
+    }
 }

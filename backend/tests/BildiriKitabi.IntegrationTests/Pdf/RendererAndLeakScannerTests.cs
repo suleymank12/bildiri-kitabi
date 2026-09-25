@@ -96,6 +96,26 @@ public sealed class RendererAndLeakScannerTests
     }
 
     [Fact]
+    public void A_200_character_paper_title_is_printed_whole_on_two_lines_of_the_running_head()
+    {
+        var title = string.Join(' ', Enumerable.Repeat("ÇOK UZUN BAŞLIKLI BİLDİRİ", 9))[..200].TrimEnd();
+        title.Length.ShouldBeGreaterThanOrEqualTo(199);
+        var content = Book(Paper(title, Paragraph("Gövde"), new PageBreak(), Paragraph("İkinci sayfa")));
+
+        var pdf = new BookPdf(_renderer.Render(content).Pdf);
+
+        // Page 3 is a right-hand page: the paper title, never cut short.
+        var head = pdf.Page(3).PositionedWords.Where(w => w.Sans && w.Baseline > 700).ToList();
+        pdf.Page(3).HeaderText.ShouldBe(title);
+        head.Select(w => Math.Round(w.Baseline, 1)).Distinct().Count().ShouldBe(2);
+        head.ShouldAllBe(w => Math.Abs(w.Size - 7) < 0.01);
+
+        // Page 4 is a left-hand page: the book name on one line at the full size.
+        pdf.Page(4).HeaderText.ShouldBe("Deneme Kitabı");
+        pdf.Page(4).PositionedWords.Where(w => w.Sans && w.Baseline > 700).ShouldAllBe(w => Math.Abs(w.Size - 9) < 0.01);
+    }
+
+    [Fact]
     public void Paper_page_ranges_follow_explicit_page_breaks()
     {
         var content = Book(

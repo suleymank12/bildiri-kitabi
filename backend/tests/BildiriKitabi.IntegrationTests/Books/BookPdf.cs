@@ -59,6 +59,11 @@ public sealed class BookPdfPage
         FooterNumber = bottomLine.Count == 1 && int.TryParse(bottomLine[0].Text, NumberStyles.None, CultureInfo.InvariantCulture, out var n)
             ? n
             : null;
+
+        HeaderText = string.Join(' ', runningHead.Except(bottomLine).Select(w => w.Text));
+        PositionedWords = words
+            .Select(w => new PositionedWord(w.Text, w.Letters[0].StartBaseLine.Y, w.BoundingBox.Left, w.BoundingBox.Right, w.Letters[0].PointSize, IsSans(w)))
+            .ToList();
     }
 
     public int Number { get; }
@@ -73,5 +78,13 @@ public sealed class BookPdfPage
 
     public int? FooterNumber { get; }
 
+    /// <summary>The running head at the top of a paper page: its sans words above the page number line.</summary>
+    public string HeaderText { get; }
+
+    public IReadOnlyList<PositionedWord> PositionedWords { get; }
+
     private static bool IsSans(Word word) => word.FontName?.Contains("LiberationSans", StringComparison.Ordinal) == true;
 }
+
+/// <param name="Baseline">Baseline of the word's first letter, in points from the bottom of the page.</param>
+public sealed record PositionedWord(string Text, double Baseline, double Left, double Right, double Size, bool Sans);

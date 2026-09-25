@@ -12,6 +12,7 @@ namespace BildiriKitabi.IntegrationTests.Books;
 public sealed partial class BookEndToEndTests(SampleBookFixture fixture) : IClassFixture<SampleBookFixture>
 {
     private const string TurkishLetters = "İıĞğŞşÇçÖöÜü’";
+    private const string LongestSampleTitle = "TOPLU TAŞIMA UYGULAMALARINDA ERİŞİLEBİLİR ROTA BİLGİSİNİN KULLANICI DENEYİMİNE KATKISI";
 
     private readonly BookPdf _pdf = new(fixture.Book.Pdf);
     private readonly List<SourcePaper> _sources = fixture.PaperFiles.Select(SourcePaper.Load).ToList();
@@ -55,6 +56,46 @@ public sealed partial class BookEndToEndTests(SampleBookFixture fixture) : IClas
         foreach (var page in _pdf.Pages.Skip(1))
         {
             page.FooterNumber.ShouldBe(page.Number);
+        }
+    }
+
+    [Fact]
+    public void Running_heads_show_the_book_name_on_left_pages_and_the_paper_title_on_right_pages()
+    {
+        var entries = ReadTableOfContents();
+        entries.Select(e => e.Source.Title).ShouldContain(t => Normalize(t) == LongestSampleTitle);
+
+        for (var i = 0; i < entries.Count; i++)
+        {
+            var (source, start) = entries[i];
+            var end = i + 1 < entries.Count ? entries[i + 1].Page - 1 : _pdf.Pages.Count;
+            foreach (var page in Enumerable.Range(start, end - start + 1).Select(_pdf.Page))
+            {
+                var expected = page.Number % 2 == 0 ? SampleBookFixture.BookName : Normalize(source.Title);
+                page.HeaderText.ShouldBe(expected, customMessage: $"sayfa {page.Number}");
+                page.HeaderText.ShouldNotContain("…");
+            }
+        }
+    }
+
+    [Fact]
+    public void Table_of_contents_page_numbers_sit_on_the_baseline_of_the_titles_last_line()
+    {
+        var words = _pdf.Page(2).PositionedWords.Where(w => !w.Sans).ToList();
+        var right = words.Max(w => w.Right);
+
+        // The page numbers are the right-aligned column; the titles end well before it.
+        var numbers = words.Where(w => right - w.Right < 0.5 && int.TryParse(w.Text, NumberStyles.None, CultureInfo.InvariantCulture, out _)).ToList();
+        numbers.Count.ShouldBe(10);
+        var titleWords = words.Except(numbers)
+            .Where(w => w.Text != "İçindekiler" && !(w.Text.EndsWith('.') && int.TryParse(w.Text[..^1], NumberStyles.None, CultureInfo.InvariantCulture, out _)))
+            .ToList();
+
+        foreach (var number in numbers)
+        {
+            // The title line closest to the number is the entry's last line; entries are more than 7 pt apart.
+            var lastLine = titleWords.Where(w => w.Right < number.Left).MinBy(w => Math.Abs(w.Baseline - number.Baseline))!;
+            Math.Abs(lastLine.Baseline - number.Baseline).ShouldBeLessThanOrEqualTo(0.5, $"sayfa {number.Text}: başlık {lastLine.Baseline:F2}, numara {number.Baseline:F2}");
         }
     }
 
