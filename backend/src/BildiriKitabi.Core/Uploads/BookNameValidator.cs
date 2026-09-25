@@ -1,5 +1,3 @@
-using BildiriKitabi.Core.Sanitization;
-
 namespace BildiriKitabi.Core.Uploads;
 
 public sealed record BookNameValidation(string Name, string? ErrorCode, string? ErrorMessage)
@@ -8,8 +6,8 @@ public sealed record BookNameValidation(string Name, string? ErrorCode, string? 
 }
 
 /// <summary>
-/// Checks the book name when the book is created. The name is printed on the cover, in every running head and in
-/// the PDF metadata, so a name with contact details is rejected here instead of failing the post-render leak scan.
+/// Checks the book name when the book is created. The name is printed as typed; contact details in it are allowed
+/// and the post-render leak scan treats them as permitted values.
 /// </summary>
 public static class BookNameValidator
 {
@@ -27,14 +25,6 @@ public static class BookNameValidator
         if (trimmed.Any(char.IsControl))
         {
             return Invalid(trimmed, UploadErrorCodes.BookNameInvalid, "Kitap adı satır sonu veya kontrol karakteri içeremez.");
-        }
-
-        if (ContactInfoDetector.Find(trimmed).Count > 0)
-        {
-            return Invalid(
-                trimmed,
-                UploadErrorCodes.BookNameContainsContact,
-                "Kitap adı e-posta adresi veya telefon numarası içeremez; bu bilgiler kitapta yer alamaz.");
         }
 
         return new BookNameValidation(trimmed, null, null);

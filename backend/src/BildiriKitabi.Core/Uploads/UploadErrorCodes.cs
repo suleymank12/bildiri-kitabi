@@ -4,7 +4,6 @@ namespace BildiriKitabi.Core.Uploads;
 public static class UploadErrorCodes
 {
     public const string BookNameInvalid = "BOOK_NAME_INVALID";
-    public const string BookNameContainsContact = "BOOK_NAME_CONTAINS_CONTACT";
     public const string PaperCountInvalid = "PAPER_COUNT_INVALID";
     public const string FileExtensionInvalid = "FILE_EXTENSION_INVALID";
     public const string FileTooLarge = "FILE_TOO_LARGE";
