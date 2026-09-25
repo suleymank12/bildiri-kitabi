@@ -203,10 +203,16 @@ test('düzen: yatay kaydırma yok ve dokunma hedefleri en az 44 px', async ({ pa
           (element) =>
             `${element.tagName} "${(element.getAttribute('aria-label') ?? element.textContent).trim().slice(0, 30)}"`,
         );
-      return { overflow: document.documentElement.scrollWidth - width, small };
+      const footer = document.querySelector('footer')?.getBoundingClientRect().bottom ?? 0;
+      return {
+        overflow: document.documentElement.scrollWidth - width,
+        belowFooter: document.documentElement.scrollHeight - (footer + window.scrollY),
+        small,
+      };
     });
 
     expect(layout.overflow, `${path}: yatay taşma`).toBeLessThanOrEqual(0);
+    expect(layout.belowFooter, `${path}: altbilginin altında boşluk`).toBeLessThanOrEqual(1);
     expect(layout.small, `${path}: 44 px'ten küçük dokunma hedefleri`).toEqual([]);
   }
 });
