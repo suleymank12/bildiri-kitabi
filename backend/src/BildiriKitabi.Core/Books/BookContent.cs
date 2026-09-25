@@ -23,5 +23,10 @@ public sealed record PdfLeakScanResult(int EmailCount, int PhoneCount)
 
 public interface IPdfLeakScanner
 {
-    PdfLeakScanResult Scan(byte[] pdf);
+    /// <param name="pdf">The rendered book.</param>
+    /// <param name="bookName">
+    /// The name the user typed. E-mail addresses and phone numbers in it are printed on purpose, so they (and the
+    /// pieces of them left when the running head shortens the name) are not counted as leaks.
+    /// </param>
+    PdfLeakScanResult Scan(byte[] pdf, string bookName);
 }

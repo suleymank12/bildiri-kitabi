@@ -20,7 +20,7 @@ public sealed class RendererAndLeakScannerTests
     {
         var content = Book(Paper("Sızıntı", Paragraph("Yazar: ad@example.org, Tel: 0312 555 12 34")));
 
-        var result = _scanner.Scan(_renderer.Render(content).Pdf);
+        var result = _scanner.Scan(_renderer.Render(content).Pdf, content.Title);
 
         result.ShouldBe(new PdfLeakScanResult(EmailCount: 1, PhoneCount: 1));
         result.HasLeak.ShouldBeTrue();
@@ -31,7 +31,7 @@ public sealed class RendererAndLeakScannerTests
     {
         var content = Book(Paper("Temiz", Paragraph("ORCID: 0000-0002-1825-009X, DOI: 10.1016/j.jclepro.2020.123456, 2019-2023, 1.250.000 TL")));
 
-        _scanner.Scan(_renderer.Render(content).Pdf).HasLeak.ShouldBeFalse();
+        _scanner.Scan(_renderer.Render(content).Pdf, content.Title).HasLeak.ShouldBeFalse();
     }
 
     [Fact]

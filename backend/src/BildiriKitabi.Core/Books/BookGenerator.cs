@@ -71,7 +71,7 @@ public sealed partial class BookGenerator(
 
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report(new GenerationProgress(GenerationStage.Verifying, 85));
-        var scan = leakScanner.Scan(rendered.Pdf);
+        var scan = leakScanner.Scan(rendered.Pdf, bookName);
         if (scan.HasLeak)
         {
             LogLeakDetected(logger, scan.EmailCount, scan.PhoneCount);
