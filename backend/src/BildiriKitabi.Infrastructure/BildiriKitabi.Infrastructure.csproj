@@ -4,11 +4,16 @@
     <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="QuestPDF" />
     <PackageReference Include="PdfPig" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\BildiriKitabi.Core\BildiriKitabi.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Fonts\*.ttf" LogicalName="BildiriKitabi.Fonts.%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
