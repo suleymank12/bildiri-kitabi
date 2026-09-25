@@ -1,5 +1,6 @@
 import { TrashIcon } from '@phosphor-icons/react';
 import { Badge, Button, Spinner } from '../../components/ui';
+import { BreakableFileName } from '../../lib/fileName';
 import { describeIssue } from '../../lib/files';
 import { formatBytes } from '../../lib/format';
 import type { SelectedFile } from './useFileSelection';
@@ -65,7 +66,9 @@ export function SelectedFileList({ files, serverErrors, onRemove, disabled = fal
                 {String(index + 1).padStart(2, '0')}
               </span>
               <div className="flex min-w-0 flex-col gap-1">
-                <span className="font-medium break-all text-ink">{file.file.name}</span>
+                <span className="font-medium wrap-break-word text-ink">
+                  <BreakableFileName name={file.file.name} />
+                </span>
                 {status.message && (
                   <span id={messageId} className="text-sm text-danger">
                     {status.message}

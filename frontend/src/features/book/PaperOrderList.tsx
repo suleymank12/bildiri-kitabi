@@ -19,6 +19,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { ArrowDownIcon, ArrowUpIcon, DotsSixVerticalIcon } from '@phosphor-icons/react';
 import type { Paper } from '../../api/types';
 import { Badge, Button } from '../../components/ui';
+import { BreakableFileName } from '../../lib/fileName';
 import { formatBytes } from '../../lib/format';
 import { titleSourceLabel, titleSourceTone } from '../../lib/status';
 
@@ -129,13 +130,17 @@ function SortablePaper({ paper, index, count, locked, onMove }: SortablePaperPro
       disabled: locked,
     });
 
+  // Phones: handle, number and file name on the first line; title, source + size and the move buttons below at
+  // full card width. Wide screens: one table row.
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={
-        'grid grid-cols-[2.75rem_2.5rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 rounded-(--radius) border border-line bg-surface px-3 py-3 ' +
-        'md:grid-cols-[2.75rem_2.5rem_minmax(0,1fr)_6rem_auto] md:items-center md:gap-4 md:rounded-none md:border-0 md:border-b ' +
+        'grid grid-cols-[2.75rem_2rem_minmax(0,1fr)] items-center gap-x-2 gap-y-2 rounded-(--radius) border border-line bg-surface px-3 py-3 ' +
+        "[grid-template-areas:'handle_order_name'_'title_title_title'_'meta_meta_meta'_'actions_actions_actions'] " +
+        'md:grid-cols-[2.75rem_2.5rem_minmax(0,1fr)_6rem_auto] md:gap-x-4 md:gap-y-1 md:rounded-none md:border-0 md:border-b ' +
+        "md:[grid-template-areas:'handle_order_name_size_actions'_'handle_order_title_size_actions'_'handle_order_meta_size_actions'] " +
         (isDragging ? 'relative z-10 shadow-(--shadow-raised) md:rounded-(--radius) md:border' : '')
       }
     >
@@ -143,28 +148,32 @@ function SortablePaper({ paper, index, count, locked, onMove }: SortablePaperPro
         ref={setActivatorNodeRef}
         type="button"
         disabled={locked}
-        className="flex size-11 cursor-grab touch-none items-center justify-center rounded-(--radius) text-ink-subtle hover:bg-surface-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex size-11 cursor-grab touch-none items-center justify-center rounded-(--radius) text-ink-subtle [grid-area:handle] hover:bg-surface-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
         aria-label={`${paper.fileName} dosyasını sürükleyerek taşı`}
         {...attributes}
         {...listeners}
       >
         <DotsSixVerticalIcon size={20} aria-hidden="true" />
       </button>
-      <span className="numeric pt-3 text-sm text-ink-muted md:pt-0">
+      <span className="numeric text-sm text-ink-muted [grid-area:order]">
         {String(index + 1).padStart(2, '0')}
       </span>
-      <div className="flex min-w-0 flex-col gap-1 pt-2.5 md:pt-0">
-        <span className="font-medium break-all text-ink">{paper.fileName}</span>
-        <span className="font-serif text-[0.9375rem] leading-snug text-ink-muted">{paper.title}</span>
-        <span>
-          <Badge tone={titleSourceTone(paper.titleSource)}>{titleSourceLabel(paper.titleSource)}</Badge>
+      <span className="min-w-0 font-medium wrap-break-word text-ink [grid-area:name] md:self-end">
+        <BreakableFileName name={paper.fileName} />
+      </span>
+      <span className="font-serif text-[0.9375rem] leading-snug text-ink-muted [grid-area:title]">
+        {paper.title}
+      </span>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 [grid-area:meta] md:self-start">
+        <Badge tone={titleSourceTone(paper.titleSource)}>{titleSourceLabel(paper.titleSource)}</Badge>
+        <span className="numeric text-sm text-ink-muted md:hidden">
+          Boyut: {formatBytes(paper.sizeBytes)}
         </span>
       </div>
-      <span className="numeric col-start-3 text-sm text-ink-muted md:col-start-auto md:text-right">
-        <span className="md:sr-only">Boyut: </span>
+      <span className="numeric hidden text-right text-sm text-ink-muted [grid-area:size] md:block">
         {formatBytes(paper.sizeBytes)}
       </span>
-      <div className="col-span-3 flex justify-end gap-1 border-t border-line pt-2 md:col-span-1 md:border-0 md:pt-0">
+      <div className="flex justify-end gap-1 border-t border-line pt-2 [grid-area:actions] md:border-0 md:pt-0">
         <Button
           variant="ghost"
           size="sm"
