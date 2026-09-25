@@ -73,7 +73,7 @@ export function SelectedFileList({ files, serverErrors, onRemove, disabled = fal
                 )}
               </div>
               <span className="numeric col-start-2 text-sm text-ink-muted md:col-start-auto md:text-right">
-                <span className="font-sans md:sr-only">Boyut: </span>
+                <span className="md:sr-only">Boyut: </span>
                 {formatBytes(file.file.size)}
               </span>
               <span className="col-start-2 md:col-start-auto">{status.badge}</span>
