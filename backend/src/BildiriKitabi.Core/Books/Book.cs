@@ -54,6 +54,9 @@ public sealed class Book
 
     public DateTime? ProcessingStartedAt { get; private set; }
 
+    /// <summary>When the book was last put in the queue; the sweeper enqueues it again if it waits too long.</summary>
+    public DateTime? QueuedAt { get; private set; }
+
     public DateTime? ProcessingFinishedAt { get; private set; }
 
     public byte[] RowVersion { get; private set; } = [];
@@ -88,10 +91,11 @@ public sealed class Book
         }
     }
 
-    public void MarkQueued()
+    public void MarkQueued(DateTime queuedAtUtc)
     {
         EnsureStatus(nameof(MarkQueued), BookStatus.Uploaded, BookStatus.Failed);
         Status = BookStatus.Queued;
+        QueuedAt = queuedAtUtc;
         Stage = null;
         ProgressPercent = 0;
         ErrorCode = null;
@@ -110,10 +114,11 @@ public sealed class Book
     }
 
     /// <summary>Puts a job interrupted by an application stop back in the queue.</summary>
-    public void ReturnToQueue()
+    public void ReturnToQueue(DateTime queuedAtUtc)
     {
         EnsureStatus(nameof(ReturnToQueue), BookStatus.Processing);
         Status = BookStatus.Queued;
+        QueuedAt = queuedAtUtc;
         Stage = null;
         ProgressPercent = 0;
         ProcessingStartedAt = null;

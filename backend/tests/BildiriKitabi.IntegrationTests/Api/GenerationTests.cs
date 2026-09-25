@@ -67,6 +67,8 @@ public sealed class GenerationTests(SqlServerFixture sql) : IAsyncLifetime
             r => (Status: r.GetString(0), Pages: r.GetInt32(1), Size: r.GetInt64(2), Key: r.GetString(3), StageIsNull: r.IsDBNull(4)),
             ("@id", _book.Id));
         stored.ShouldBe([("Completed", 22, bytes.LongLength, $"books/{_book.Id}/output/book.pdf", true)]);
+        (await _api.QueryAsync("SELECT KuyrugaAlinmaZamani FROM Kitaplar WHERE Id = @id", r => r.IsDBNull(0), ("@id", _book.Id)))
+            .ShouldBe([false]);
         var pages = await _api.QueryAsync(
             "SELECT BaslangicSayfasi, BitisSayfasi FROM Bildiriler WHERE KitapId = @id ORDER BY SiraNo",
             r => (r.GetInt32(0), r.GetInt32(1)),

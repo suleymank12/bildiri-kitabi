@@ -35,6 +35,7 @@ internal sealed class BookConfiguration : IEntityTypeConfiguration<Book>
         builder.Property(b => b.PageCount).HasColumnName("SayfaSayisi");
         builder.Property(b => b.CreatedAt).HasColumnName("OlusturulmaZamani").HasDefaultValueSql("sysutcdatetime()");
         builder.Property(b => b.ProcessingStartedAt).HasColumnName("IslemBaslangicZamani");
+        builder.Property(b => b.QueuedAt).HasColumnName("KuyrugaAlinmaZamani");
         builder.Property(b => b.ProcessingFinishedAt).HasColumnName("IslemBitisZamani");
         builder.Property(b => b.RowVersion).HasColumnName("SatirVersiyonu").IsRowVersion();
 

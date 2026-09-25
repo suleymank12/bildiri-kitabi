@@ -45,6 +45,14 @@ public sealed class GenerationOptions
 
     [Range(1, 100_000)]
     public int QueueCapacity { get; set; } = 100;
+
+    /// <summary>How often the sweeper looks for books that have been waiting in the queue for too long.</summary>
+    [Range(1, 86_400)]
+    public int SweepIntervalSeconds { get; set; } = 30;
+
+    /// <summary>A queued book older than this is enqueued again (its message may have been lost).</summary>
+    [Range(1, 86_400)]
+    public int RequeueStaleAfterSeconds { get; set; } = 60;
 }
 
 /// <summary><c>Storage</c> section.</summary>

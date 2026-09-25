@@ -12,6 +12,7 @@ namespace BildiriKitabi.Api.Hosting;
 public sealed partial class GenerationRecoveryService(
     IServiceScopeFactory scopeFactory,
     IBookGenerationQueue queue,
+    TimeProvider timeProvider,
     ILogger<GenerationRecoveryService> logger) : IHostedService, IDisposable
 {
     private readonly CancellationTokenSource _stopping = new();
@@ -28,7 +29,7 @@ public sealed partial class GenerationRecoveryService(
             var interrupted = await db.Books.Where(b => b.Status == BookStatus.Processing).ToListAsync(cancellationToken).ConfigureAwait(false);
             foreach (var book in interrupted)
             {
-                book.ReturnToQueue();
+                book.ReturnToQueue(timeProvider.GetUtcNow().UtcDateTime);
             }
 
             await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

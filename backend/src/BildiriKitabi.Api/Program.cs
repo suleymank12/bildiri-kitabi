@@ -55,6 +55,7 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
 // Startup recovery must run before the worker starts reading the queue; hosted services start in this order.
 builder.Services.AddHostedService<GenerationRecoveryService>();
 builder.Services.AddHostedService<BookGenerationWorker>();
+builder.Services.AddHostedService<QueuedBookSweeper>();
 
 var app = builder.Build();
 

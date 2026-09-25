@@ -22,7 +22,7 @@ public sealed class BookTests
     {
         var book = NewBook();
 
-        book.MarkQueued();
+        book.MarkQueued(Now);
         book.MarkProcessing(Now);
         book.ReportProgress(GenerationStage.Reading, 10);
         book.ReportProgress(GenerationStage.Rendering, 45);
@@ -61,7 +61,7 @@ public sealed class BookTests
         book.ErrorMessage.ShouldBe("PDF dizgisi oluşturulamadı.");
         book.IsEditable.ShouldBeTrue();
 
-        book.MarkQueued();
+        book.MarkQueued(Now);
         book.Status.ShouldBe(BookStatus.Queued);
         book.ErrorCode.ShouldBeNull();
         book.ErrorMessage.ShouldBeNull();
@@ -84,9 +84,10 @@ public sealed class BookTests
         var book = Processing();
         book.ReportProgress(GenerationStage.Rendering, 45);
 
-        book.ReturnToQueue();
+        book.ReturnToQueue(Now.AddMinutes(1));
 
         book.Status.ShouldBe(BookStatus.Queued);
+        book.QueuedAt.ShouldBe(Now.AddMinutes(1));
         book.ProgressPercent.ShouldBe((byte)0);
         book.ProcessingStartedAt.ShouldBeNull();
     }
@@ -97,13 +98,13 @@ public sealed class BookTests
         { "Uploaded → Completed", b => b.MarkCompleted("k", 1, 1, Now) },
         { "Uploaded → progress", b => b.ReportProgress(GenerationStage.Reading, 1) },
         { "Uploaded → Failed", b => b.MarkFailed("X", "y", Now) },
-        { "Uploaded → back to queue", b => b.ReturnToQueue() },
-        { "Queued → Queued", b => { b.MarkQueued(); b.MarkQueued(); } },
-        { "Queued → Completed", b => { b.MarkQueued(); b.MarkCompleted("k", 1, 1, Now); } },
-        { "Processing → Queued by user", b => { b.MarkQueued(); b.MarkProcessing(Now); b.MarkQueued(); } },
-        { "Completed → Queued", b => { Complete(b); b.MarkQueued(); } },
+        { "Uploaded → back to queue", b => b.ReturnToQueue(Now.AddMinutes(1)) },
+        { "Queued → Queued", b => { b.MarkQueued(Now); b.MarkQueued(Now); } },
+        { "Queued → Completed", b => { b.MarkQueued(Now); b.MarkCompleted("k", 1, 1, Now); } },
+        { "Processing → Queued by user", b => { b.MarkQueued(Now); b.MarkProcessing(Now); b.MarkQueued(Now); } },
+        { "Completed → Queued", b => { Complete(b); b.MarkQueued(Now); } },
         { "Completed → Failed", b => { Complete(b); b.MarkFailed("X", "y", Now); } },
-        { "Paper added after queueing", b => { b.MarkQueued(); AddPaper(b, 9); } },
+        { "Paper added after queueing", b => { b.MarkQueued(Now); AddPaper(b, 9); } },
     };
 
     [Theory]
@@ -131,14 +132,14 @@ public sealed class BookTests
     private static Book Processing()
     {
         var book = NewBook();
-        book.MarkQueued();
+        book.MarkQueued(Now);
         book.MarkProcessing(Now);
         return book;
     }
 
     private static void Complete(Book book)
     {
-        book.MarkQueued();
+        book.MarkQueued(Now);
         book.MarkProcessing(Now);
         book.MarkCompleted("k", 1, 1, Now);
     }

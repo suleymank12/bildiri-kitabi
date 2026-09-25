@@ -38,6 +38,7 @@ public sealed partial class BookCommandService(
     IAppDbContext db,
     IFileStorage storage,
     IBookGenerationQueue queue,
+    TimeProvider timeProvider,
     ILogger<BookCommandService> logger)
 {
     /// <summary>
@@ -80,15 +81,17 @@ public sealed partial class BookCommandService(
 
     /// <summary>
     /// Queues generation with one conditional update (<c>Uploaded</c>/<c>Failed</c> → <c>Queued</c>), then enqueues
-    /// the id. If enqueueing fails the book stays <c>Queued</c> and the startup recovery picks it up.
+    /// the id. If enqueueing fails the book stays <c>Queued</c> and the queued-book sweeper enqueues it again later.
     /// </summary>
     public async Task<StartGenerationOutcome> StartGenerationAsync(Guid bookId, CancellationToken cancellationToken)
     {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
         var queued = await db.Books
             .Where(b => b.Id == bookId && (b.Status == BookStatus.Uploaded || b.Status == BookStatus.Failed))
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(b => b.Status, BookStatus.Queued)
+                    .SetProperty(b => b.QueuedAt, now)
                     .SetProperty(b => b.Stage, (GenerationStage?)null)
                     .SetProperty(b => b.ProgressPercent, (byte)0)
                     .SetProperty(b => b.ErrorCode, (string?)null)

@@ -144,3 +144,24 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260925214755_AddBookQueuedAt'
+)
+BEGIN
+    ALTER TABLE [Kitaplar] ADD [KuyrugaAlinmaZamani] datetime2 NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260925214755_AddBookQueuedAt'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260925214755_AddBookQueuedAt', N'10.0.12');
+END;
+
+COMMIT;
+GO
+
