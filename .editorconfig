@@ -44,5 +44,5 @@ dotnet_naming_style.underscore_camel.required_prefix = _
 dotnet_naming_style.underscore_camel.capitalization = camel_case
 
 # Test method names use underscores for readability.
-[tests/**.cs]
+[backend/tests/**.cs]
 dotnet_diagnostic.CA1707.severity = none
