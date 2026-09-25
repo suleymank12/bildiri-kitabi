@@ -1,12 +1,12 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { ApiError, errorMessage } from '../../api/errors';
 import { useBook, useReorderPapers, useStartGeneration } from '../../api/hooks';
 import type { BookDetail } from '../../api/types';
 import { useAnnounce } from '../../app/Announcer';
-import { paths } from '../../app/paths';
+import { NotFoundState } from '../../app/NotFoundPage';
 import { usePageTitle } from '../../app/usePageTitle';
-import { Alert, Button, Card, EmptyState, Skeleton, Stepper, buttonClasses } from '../../components/ui';
+import { Alert, Button, Card, EmptyState, Skeleton, Stepper } from '../../components/ui';
 import { formatDateTime } from '../../lib/format';
 import { isBusy, statusLabel } from '../../lib/status';
 import { CompletedSummary } from './CompletedSummary';
@@ -31,23 +31,24 @@ export function BookPage() {
   }
 
   if (!book) {
-    const notFound = query.error instanceof ApiError && query.error.status === 404;
+    if (query.error instanceof ApiError && query.error.status === 404) {
+      return (
+        <NotFoundState title="Kitap bulunamadı">
+          Bu adreste bir kitap yok; silinmiş veya bağlantı eksik kopyalanmış olabilir.
+        </NotFoundState>
+      );
+    }
+
     return (
       <EmptyState
-        title={notFound ? 'Kitap bulunamadı' : 'Kitap yüklenemedi'}
+        title="Kitap yüklenemedi"
         action={
-          notFound ? (
-            <Link to={paths.library} className={buttonClasses('primary')}>
-              Kitaplarım
-            </Link>
-          ) : (
-            <Button variant="primary" onClick={() => void query.refetch()}>
-              Tekrar dene
-            </Button>
-          )
+          <Button variant="primary" onClick={() => void query.refetch()}>
+            Tekrar dene
+          </Button>
         }
       >
-        {notFound ? 'Kitap silinmiş olabilir.' : errorMessage(query.error)}
+        {errorMessage(query.error)}
       </EmptyState>
     );
   }

@@ -1,7 +1,8 @@
 import { BooksIcon, FilePlusIcon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
-import { Link, NavLink, Outlet } from 'react-router';
+import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { AnnouncerProvider } from './Announcer';
+import { ErrorBoundary } from './ErrorBoundary';
 
 function NavItem({
   to,
@@ -33,6 +34,7 @@ function NavItem({
 }
 
 export function Layout() {
+  const location = useLocation();
   return (
     <AnnouncerProvider>
       <a
@@ -57,7 +59,10 @@ export function Layout() {
           </div>
         </header>
         <main id="icerik" className="mx-auto w-full max-w-[1100px] flex-1 px-4 py-8 sm:px-6 sm:py-10">
-          <Outlet />
+          {/* Keyed by path: moving to another page clears a caught error. */}
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
         <footer className="border-t border-line">
           <p className="mx-auto max-w-[1100px] px-4 py-4 text-sm text-ink-muted sm:px-6">
