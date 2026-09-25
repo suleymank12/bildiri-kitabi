@@ -26,7 +26,7 @@ export function ViewerToc({ papers, activePaperId, onSelect }: ViewerTocProps) {
                 }
               }}
               className={
-                'grid min-h-11 w-full grid-cols-[2.5ch_minmax(0,1fr)_auto] items-baseline gap-x-2 rounded-(--radius-sm) px-3 py-2 text-left transition-colors duration-150 ' +
+                'relative grid min-h-11 w-full grid-cols-[2.5ch_minmax(0,1fr)_auto] items-baseline gap-x-2 rounded-(--radius-sm) px-3 py-2 text-left transition-colors duration-150 ' +
                 (active ? 'bg-accent-soft text-ink' : 'text-ink hover:bg-surface-muted')
               }
             >

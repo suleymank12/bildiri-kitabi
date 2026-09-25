@@ -399,7 +399,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
         {desktop && tocOpen && (
           <nav
             aria-label="Bildiriler"
-            className="w-72 shrink-0 overflow-y-auto border-r border-line bg-surface px-2 py-3"
+            className="relative w-72 shrink-0 overflow-y-auto border-r border-line bg-surface px-2 py-3"
           >
             <h2 className="px-3 pb-2 text-lg">İçindekiler</h2>
             {toc}
@@ -442,10 +442,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
             </div>
             {nextSpread && (
               // The next spread is drawn out of sight so turning the page shows it at once.
-              <div
-                aria-hidden="true"
-                className="pointer-events-none invisible absolute top-0 left-0 h-0 overflow-hidden"
-              >
+              <div aria-hidden="true" className="hidden">
                 {nextSpread.map((pageNumber) => (
                   <Page
                     key={pageNumber}
