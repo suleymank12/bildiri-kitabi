@@ -5,6 +5,8 @@ public static class BookErrorCodes
     public const string InvalidDocument = "INVALID_DOCUMENT";
     public const string ContactLeakDetected = "CONTACT_LEAK_DETECTED";
     public const string RenderFailed = "RENDER_FAILED";
+    public const string GenerationTimeout = "GENERATION_TIMEOUT";
+    public const string InternalError = "INTERNAL_ERROR";
 }
 
 /// <summary>A generation failure with a machine-readable code and a message that can be shown to the user.</summary>
