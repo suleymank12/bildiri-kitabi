@@ -9,6 +9,8 @@
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Shouldly" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Testcontainers.MsSql" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\BildiriKitabi.Infrastructure\BildiriKitabi.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\BildiriKitabi.Api\BildiriKitabi.Api.csproj" />
   </ItemGroup>
 
 </Project>
