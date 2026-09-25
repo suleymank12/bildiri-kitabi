@@ -10,7 +10,18 @@ import {
   uploadThroughUi,
 } from './support/app';
 
+// Books created here stay in the database of a long-running setup (npm run test:e2e:docker); a per-run token
+// keeps their names unique across runs.
+const run = Date.now().toString(36);
+
 test('mutlu yol: yükleme, sıralama, oluşturma, görüntüleyicide gezinme ve indirme', async ({ page }) => {
+  // Behind nginx (npm run test:e2e:docker) the pages carry a Content-Security-Policy; the viewer's pdf.js
+  // worker, fonts and decoders must work under it.
+  const cspViolations: string[] = [];
+  page.on('console', (message) => {
+    if (message.text().includes('Content Security Policy')) cspViolations.push(message.text());
+  });
+
   await page.goto('/');
   await expectAccessible(page, 'Adım 1');
 
@@ -48,6 +59,8 @@ test('mutlu yol: yükleme, sıralama, oluşturma, görüntüleyicide gezinme ve 
   const download = await downloading;
   expect(download.suggestedFilename()).toMatch(/\.pdf$/);
   expect(statSync(await download.path()).size).toBeGreaterThan(0);
+
+  expect(cspViolations).toEqual([]);
 });
 
 test('istemci doğrulaması: eksik dosya, yanlış tür ve mükerrer dosya', async ({ page }) => {
@@ -141,7 +154,7 @@ test('bekleme ekranı erişilebilir', async ({ page, request }) => {
 });
 
 test('Kitaplarım: kitap listede görünür ve onayla silinir', async ({ page, request }, testInfo) => {
-  const name = `Silinecek Kitap ${testInfo.project.name}`;
+  const name = `Silinecek Kitap ${testInfo.project.name} ${run}`;
   const id = await createThroughApi(request, name);
   await generateThroughApi(request, id);
 
@@ -161,7 +174,7 @@ test('Kitaplarım: kitap listede görünür ve onayla silinir', async ({ page, r
 });
 
 test('düzen: yatay kaydırma yok ve dokunma hedefleri en az 44 px', async ({ page, request }, testInfo) => {
-  const suffix = testInfo.project.name;
+  const suffix = `${testInfo.project.name} ${run}`;
   const id = await createThroughApi(
     request,
     `Düzen Denemesi Uzun Bir Kitap Adı ile Satır Kırılımı Kontrolü ${suffix}`,
