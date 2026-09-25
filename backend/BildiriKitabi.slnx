@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BildiriKitabi.Api/BildiriKitabi.Api.csproj" />
+    <Project Path="src/BildiriKitabi.Core/BildiriKitabi.Core.csproj" />
+    <Project Path="src/BildiriKitabi.Infrastructure/BildiriKitabi.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BildiriKitabi.IntegrationTests/BildiriKitabi.IntegrationTests.csproj" />
+    <Project Path="tests/BildiriKitabi.UnitTests/BildiriKitabi.UnitTests.csproj" />
+  </Folder>
+</Solution>

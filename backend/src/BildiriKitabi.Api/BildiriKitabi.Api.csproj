@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\BildiriKitabi.Infrastructure\BildiriKitabi.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

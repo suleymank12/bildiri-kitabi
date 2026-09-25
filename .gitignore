@@ -1,0 +1,39 @@
+# Case documents (never committed)
+/case/
+
+# Local working notes
+CLAUDE.md
+
+# Runtime data and generated output
+App_Data/
+artifacts/
+.env
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+*.rsuser
+TestResults/
+*.trx
+*.coverage
+coverage*.xml
+.vs/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.DS_Store
+Thumbs.db
