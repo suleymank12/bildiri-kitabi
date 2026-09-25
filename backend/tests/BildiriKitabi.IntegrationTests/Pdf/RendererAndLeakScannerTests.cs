@@ -42,6 +42,7 @@ public sealed class RendererAndLeakScannerTests
             new OpenXmlDocxReader(NullLogger<OpenXmlDocxReader>.Instance),
             leakingRenderer,
             _scanner,
+            FontGlyphCoverage.Instance,
             TimeProvider.System,
             NullLogger<BookGenerator>.Instance);
         var path = TestPaths.PaperFiles[0];

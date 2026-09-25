@@ -32,6 +32,7 @@ public sealed class SampleBookFixture
             new OpenXmlDocxReader(NullLogger<OpenXmlDocxReader>.Instance),
             new QuestPdfBookRenderer(),
             new PdfPigLeakScanner(),
+            FontGlyphCoverage.Instance,
             TimeProvider.System,
             NullLogger<BookGenerator>.Instance);
 }

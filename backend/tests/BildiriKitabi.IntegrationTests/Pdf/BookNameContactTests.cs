@@ -37,6 +37,7 @@ public sealed class BookNameContactTests
             reader,
             new UnsanitizedRenderer(new QuestPdfBookRenderer(), [reader.Read(new MemoryStream(bytes))]),
             new PdfPigLeakScanner(),
+            FontGlyphCoverage.Instance,
             TimeProvider.System,
             NullLogger<BookGenerator>.Instance);
 

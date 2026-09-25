@@ -175,6 +175,16 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
             ErrorCodes(problem).ShouldBe([UploadErrorCodes.FileDuplicate, UploadErrorCodes.FileExtensionInvalid], ignoreOrder: true);
         }
 
+        // A name with a character the PDF fonts cannot print.
+        using (var emoji = ApiHost.SampleUpload("Kongre 2026 😀"))
+        {
+            var problem = await PostExpectingProblemAsync(client, emoji);
+            problem.GetProperty("code").GetString().ShouldBe(UploadErrorCodes.BookNameUnsupportedCharacter);
+            var error = problem.GetProperty("errors").EnumerateArray().Single();
+            error.GetProperty("field").GetString().ShouldBe("name");
+            error.GetProperty("message").GetString().ShouldBe("Kitap adındaki '😀' karakteri PDF yazı tipinde bulunmuyor; lütfen kaldırın.");
+        }
+
         (await _api.QueryAsync("SELECT COUNT(*) FROM Kitaplar", r => r.GetInt32(0))).ShouldBe([0]);
         (await _api.QueryAsync("SELECT COUNT(*) FROM Bildiriler", r => r.GetInt32(0))).ShouldBe([0]);
         _api.StoredFiles().ShouldBeEmpty();

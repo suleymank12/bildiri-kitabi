@@ -2,6 +2,7 @@ using BildiriKitabi.Core.Application;
 using BildiriKitabi.Core.Books;
 using BildiriKitabi.Core.Configuration;
 using BildiriKitabi.Core.Documents;
+using BildiriKitabi.Core.Fonts;
 using BildiriKitabi.Core.Persistence;
 using BildiriKitabi.Core.Storage;
 using BildiriKitabi.Core.Uploads;
@@ -30,6 +31,7 @@ public static class DependencyInjection
         services.AddSingleton<IDocxReader, OpenXmlDocxReader>();
         services.AddSingleton<IBookRenderer, QuestPdfBookRenderer>();
         services.AddSingleton<IPdfLeakScanner, PdfPigLeakScanner>();
+        services.AddSingleton<IGlyphCoverage>(_ => FontGlyphCoverage.Instance);
         services.AddSingleton<BookGenerator>();
         return services;
     }

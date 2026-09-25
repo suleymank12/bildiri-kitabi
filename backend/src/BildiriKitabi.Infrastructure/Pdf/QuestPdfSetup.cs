@@ -11,12 +11,33 @@ public static class QuestPdfSetup
 {
     public const string SerifFamily = "Liberation Serif";
     public const string SansFamily = "Liberation Sans";
+    public const string SerifFallbackFamily = "DejaVu Serif";
+    public const string SansFallbackFamily = "DejaVu Sans";
+
+    /// <summary>
+    /// Font chains handed to QuestPDF: Liberation (metric-compatible with Times New Roman / Arial) first, DejaVu for
+    /// the symbols Liberation lacks (math operators, arrows, …). Text that Liberation covers is laid out exactly as before.
+    /// </summary>
+    internal static readonly string[] SerifFonts = [SerifFamily, SerifFallbackFamily];
+
+    internal static readonly string[] SansFonts = [SansFamily, SansFallbackFamily];
 
     private const string FontResourcePrefix = "BildiriKitabi.Fonts.";
 
     private static readonly Lazy<bool> Initialization = new(Initialize, LazyThreadSafetyMode.ExecutionAndPublication);
 
     public static void EnsureInitialized() => _ = Initialization.Value;
+
+    /// <summary>The bundled font files: file name and a way to open it.</summary>
+    internal static IEnumerable<(string FileName, Func<Stream> Open)> BundledFonts()
+    {
+        var assembly = typeof(QuestPdfSetup).Assembly;
+        return assembly.GetManifestResourceNames()
+            .Where(n => n.StartsWith(FontResourcePrefix, StringComparison.Ordinal) && n.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase))
+            .Order(StringComparer.Ordinal)
+            .Select(n => (n[FontResourcePrefix.Length..], (Func<Stream>)(() => assembly.GetManifestResourceStream(n)
+                ?? throw new InvalidOperationException($"Font resource '{n}' could not be opened."))));
+    }
 
     private static bool Initialize()
     {
@@ -27,19 +48,18 @@ public static class QuestPdfSetup
         Settings.UseSystemFonts = false;
         Settings.FontDiscoveryPath = null;
 
-        var assembly = typeof(QuestPdfSetup).Assembly;
-        var fonts = assembly.GetManifestResourceNames()
-            .Where(n => n.StartsWith(FontResourcePrefix, StringComparison.Ordinal) && n.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        // A character missing from the whole chain must stop generation, never print as an empty box.
+        Settings.ThrowOnMissingTextGlyphs = true;
+
+        var fonts = BundledFonts().ToList();
         if (fonts.Count == 0)
         {
             throw new InvalidOperationException("Bundled fonts were not found in the assembly resources.");
         }
 
-        foreach (var font in fonts)
+        foreach (var (_, open) in fonts)
         {
-            using var stream = assembly.GetManifestResourceStream(font)
-                ?? throw new InvalidOperationException($"Font resource '{font}' could not be opened.");
+            using var stream = open();
             FontManager.RegisterFontFromStream(stream);
         }
 

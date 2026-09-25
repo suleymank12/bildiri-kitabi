@@ -4,6 +4,7 @@ namespace BildiriKitabi.Core.Uploads;
 public static class UploadErrorCodes
 {
     public const string BookNameInvalid = "BOOK_NAME_INVALID";
+    public const string BookNameUnsupportedCharacter = "BOOK_NAME_UNSUPPORTED_CHARACTER";
     public const string PaperCountInvalid = "PAPER_COUNT_INVALID";
     public const string FileExtensionInvalid = "FILE_EXTENSION_INVALID";
     public const string FileTooLarge = "FILE_TOO_LARGE";
@@ -11,6 +12,7 @@ public static class UploadErrorCodes
     public const string FileNotDocx = "FILE_NOT_DOCX";
     public const string FileUnsafeArchive = "FILE_UNSAFE_ARCHIVE";
     public const string FileNoContent = "FILE_NO_CONTENT";
+    public const string FileUnsupportedCharacter = "FILE_UNSUPPORTED_CHARACTER";
     public const string FileDuplicate = "FILE_DUPLICATE";
     public const string TotalSizeTooLarge = "TOTAL_SIZE_TOO_LARGE";
 }

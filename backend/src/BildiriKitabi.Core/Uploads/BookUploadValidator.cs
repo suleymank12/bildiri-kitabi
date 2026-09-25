@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using BildiriKitabi.Core.Configuration;
 using BildiriKitabi.Core.Documents;
+using BildiriKitabi.Core.Fonts;
 using BildiriKitabi.Core.Sanitization;
 using BildiriKitabi.Core.Titles;
 using Microsoft.Extensions.Options;
@@ -14,7 +15,11 @@ namespace BildiriKitabi.Core.Uploads;
 /// Files are streamed to a per-request temporary folder while their SHA-256 is computed; nothing is kept in memory.
 /// Papers that pass are read, sanitized and given a detected title.
 /// </summary>
-public sealed class BookUploadValidator(IDocxReader reader, IOptions<UploadOptions> uploadOptions, IOptions<BookOptions> bookOptions)
+public sealed class BookUploadValidator(
+    IDocxReader reader,
+    IGlyphCoverage glyphCoverage,
+    IOptions<UploadOptions> uploadOptions,
+    IOptions<BookOptions> bookOptions)
 {
     private const string DocxExtension = ".docx";
     private const int CopyBufferSize = 81920;
@@ -33,6 +38,15 @@ public sealed class BookUploadValidator(IDocxReader reader, IOptions<UploadOptio
         if (!name.IsValid)
         {
             errors.Add(new UploadError(name.ErrorCode!, name.ErrorMessage!, Field: "name"));
+        }
+        else if (UnsupportedCharacters.InBookName(glyphCoverage, name.Name) is { Count: > 0 } unsupported)
+        {
+            errors.Add(new UploadError(
+                UploadErrorCodes.BookNameUnsupportedCharacter,
+                unsupported.Count == 1
+                    ? $"Kitap adındaki {UnsupportedCharacters.Describe(unsupported)} karakteri PDF yazı tipinde bulunmuyor; lütfen kaldırın."
+                    : $"Kitap adındaki {UnsupportedCharacters.Describe(unsupported)} karakterleri PDF yazı tipinde bulunmuyor; lütfen kaldırın.",
+                Field: "name"));
         }
 
         if (files.Count != _books.RequiredPaperCount)
@@ -174,6 +188,16 @@ public sealed class BookUploadValidator(IDocxReader reader, IOptions<UploadOptio
 
         var sanitized = ContactInfoSanitizer.Sanitize(document);
         var title = TitleDetector.Detect(sanitized.Document, name);
+        var unsupported = UnsupportedCharacters.InPaper(glyphCoverage, sanitized.Document, title.Text);
+        if (unsupported.Count > 0)
+        {
+            var noun = unsupported.Count == 1 ? "karakteri" : "karakterleri";
+            Fail(
+                UploadErrorCodes.FileUnsupportedCharacter,
+                $"{name} içinde PDF yazı tipinde bulunmayan {UnsupportedCharacters.Describe(unsupported)} {noun} var; lütfen kaldırıp dosyayı yeniden yükleyin.");
+            return null;
+        }
+
         return new ValidatedPaper(name, tempPath, size, sha256, title);
     }
 

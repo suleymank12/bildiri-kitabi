@@ -1,4 +1,5 @@
 using BildiriKitabi.Core.Documents;
+using BildiriKitabi.Core.Fonts;
 using BildiriKitabi.Core.Sanitization;
 using BildiriKitabi.Core.Titles;
 using Microsoft.Extensions.Logging;
@@ -26,6 +27,7 @@ public sealed partial class BookGenerator(
     IDocxReader reader,
     IBookRenderer renderer,
     IPdfLeakScanner leakScanner,
+    IGlyphCoverage glyphCoverage,
     TimeProvider timeProvider,
     ILogger<BookGenerator> logger)
 {
@@ -60,6 +62,7 @@ public sealed partial class BookGenerator(
 
         progress?.Report(new GenerationProgress(GenerationStage.Composing, 40));
         var titles = sanitized.Select((s, i) => TitleDetector.Detect(s.Document, papers[i].FileName)).ToList();
+        EnsurePrintable(bookName, sanitized, titles);
         var content = new BookContent(
             bookName,
             timeProvider.GetLocalNow(),
@@ -104,6 +107,34 @@ public sealed partial class BookGenerator(
         progress?.Report(new GenerationProgress(GenerationStage.Verifying, 95));
         return new GeneratedBook(rendered.Pdf, rendered.PageCount, generated);
     }
+
+    /// <summary>
+    /// Stops with a clear message before rendering when a character is missing from every font of its chain;
+    /// QuestPDF would otherwise fail with a generic layout error.
+    /// </summary>
+    private void EnsurePrintable(string bookName, List<DocumentSanitizationResult> sanitized, List<DetectedTitle> titles)
+    {
+        var inName = UnsupportedCharacters.InBookName(glyphCoverage, bookName);
+        if (inName.Count > 0)
+        {
+            throw new BookGenerationException(
+                BookErrorCodes.UnsupportedCharacter,
+                $"Kitap adında PDF yazı tipinde bulunmayan {UnsupportedCharacters.Describe(inName)} {CharacterWord(inName)} var.");
+        }
+
+        for (var i = 0; i < sanitized.Count; i++)
+        {
+            var inPaper = UnsupportedCharacters.InPaper(glyphCoverage, sanitized[i].Document, titles[i].Text);
+            if (inPaper.Count > 0)
+            {
+                throw new BookGenerationException(
+                    BookErrorCodes.UnsupportedCharacter,
+                    $"{i + 1}. sıradaki bildiride PDF yazı tipinde bulunmayan {UnsupportedCharacters.Describe(inPaper)} {CharacterWord(inPaper)} var.");
+            }
+        }
+    }
+
+    private static string CharacterWord(IReadOnlyList<string> characters) => characters.Count == 1 ? "karakteri" : "karakterleri";
 
     private SourceDocument Read(PaperSource paper, int order)
     {

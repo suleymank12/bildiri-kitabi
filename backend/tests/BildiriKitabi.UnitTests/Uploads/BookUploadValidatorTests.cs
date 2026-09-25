@@ -4,6 +4,7 @@ using BildiriKitabi.Core.Configuration;
 using BildiriKitabi.Core.Titles;
 using BildiriKitabi.Core.Uploads;
 using BildiriKitabi.Infrastructure.Docx;
+using BildiriKitabi.Infrastructure.Pdf;
 using BildiriKitabi.Tests.Shared;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -252,6 +253,40 @@ public sealed class BookUploadValidatorTests : IDisposable
     }
 
     [Fact]
+    public async Task A_book_name_with_a_character_missing_from_the_fonts_is_rejected()
+    {
+        using var result = await Validate("Kongre 2026 😀", ValidFiles(10));
+
+        var error = result.Errors.ShouldHaveSingleItem();
+        error.Code.ShouldBe(UploadErrorCodes.BookNameUnsupportedCharacter);
+        error.Field.ShouldBe("name");
+        error.Message.ShouldBe("Kitap adındaki '😀' karakteri PDF yazı tipinde bulunmuyor; lütfen kaldırın.");
+    }
+
+    [Fact]
+    public async Task Academic_symbols_in_the_book_name_and_papers_are_accepted()
+    {
+        var files = ValidFiles(10);
+        files[0] = File("01_Sembol.docx", Docx(TestDocx.Paragraph("α β χ² ± ≤ ≥ ∑ √ → × ∀ ∈ ⇒")));
+
+        using var result = await Validate("Kongre: α ≤ β → ∑", files);
+
+        result.Errors.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_paper_with_a_character_missing_from_the_fonts_is_rejected_by_file()
+    {
+        var files = ValidFiles(10);
+        files[2] = File("03_Sembol.docx", Docx(TestDocx.Paragraph("BİLDİRİ 3", "<w:b/>") + TestDocx.Paragraph("Küme 𝒜 tanımı.")));
+
+        using var result = await Validate(BookName, files);
+
+        ShouldHaveOnlyFileError(result, UploadErrorCodes.FileUnsupportedCharacter, "03_Sembol.docx");
+        result.Errors[0].Message.ShouldBe("03_Sembol.docx içinde PDF yazı tipinde bulunmayan '𝒜' karakteri var; lütfen kaldırıp dosyayı yeniden yükleyin.");
+    }
+
+    [Fact]
     public async Task The_temporary_folder_is_removed_on_dispose()
     {
         var result = await Validate(BookName, ValidFiles(10));
@@ -294,6 +329,7 @@ public sealed class BookUploadValidatorTests : IDisposable
         configure?.Invoke(options);
         var validator = new BookUploadValidator(
             new OpenXmlDocxReader(NullLogger<OpenXmlDocxReader>.Instance),
+            FontGlyphCoverage.Instance,
             Options.Create(options),
             Options.Create(new BookOptions()));
         return validator.ValidateAsync(name, files, TestContext.Current.CancellationToken);

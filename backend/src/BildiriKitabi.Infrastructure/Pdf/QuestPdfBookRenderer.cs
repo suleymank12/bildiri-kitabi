@@ -84,7 +84,7 @@ public sealed class QuestPdfBookRenderer : IBookRenderer
         page.Size(PageSizes.A4);
         page.Margin(MarginCm, Unit.Centimetre);
         page.PageColor(Colors.White);
-        page.DefaultTextStyle(style => style.FontFamily(QuestPdfSetup.SerifFamily).FontSize(BodyFontSize).FontColor(Colors.Black));
+        page.DefaultTextStyle(style => style.FontFamily(QuestPdfSetup.SerifFonts).FontSize(BodyFontSize).FontColor(Colors.Black));
     }
 
     private static void ComposeCover(IDocumentContainer container, BookContent book)
@@ -96,12 +96,12 @@ public sealed class QuestPdfBookRenderer : IBookRenderer
             {
                 column.Item().Text(book.Title).FontSize(26).Bold().LineHeight(1.2f).AlignCenter();
                 column.Item().PaddingVertical(20).AlignCenter().Width(90).LineHorizontal(1).LineColor(RuleColor);
-                column.Item().Text("Bildiri Kitabı").FontFamily(QuestPdfSetup.SansFamily).FontSize(14).LetterSpacing(0.05f).AlignCenter();
+                column.Item().Text("Bildiri Kitabı").FontFamily(QuestPdfSetup.SansFonts).FontSize(14).LetterSpacing(0.05f).AlignCenter();
                 column.Item().PaddingTop(6).Text($"{book.Papers.Count} bildiri")
-                    .FontFamily(QuestPdfSetup.SansFamily).FontSize(11).FontColor(MutedColor).AlignCenter();
+                    .FontFamily(QuestPdfSetup.SansFonts).FontSize(11).FontColor(MutedColor).AlignCenter();
             });
             page.Footer().Text(book.CreatedAt.ToString("d MMMM yyyy", Turkish))
-                .FontFamily(QuestPdfSetup.SansFamily).FontSize(10).FontColor(MutedColor).AlignCenter();
+                .FontFamily(QuestPdfSetup.SansFonts).FontSize(10).FontColor(MutedColor).AlignCenter();
         });
     }
 
@@ -152,10 +152,10 @@ public sealed class QuestPdfBookRenderer : IBookRenderer
                 header.Item().Row(row =>
                 {
                     row.RelativeItem(2).Text(book.Title).ClampLines(1, "…").FontSize(RunningHeadFontSize)
-                        .FontFamily(QuestPdfSetup.SansFamily).FontColor(MutedColor);
+                        .FontFamily(QuestPdfSetup.SansFonts).FontColor(MutedColor);
                     row.ConstantItem(16);
                     row.RelativeItem(3).Text(paper.Title).ClampLines(1, "…").FontSize(RunningHeadFontSize)
-                        .FontFamily(QuestPdfSetup.SansFamily).FontColor(MutedColor).AlignRight();
+                        .FontFamily(QuestPdfSetup.SansFonts).FontColor(MutedColor).AlignRight();
                 });
                 header.Item().PaddingTop(4).LineHorizontal(0.5f).LineColor(RuleColor);
                 header.Item().Height(14);
@@ -173,7 +173,7 @@ public sealed class QuestPdfBookRenderer : IBookRenderer
     {
         page.Footer().PaddingTop(12).AlignCenter().Text(text =>
         {
-            text.DefaultTextStyle(style => style.FontFamily(QuestPdfSetup.SansFamily).FontSize(RunningHeadFontSize).FontColor(MutedColor));
+            text.DefaultTextStyle(style => style.FontFamily(QuestPdfSetup.SansFonts).FontSize(RunningHeadFontSize).FontColor(MutedColor));
             text.CurrentPageNumber();
         });
     }
@@ -275,7 +275,7 @@ public sealed class QuestPdfBookRenderer : IBookRenderer
             {
                 var content = run.Text.Replace("\t", "    ", StringComparison.Ordinal);
                 var span = run.Hyperlink is { } url && IsExternalLink(url) ? text.Hyperlink(content, url) : text.Span(content);
-                span.FontFamily(run.FontFamilyKind == FontFamilyKind.Sans ? QuestPdfSetup.SansFamily : QuestPdfSetup.SerifFamily)
+                span.FontFamily(run.FontFamilyKind == FontFamilyKind.Sans ? QuestPdfSetup.SansFonts : QuestPdfSetup.SerifFonts)
                     .FontSize(run.FontSizePt)
                     .LineHeight(lineHeight);
                 if (run.Bold)
