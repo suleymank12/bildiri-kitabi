@@ -211,11 +211,11 @@ function BookRow({ book, onDelete }: { book: BookSummary; onDelete: () => void }
         </span>
         <span className="numeric md:text-right">
           {formatInteger(book.paperCount)}
-          <span className="md:sr-only"> bildiri</span>
+          <span className="font-sans md:sr-only"> bildiri</span>
         </span>
         <span className="numeric md:text-right">
           {book.pageCount != null ? formatInteger(book.pageCount) : '–'}
-          <span className="md:sr-only"> sayfa</span>
+          <span className="font-sans md:sr-only"> sayfa</span>
         </span>
         <span>{formatDateTime(book.createdAt)}</span>
       </div>

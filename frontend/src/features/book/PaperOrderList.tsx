@@ -161,7 +161,7 @@ function SortablePaper({ paper, index, count, locked, onMove }: SortablePaperPro
         </span>
       </div>
       <span className="numeric col-start-3 text-sm text-ink-muted md:col-start-auto md:text-right">
-        <span className="md:sr-only">Boyut: </span>
+        <span className="font-sans md:sr-only">Boyut: </span>
         {formatBytes(paper.sizeBytes)}
       </span>
       <div className="col-span-3 flex justify-end gap-1 border-t border-line pt-2 md:col-span-1 md:border-0 md:pt-0">
