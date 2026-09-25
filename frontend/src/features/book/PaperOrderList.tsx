@@ -177,6 +177,7 @@ function SortablePaper({ paper, index, count, locked, onMove }: SortablePaperPro
         <Button
           variant="ghost"
           size="sm"
+          className="min-w-11"
           icon={<ArrowUpIcon size={16} aria-hidden="true" />}
           disabled={locked || index === 0}
           aria-label={`${paper.fileName} dosyasını yukarı taşı`}
@@ -189,6 +190,7 @@ function SortablePaper({ paper, index, count, locked, onMove }: SortablePaperPro
         <Button
           variant="ghost"
           size="sm"
+          className="min-w-11"
           icon={<ArrowDownIcon size={16} aria-hidden="true" />}
           disabled={locked || index === count - 1}
           aria-label={`${paper.fileName} dosyasını aşağı taşı`}

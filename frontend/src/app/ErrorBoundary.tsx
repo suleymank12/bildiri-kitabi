@@ -27,6 +27,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBound
 
     return (
       <EmptyState
+        headingLevel="h1"
         title="Bir şeyler ters gitti"
         action={
           <Button

@@ -18,10 +18,10 @@ const variants: Record<ButtonVariant, string> = {
   danger: 'border-danger bg-danger text-surface hover:enabled:opacity-90',
 };
 
-// Touch targets stay at least 44 px high on small screens.
+// Touch targets stay at least 44 px high on every screen size.
 const sizes: Record<ButtonSize, string> = {
   md: 'min-h-11 px-4 text-[0.9375rem]',
-  sm: 'min-h-11 px-3 text-sm sm:min-h-9',
+  sm: 'min-h-11 px-3 text-sm',
 };
 
 /** The button look, for links that act as buttons. */

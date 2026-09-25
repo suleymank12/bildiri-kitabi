@@ -41,6 +41,7 @@ export function BookPage() {
 
     return (
       <EmptyState
+        headingLevel="h1"
         title="Kitap yüklenemedi"
         action={
           <Button variant="primary" onClick={() => void query.refetch()}>

@@ -186,7 +186,7 @@ function BookRow({ book, onDelete }: { book: BookSummary; onDelete: () => void }
     <li className="relative grid grid-cols-[minmax(0,1fr)_3rem] gap-x-3 gap-y-2 border-b border-line px-5 py-4 last:border-b-0 hover:bg-surface-muted md:grid-cols-[minmax(0,1fr)_8rem_5rem_5rem_11rem_3rem] md:items-center md:gap-4">
       <Link
         to={paths.book(book.id)}
-        className="font-serif text-lg leading-snug font-semibold break-words text-ink after:absolute after:inset-0 after:content-[''] hover:underline"
+        className="flex min-h-11 items-center font-serif text-lg leading-snug font-semibold break-words text-ink after:absolute after:inset-0 after:content-[''] hover:underline"
       >
         {book.name}
       </Link>

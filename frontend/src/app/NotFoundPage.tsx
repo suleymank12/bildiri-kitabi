@@ -8,6 +8,7 @@ import { usePageTitle } from './usePageTitle';
 export function NotFoundState({ title, children }: { title: string; children: ReactNode }) {
   return (
     <EmptyState
+      headingLevel="h1"
       title={title}
       action={
         <div className="flex flex-col gap-2 sm:flex-row">
