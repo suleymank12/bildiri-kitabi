@@ -81,7 +81,7 @@ function CompletedPanel({ book }: { book: BookDetail }) {
           {book.papers.map((paper) => (
             <li
               key={paper.id}
-              className="grid grid-cols-[2rem_minmax(0,1fr)_4.5rem] gap-3 border-b border-line py-2 last:border-b-0"
+              className="grid grid-cols-[2.5ch_minmax(0,1fr)_auto] gap-x-3 border-b border-line py-2 last:border-b-0"
             >
               <span className="numeric text-sm text-ink-muted">{paper.order}.</span>
               <span className="font-serif text-[0.9375rem] leading-snug text-ink">{paper.title}</span>
