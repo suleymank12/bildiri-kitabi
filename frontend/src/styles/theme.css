@@ -1,0 +1,85 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens. One accent colour (dark petrol); everything else is ink on paper.
+ * theme.test.ts reads this file and checks the WCAG AA contrast of the text/background pairs.
+ */
+@theme {
+  --color-paper: #f6f3ec;
+  --color-surface: #ffffff;
+  --color-surface-muted: #fbfaf6;
+  --color-ink: #1c2230;
+  --color-ink-muted: #5a6272;
+  --color-ink-subtle: #8a909c;
+  --color-line: #e3ded3;
+  --color-line-strong: #cfc8b8;
+  --color-accent: #0e5a5e;
+  --color-accent-hover: #0b4a4d;
+  --color-accent-soft: #e3efee;
+  --color-success: #2f6b3a;
+  --color-success-soft: #e6f0e7;
+  --color-warning: #8a5a00;
+  --color-warning-soft: #f7eedb;
+  --color-danger: #a33a2b;
+  --color-danger-soft: #f8e7e4;
+
+  --radius: 6px;
+  --radius-sm: 4px;
+
+  --font-serif: 'Source Serif 4 Variable', 'Source Serif 4', Georgia, serif;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --shadow-raised: 0 1px 2px rgb(28 34 48 / 0.06), 0 2px 8px rgb(28 34 48 / 0.04);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-soft);
+    color: var(--color-ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
