@@ -11,5 +11,10 @@ public interface IBookGenerationQueue
 {
     ValueTask EnqueueAsync(Guid bookId, CancellationToken cancellationToken = default);
 
-    IAsyncEnumerable<Guid> ReadAllAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Calls <paramref name="handler"/> for each message, at most <paramref name="maxConcurrency"/> at a time, until
+    /// <paramref name="stoppingToken"/> is cancelled. A message is acknowledged only after the handler returned; one
+    /// that is still being handled when the application stops is not acknowledged, so a broker delivers it again.
+    /// </summary>
+    Task ConsumeAsync(Func<Guid, CancellationToken, Task> handler, int maxConcurrency, CancellationToken stoppingToken);
 }
