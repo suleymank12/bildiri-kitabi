@@ -8,8 +8,11 @@ import { paths } from '../../app/paths';
 import { usePageTitle } from '../../app/usePageTitle';
 import { Alert, Button, Card, EmptyState, Skeleton, Stepper, buttonClasses } from '../../components/ui';
 import { formatDateTime } from '../../lib/format';
-import { isEditable, statusLabel } from '../../lib/status';
-import { GenerationPanel } from './GenerationPanel';
+import { isBusy, statusLabel } from '../../lib/status';
+import { CompletedSummary } from './CompletedSummary';
+import { FailurePanel } from './generation/FailurePanel';
+import { GenerationProgress } from './generation/GenerationProgress';
+import { currentStepLabel } from './generation/stages';
 import { PaperOrderList } from './PaperOrderList';
 import { BOOK_STEPS } from './steps';
 
@@ -46,11 +49,30 @@ export function BookPage() {
     );
   }
 
-  const editable = isEditable(book.status);
+  return <BookView book={book} />;
+}
+
+/** Chooses what the book page shows from the server state; a refresh lands in the same place. */
+function BookView({ book }: { book: BookDetail }) {
+  const announce = useAnnounce();
+  const generate = useStartGeneration(book.id);
+  // "Sırayı düzenle" on a failed book goes back to the order step; the status stays Failed on the server.
+  const [editingAfterFailure, setEditingAfterFailure] = useState(false);
+  const showOrder = book.status === 'Uploaded' || (book.status === 'Failed' && editingAfterFailure);
+
+  function start() {
+    generate.mutate(undefined, {
+      onSuccess: () => {
+        setEditingAfterFailure(false);
+        announce('Kitap hazırlanmak üzere kuyruğa alındı.');
+      },
+    });
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-5">
-        <Stepper steps={BOOK_STEPS} current={editable ? 1 : 2} />
+        <Stepper steps={BOOK_STEPS} current={showOrder ? 1 : 2} />
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl break-words sm:text-4xl">{book.name}</h1>
           <p className="text-sm text-ink-muted">
@@ -59,15 +81,40 @@ export function BookPage() {
           </p>
         </div>
       </div>
-      {editable ? <OrderStep book={book} /> : <GenerationPanel book={book} />}
+      {generate.isError && (
+        <Alert tone="danger" title="Kitap oluşturma başlatılamadı">
+          {errorMessage(generate.error)}
+        </Alert>
+      )}
+      {showOrder ? (
+        <OrderStep book={book} starting={generate.isPending} onStart={start} />
+      ) : book.status === 'Failed' ? (
+        <FailurePanel
+          book={book}
+          retrying={generate.isPending}
+          onRetry={start}
+          onEditOrder={() => {
+            setEditingAfterFailure(true);
+          }}
+        />
+      ) : isBusy(book.status) ? (
+        <GenerationProgress book={book} />
+      ) : (
+        <CompletedSummary book={book} />
+      )}
     </div>
   );
 }
 
-function OrderStep({ book }: { book: BookDetail }) {
+interface OrderStepProps {
+  book: BookDetail;
+  starting: boolean;
+  onStart: () => void;
+}
+
+function OrderStep({ book, starting, onStart }: OrderStepProps) {
   const announce = useAnnounce();
   const reorder = useReorderPapers(book.id);
-  const generate = useStartGeneration(book.id);
   const [orderError, setOrderError] = useState<string>();
   const [locked, setLocked] = useState(false);
   const reordered = book.papers.some((paper) => paper.order !== paper.uploadOrder);
@@ -88,32 +135,11 @@ function OrderStep({ book }: { book: BookDetail }) {
     });
   }
 
-  function start() {
-    generate.mutate(undefined, {
-      onSuccess: () => {
-        announce('Kitap hazırlanmak üzere kuyruğa alındı.');
-      },
-    });
-  }
-
   return (
     <div className="flex flex-col gap-6">
       {book.status === 'Failed' && (
-        <Alert
-          tone="danger"
-          title="Kitap oluşturulamadı"
-          action={
-            <Button variant="secondary" loading={generate.isPending} onClick={start}>
-              Tekrar dene
-            </Button>
-          }
-        >
+        <Alert tone="warning" title="Önceki deneme başarısız oldu">
           {book.error?.message ?? 'Beklenmeyen bir hata oluştu.'}
-        </Alert>
-      )}
-      {generate.isError && (
-        <Alert tone="danger" title="Kitap oluşturma başlatılamadı">
-          {errorMessage(generate.error)}
         </Alert>
       )}
       {orderError && (
@@ -135,19 +161,14 @@ function OrderStep({ book }: { book: BookDetail }) {
             Kitap bu sırayla oluşturulacak.
           </Alert>
         )}
-        <PaperOrderList papers={book.papers} locked={locked || generate.isPending} onReorder={saveOrder} />
+        <PaperOrderList papers={book.papers} locked={locked || starting} onReorder={saveOrder} />
       </Card>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-ink-muted">
           Kitap oluşturulunca kapak, İçindekiler ve sayfa numaraları eklenir; iletişim bilgileri temizlenir.
         </p>
-        <Button
-          variant="primary"
-          loading={generate.isPending}
-          disabled={locked || reorder.isPending}
-          onClick={start}
-        >
+        <Button variant="primary" loading={starting} disabled={locked || reorder.isPending} onClick={onStart}>
           Kitabı Oluştur
         </Button>
       </div>
@@ -155,26 +176,29 @@ function OrderStep({ book }: { book: BookDetail }) {
   );
 }
 
-/** Reads out status changes that happen while the page is open (queued → processing → ready). */
+/** Reads out stage changes and the result while the page is open; never every percentage. */
 function useStatusAnnouncements(book: BookDetail | undefined) {
   const announce = useAnnounce();
-  const previous = useRef<BookDetail['status']>(undefined);
+  const previous = useRef<{ status: BookDetail['status']; step: string | undefined }>(undefined);
   useEffect(() => {
     if (!book) {
       return;
     }
 
-    if (previous.current !== undefined && previous.current !== book.status) {
-      announce(
-        book.status === 'Completed'
-          ? 'Kitap hazır. PDF’i açabilir veya indirebilirsiniz.'
-          : book.status === 'Failed'
-            ? 'Kitap oluşturulamadı.'
-            : `Durum: ${statusLabel(book.status)}.`,
-      );
+    const step = currentStepLabel(book);
+    const before = previous.current;
+    previous.current = { status: book.status, step };
+    if (before === undefined) {
+      return;
     }
 
-    previous.current = book.status;
+    if (before.status !== book.status && book.status === 'Completed') {
+      announce('Kitap hazır. PDF görüntüleyicide açıldı.');
+    } else if (before.status !== book.status && book.status === 'Failed') {
+      announce('Kitap oluşturulamadı.');
+    } else if (step !== undefined && step !== before.step) {
+      announce(`${step}.`);
+    }
   }, [announce, book]);
 }
 

@@ -19,13 +19,25 @@ const statusTones: Record<BookStatus, Tone> = {
 };
 
 const stageLabels: Record<GenerationStage, string> = {
-  Reading: 'Bildiriler okunuyor',
+  Reading: 'Belgeler okunuyor',
   Sanitizing: 'İletişim bilgileri temizleniyor',
-  Composing: 'İçindekiler hazırlanıyor',
-  Rendering: 'Sayfalar dizgiye giriyor',
-  Verifying: 'PDF denetleniyor',
-  Saving: 'PDF kaydediliyor',
+  Composing: 'Sayfa düzeni hazırlanıyor',
+  Rendering: 'PDF oluşturuluyor',
+  Verifying: 'Son kontroller yapılıyor',
+  Saving: 'Kaydediliyor',
 };
+
+export const QUEUED_LABEL = 'Sırada bekliyor';
+
+/** The generation stages in the order the server runs them. */
+export const GENERATION_STAGES: readonly GenerationStage[] = [
+  'Reading',
+  'Sanitizing',
+  'Composing',
+  'Rendering',
+  'Verifying',
+  'Saving',
+];
 
 const titleSourceLabels: Record<TitleSource, string> = {
   TitleStyle: 'Başlık stilinden',

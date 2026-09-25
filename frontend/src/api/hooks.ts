@@ -6,7 +6,7 @@ import { ApiError } from './errors';
 import type { BookDetail, BookPage } from './types';
 import { uploadBook } from './upload';
 
-export const BOOK_POLL_MS = 1000;
+export const BOOK_POLL_MS = 700;
 export const LIST_POLL_MS = 3000;
 export const LIST_PAGE_SIZE = 20;
 
@@ -17,13 +17,15 @@ export const bookKeys = {
   detail: (id: string) => [...bookKeys.all, 'detail', id] as const,
 };
 
-/** One book; polled every second while it is queued or being generated. */
+/** One book; polled every 700 ms while it is queued or being generated, not at all otherwise. */
 export function useBook(id: string) {
   return useQuery({
     queryKey: bookKeys.detail(id),
     queryFn: ({ signal }) =>
       unwrap(api.GET('/api/books/{id}', { params: { path: { id } }, signal })) as Promise<BookDetail>,
     refetchInterval: (query) => (query.state.data && isBusy(query.state.data.status) ? BOOK_POLL_MS : false),
+    // Polling pauses while the tab is hidden and resumes when it is visible again.
+    refetchIntervalInBackground: false,
     retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 2,
   });
 }

@@ -68,3 +68,15 @@ export function possessiveSuffix(value: number): string {
 
   return `'${suffix}`;
 }
+
+/** "8 sn", "1 dk 5 sn", "2 dk" — elapsed time for the progress view. */
+export function formatDuration(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  if (minutes === 0) {
+    return `${String(rest)} sn`;
+  }
+
+  return rest === 0 ? `${String(minutes)} dk` : `${String(minutes)} dk ${String(rest)} sn`;
+}

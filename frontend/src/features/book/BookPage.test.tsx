@@ -115,14 +115,40 @@ describe('BookPage — order step', () => {
 });
 
 describe('BookPage — generation', () => {
-  it('shows the stage and progress while processing', async () => {
-    renderBook({ ...book, status: 'Processing', stage: 'Rendering', progressPercent: 45 });
+  it('lists the stages with their state, the progress and the elapsed time while processing', async () => {
+    renderBook({
+      ...book,
+      status: 'Processing',
+      stage: 'Rendering',
+      progressPercent: 45,
+      processingStartedAt: new Date(Date.now() - 8_000).toISOString(),
+    });
 
-    expect(await screen.findByText('Sayfalar dizgiye giriyor')).toBeInTheDocument();
+    const stages = within(await screen.findByRole('list', { name: 'Aşamalar' })).getAllByRole('listitem');
+    expect(stages.map((item) => item.getAttribute('data-state'))).toEqual([
+      'done',
+      'done',
+      'done',
+      'done',
+      'current',
+      'pending',
+      'pending',
+    ]);
+    expect(stages[4]).toHaveAttribute('aria-current', 'step');
+    expect(stages[4]).toHaveTextContent('PDF oluşturuluyor (sürüyor)');
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '45');
+    expect(screen.getByText('%45')).toBeInTheDocument();
+    expect(screen.getByText(/^\d+ sn$/)).toBeInTheDocument();
   });
 
-  it('offers the PDF when the book is ready', async () => {
+  it('shows the waiting step for a queued book', async () => {
+    renderBook({ ...book, status: 'Queued' });
+
+    const stages = within(await screen.findByRole('list', { name: 'Aşamalar' })).getAllByRole('listitem');
+    expect(stages[0]).toHaveTextContent('Sırada bekliyor (sürüyor)');
+  });
+
+  it('turns into a one-line summary when the book is ready', async () => {
     renderBook({
       ...book,
       status: 'Completed',
@@ -139,18 +165,53 @@ describe('BookPage — generation', () => {
       })),
     });
 
-    expect(await screen.findByRole('heading', { name: 'Kitap hazır' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /PDF’i aç/ })).toHaveAttribute(
-      'href',
-      `/api/books/${book.id}/pdf`,
+    const summary = await screen.findByText('Kitap hazır');
+    expect(summary.closest('p')).toHaveTextContent(
+      'Kitap hazır · 22 sayfa · 3 e-posta adresi ve 3 telefon numarası kitaba aktarılmadı',
     );
-    expect(screen.getByRole('link', { name: /İndir/ })).toHaveAttribute(
-      'href',
-      `/api/books/${book.id}/pdf?download=true`,
+    expect(screen.queryByRole('list', { name: 'Aşamalar' })).not.toBeInTheDocument();
+  });
+});
+
+describe('BookPage — failure', () => {
+  const failed: BookDetail = {
+    ...book,
+    status: 'Failed',
+    stage: 'Rendering',
+    error: { code: 'RENDER_FAILED', message: 'PDF dizgisi oluşturulamadı.' },
+  };
+
+  it('shows the message, the code, the stage where it stopped and retries on "Tekrar dene"', async () => {
+    let started = 0;
+    server.use(
+      http.post('/api/books/:id/generate', () => {
+        started++;
+        return new HttpResponse(null, { status: 202 });
+      }),
     );
-    expect(screen.getByText(/telefon numarası kitaba aktarılmadı/)).toHaveTextContent(
-      '3 e-posta adresi ve 3 telefon numarası kitaba aktarılmadı.',
-    );
+    const { user } = renderBook(failed);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Kitap oluşturulamadı');
+    expect(alert).toHaveTextContent('PDF dizgisi oluşturulamadı.');
+    expect(alert).toHaveTextContent('Hata kodu: RENDER_FAILED');
+    const stages = within(screen.getByRole('list', { name: 'Aşamalar' })).getAllByRole('listitem');
+    expect(stages[4]).toHaveAttribute('data-state', 'failed');
+
+    await user.click(within(alert).getByRole('button', { name: 'Tekrar dene' }));
+    await waitFor(() => {
+      expect(started).toBe(1);
+    });
+  });
+
+  it('goes back to the order step with "Sırayı düzenle"', async () => {
+    const { user } = renderBook(failed);
+
+    await user.click(await screen.findByRole('button', { name: 'Sırayı düzenle' }));
+
+    expect(screen.getByRole('heading', { name: 'Sıra ve kontrol' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '01_Bildiri.docx dosyasını aşağı taşı' })).toBeEnabled();
+    expect(screen.getByText('Önceki deneme başarısız oldu')).toBeInTheDocument();
   });
 
   it('says so when the book does not exist', async () => {

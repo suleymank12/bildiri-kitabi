@@ -1,4 +1,4 @@
-import { formatBytes, formatDate, possessiveSuffix, withPossessive } from './format';
+import { formatBytes, formatDate, formatDuration, possessiveSuffix, withPossessive } from './format';
 
 describe('formatBytes', () => {
   it.each([
@@ -38,5 +38,18 @@ describe('withPossessive', () => {
   ])('%d → %s', (value, expected) => {
     expect(withPossessive(value)).toBe(expected);
     expect(possessiveSuffix(value)).toBe(expected.slice(expected.indexOf("'")));
+  });
+});
+
+describe('formatDuration', () => {
+  it.each([
+    [0, '0 sn'],
+    [8.7, '8 sn'],
+    [59, '59 sn'],
+    [60, '1 dk'],
+    [65, '1 dk 5 sn'],
+    [-3, '0 sn'],
+  ])('%d → %s', (seconds, expected) => {
+    expect(formatDuration(seconds)).toBe(expected);
   });
 });

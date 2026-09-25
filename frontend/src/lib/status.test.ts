@@ -22,12 +22,12 @@ describe('status labels', () => {
   });
 
   it.each<[GenerationStage, string]>([
-    ['Reading', 'Bildiriler okunuyor'],
+    ['Reading', 'Belgeler okunuyor'],
     ['Sanitizing', 'İletişim bilgileri temizleniyor'],
-    ['Composing', 'İçindekiler hazırlanıyor'],
-    ['Rendering', 'Sayfalar dizgiye giriyor'],
-    ['Verifying', 'PDF denetleniyor'],
-    ['Saving', 'PDF kaydediliyor'],
+    ['Composing', 'Sayfa düzeni hazırlanıyor'],
+    ['Rendering', 'PDF oluşturuluyor'],
+    ['Verifying', 'Son kontroller yapılıyor'],
+    ['Saving', 'Kaydediliyor'],
   ])('stage %s → %s', (stage, label) => {
     expect(stageLabel(stage)).toBe(label);
   });
