@@ -63,7 +63,15 @@ public static class DependencyInjection
             var root = provider.GetRequiredService<IOptions<StorageOptions>>().Value.RootPath;
             return new LocalFileStorage(Path.IsPathRooted(root) ? root : Path.Combine(contentRootPath, root));
         });
-        services.AddSingleton<IBookGenerationQueue, InMemoryBookGenerationQueue>();
+        // Both providers are registered; Queue:Provider picks one when the queue is first resolved.
+        services.AddSingleton<InMemoryBookGenerationQueue>();
+        services.AddSingleton<RabbitMqConnection>();
+        services.AddSingleton<RabbitMqBookGenerationQueue>();
+        services.AddSingleton<IValidateOptions<RabbitMqOptions>, RabbitMqOptionsValidator>();
+        services.AddSingleton<IBookGenerationQueue>(provider =>
+            provider.GetRequiredService<IOptions<QueueOptions>>().Value.UsesRabbitMq
+                ? provider.GetRequiredService<RabbitMqBookGenerationQueue>()
+                : provider.GetRequiredService<InMemoryBookGenerationQueue>());
 
         services.AddScoped<BookUploadValidator>();
         services.AddScoped<CreateBookService>();

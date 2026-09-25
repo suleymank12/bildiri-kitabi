@@ -6,6 +6,9 @@ using BildiriKitabi.Api.Problems;
 using BildiriKitabi.Core.Configuration;
 using BildiriKitabi.Infrastructure;
 using BildiriKitabi.Infrastructure.Persistence;
+using BildiriKitabi.Infrastructure.Queue;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Net.Http.Headers;
@@ -18,6 +21,8 @@ AddValidatedOptions<UploadOptions>(UploadOptions.SectionName);
 AddValidatedOptions<GenerationOptions>(GenerationOptions.SectionName);
 AddValidatedOptions<BookOptions>(BookOptions.SectionName);
 AddValidatedOptions<RateLimitingOptions>(RateLimitingOptions.SectionName);
+AddValidatedOptions<QueueOptions>(QueueOptions.SectionName);
+AddValidatedOptions<RabbitMqOptions>(RabbitMqOptions.SectionName);
 
 builder.Services.AddBookApplication(builder.Environment.ContentRootPath);
 
@@ -37,7 +42,10 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddApiRateLimiting();
 builder.Services.AddApiForwardedHeaders();
-builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");
+builder.Services
+    .AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>("database")
+    .AddCheck<RabbitMqHealthCheck>("rabbitmq");
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
@@ -84,7 +92,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
-app.MapHealthChecks("/health");
+// The RabbitMQ check only exists when RabbitMQ is the queue provider.
+var usesRabbitMq = app.Services.GetRequiredService<IOptions<QueueOptions>>().Value.UsesRabbitMq;
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = registration => registration.Name != "rabbitmq" || usesRabbitMq,
+    ResponseWriter = HealthResponse.WriteAsync,
+});
 
 if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", false))
 {

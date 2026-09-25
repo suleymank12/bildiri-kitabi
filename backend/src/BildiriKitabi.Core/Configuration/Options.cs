@@ -64,3 +64,18 @@ public sealed class StorageOptions
     [Required(AllowEmptyStrings = false)]
     public string RootPath { get; set; } = "App_Data/storage";
 }
+
+/// <summary><c>Queue</c> section: which generation queue the application uses.</summary>
+public sealed class QueueOptions
+{
+    public const string SectionName = "Queue";
+    public const string InMemory = "InMemory";
+    public const string RabbitMq = "RabbitMq";
+
+    /// <summary><c>InMemory</c> (one process, the default) or <c>RabbitMq</c> (a durable broker).</summary>
+    [Required(AllowEmptyStrings = false)]
+    [AllowedValues(InMemory, RabbitMq, ErrorMessage = "Queue:Provider must be 'InMemory' or 'RabbitMq'.")]
+    public string Provider { get; set; } = InMemory;
+
+    public bool UsesRabbitMq => Provider == RabbitMq;
+}

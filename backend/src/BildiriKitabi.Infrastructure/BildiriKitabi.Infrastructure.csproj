@@ -4,6 +4,8 @@
     <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="QuestPDF" />
     <PackageReference Include="PdfPig" />
+    <PackageReference Include="RabbitMQ.Client" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />

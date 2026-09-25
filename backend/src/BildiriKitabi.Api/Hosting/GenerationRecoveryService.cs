@@ -73,11 +73,22 @@ public sealed partial class GenerationRecoveryService(
     private async Task EnqueueAsync(List<Guid> bookIds, CancellationToken cancellationToken)
     {
         await Task.Yield();
-        foreach (var id in bookIds)
+        try
         {
-            await queue.EnqueueAsync(id, cancellationToken).ConfigureAwait(false);
+            foreach (var id in bookIds)
+            {
+                await queue.EnqueueAsync(id, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The broker may not be reachable yet; the queued-book sweeper sends these books later.
+            LogEnqueueFailed(logger, ex);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Startup recovery could not enqueue every queued book; the sweeper will retry")]
+    private static partial void LogEnqueueFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Startup recovery: {InterruptedCount} interrupted book(s) returned to the queue, {QueuedCount} queued book(s) enqueued")]
     private static partial void LogRecovered(ILogger logger, int interruptedCount, int queuedCount);
