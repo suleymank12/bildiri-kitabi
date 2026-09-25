@@ -31,6 +31,7 @@ type Zoom = { fit: 'page' } | { fit: 'width' } | { scale: number };
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
 const SCALE_STEP = 0.25;
+const MAX_PIXEL_RATIO = 2;
 const AREA_PADDING = { desktop: 24, phone: 8 };
 
 /** Width and height of an element, kept up to date. */
@@ -98,8 +99,9 @@ export function PdfViewer({ book }: { book: BookDetail }) {
   // Page size in CSS pixels: fit the width or the whole page into the area, or an explicit scale.
   const slots = mode === 'double' ? 2 : 1;
   const aspect = pageSize.height / pageSize.width;
-  const availableWidth = Math.max(160, (area.width || 800) - padding * 2);
-  const availableHeight = Math.max(200, (area.height || 1000) - padding * 2);
+  // The observed size is the content box: the area's padding is already taken off.
+  const availableWidth = Math.max(160, area.width || 800 - padding * 2);
+  const availableHeight = Math.max(200, area.height || 1000 - padding * 2);
   const fitWidth = availableWidth / slots;
   const pageWidth = Math.floor(
     'scale' in effectiveZoom
@@ -109,6 +111,11 @@ export function PdfViewer({ book }: { book: BookDetail }) {
         : Math.min(fitWidth, availableHeight / aspect),
   );
   const pageHeight = Math.round(pageWidth * aspect);
+  // Sharp on high-density screens, but a 3x phone does not need three times the canvas memory.
+  const pixelRatio = Math.min(
+    MAX_PIXEL_RATIO,
+    typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1,
+  );
   const scalePercent = Math.round((pageWidth / pageSize.width) * 100);
 
   const goToPage = useCallback(
@@ -248,6 +255,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
         <Page
           pageNumber={pageNumber}
           width={pageWidth}
+          devicePixelRatio={pixelRatio}
           renderTextLayer
           renderAnnotationLayer
           loading={<Skeleton className="absolute inset-0" />}
@@ -277,9 +285,11 @@ export function PdfViewer({ book }: { book: BookDetail }) {
     <section
       ref={viewerRef}
       aria-label="PDF görüntüleyici"
+      // Lets the page layout widen to give the facing pages room (see Layout).
+      data-wide-page=""
       className={
         'flex flex-col overflow-hidden rounded-(--radius) border border-line bg-surface ' +
-        (fullscreen ? 'h-dvh rounded-none' : 'lg:h-[calc(100dvh-6rem)] lg:min-h-[36rem]')
+        (fullscreen ? 'h-dvh rounded-none' : 'lg:h-[calc(100dvh-5rem)] lg:min-h-[560px]')
       }
     >
       {desktop && (
@@ -399,7 +409,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
         {desktop && tocOpen && (
           <nav
             aria-label="Bildiriler"
-            className="relative w-72 shrink-0 overflow-y-auto border-r border-line bg-surface px-2 py-3"
+            className="relative w-64 shrink-0 overflow-y-auto border-r border-line bg-surface px-2 py-3"
           >
             <h2 className="px-3 pb-2 text-lg">İçindekiler</h2>
             {toc}
@@ -448,6 +458,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
                     key={pageNumber}
                     pageNumber={pageNumber}
                     width={pageWidth}
+                    devicePixelRatio={pixelRatio}
                     renderTextLayer={false}
                     renderAnnotationLayer={false}
                   />
