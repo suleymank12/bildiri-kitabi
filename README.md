@@ -52,7 +52,7 @@ Gereksinim: Docker Desktop veya Docker Engine ile Docker Compose v2. SQL Server 
 1. Depoyu klonlayın ve klasörüne geçin:
 
    ```sh
-   git clone <depo-adresi> bildiri-kitabi
+   git clone https://github.com/suleymank12/bildiri-kitabi.git
    cd bildiri-kitabi
    ```
 
@@ -236,7 +236,7 @@ Tablo ve kolon adları Türkçe, C# sınıfları İngilizcedir (`Book` → `Kita
 
 | Kolon | Tip | Açıklama |
 |---|---|---|
-| `Id` | `uniqueidentifier` PK | Sıralı (v7) GUID |
+| `Id` | `uniqueidentifier` PK | EF Core'un SQL Server için sıralı GUID üreticisi (SequentialGuidValueGenerator); Guid v7 SQL Server'ın uniqueidentifier sıralamasında sıralı olmadığı için kullanılmadı |
 | `Ad` | `nvarchar(150)` | Kitap adı, kullanıcının yazdığı gibi |
 | `Durum` | `nvarchar(20)` | `Uploaded`, `Queued`, `Processing`, `Completed`, `Failed` |
 | `Asama` | `nvarchar(20)` NULL | `Reading`, `Sanitizing`, `Composing`, `Rendering`, `Verifying`, `Saving` |
@@ -323,7 +323,7 @@ Sırasıyla: (1) çözümlenen stil adı `Title` veya `heading 1` olan ilk boş 
 
 - A4 sayfa, 2,5 cm kenar boşluğu; gövde yazı tipi kaynaktaki puntoyla Liberation Serif, serif olmayan yazı tipleri Liberation Sans'a eşlenir. Heceleme kapalıdır.
 - Sayfa 1 kapaktır (kitap adı, "Bildiri Kitabı", bildiri sayısı, `tr-TR` biçiminde oluşturulma tarihi); numarası basılmaz.
-- İçindekiler 2. sayfadan başlar, gerekirse birden çok sayfaya taşar. Her satırda sıra numarası, başlık, noktalı dolgu ve başlangıç sayfası bulunur; satır tıklanabilir bir iç bağlantıdır.
+- İçindekiler 2. sayfadan başlar, gerekirse birden çok sayfaya taşar. Her satırda solda sıra numarası, ortada başlık, sağda başlığın son satırıyla hizalı başlangıç sayfası bulunur; girdiler arasında ince açık gri bir çizgi vardır. Satır tıklanabilir bir iç bağlantıdır.
 - Her bildiri yeni sayfada başlar ve QuestPDF'te adlandırılmış bir bölüm (section) olarak dizilir. İçindekiler'deki numara, dizgi motorunun o bölümün ilk sayfası için verdiği numaradır (`BeginPageNumberOfSection`); elle hesap veya tahmin yoktur, bu yüzden İçindekiler'in kendisi uzasa bile numaralar doğru kalır.
 - Basılı sayfa numarası fiziksel sayfa sırasıdır (kapak 1 sayılır). Böylece İçindekiler'deki numara PDF görüntüleyicinin sayfa kutusundaki numarayla aynıdır; "sayfa 11" yazan başlık görüntüleyicide 11. sayfadadır. Roma rakamlı ön sayfalar bu eşleşmeyi bozacağı için seçilmedi.
 - İçerik sayfalarında üst bilgide solda kitap adı, sağda bildiri başlığı (taşarsa üç nokta), alt bilgide ortada sayfa numarası vardır.
@@ -466,7 +466,7 @@ Diğer kontroller: `npm run lint`, `npm run typecheck`, `npm run build`. İlk E2
 
 Docker gerektirenler:
 
-- Entegrasyon testlerinin SQL Server ve RabbitMQ kullananları Testcontainers ile geçici konteynerler başlatır; Docker çalışmıyorsa bu testler başarısız olur.
+- Entegrasyon testlerinin SQL Server ve RabbitMQ kullananları Testcontainers ile geçici konteynerler başlatır; Docker yoksa bu testler nedeni yazılarak atlanır (skip).
 - `npm run test:e2e` yerelde SQL Server bekler: varsayılan olarak LocalDB (`BildiriKitabi_E2E` veritabanı, her koşuda sıfırlanır); başka bir sunucu `E2E_CONNECTION_STRING` ortam değişkeniyle verilir.
 - `npm run test:e2e:docker` için Docker kurulumu çalışır durumda ve rate limit değerleri yükseltilmiş olmalıdır ([Hızlı başlangıç](#hizli-baslangic) notlarına bakın).
 
@@ -553,7 +553,7 @@ SQL Server 2022 (Developer sürümü; Microsoft lisansı, üretim dışı kullan
 
 ## Yapay zekâ kullanımı
 
-<!-- Bu bölüm teslimden önce doldurulacak. -->
+Bu projede yapay zekâ araçlarından yoğun biçimde yararlandım. Case'in analizi, mimari ve aşama planı Claude ile birlikte çıkarıldı; kodun büyük bölümü, her aşama için hazırlanan talimatlarla Claude Code tarafından yazıldı. Her aşamanın sonunda üretilen kodu ve çıktıları inceledim, uygulamayı elle test ettim ve kapsam kararlarını ben verdim (ör. kitap adındaki iletişim bilgisinin serbest bırakılması, RabbitMQ ve Docker'ın kapsama alınması, commit ve arayüz dilinin Türkçe olması). Doğruluk; üretilen PDF'i bağımsız olarak okuyan uçtan uca testler, gerçek SQL Server ve RabbitMQ konteynerleriyle çalışan entegrasyon testleri ve masaüstü/mobil tarayıcı testleriyle doğrulandı. Kodun her bölümünü açıklayabilecek şekilde inceledim ve sorumluluğunu üstleniyorum.
 
 <a id="proje-yapisi"></a>
 
