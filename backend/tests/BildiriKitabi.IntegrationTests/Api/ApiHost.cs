@@ -29,8 +29,10 @@ public sealed class ApiHost : WebApplicationFactory<Program>
         string connectionString,
         string dataRoot,
         Action<IServiceCollection>? configureServices = null,
-        IReadOnlyDictionary<string, string>? settings = null)
+        IReadOnlyDictionary<string, string>? settings = null,
+        string environment = "Testing")
     {
+        Environment = environment;
         ConnectionString = connectionString;
         DataRoot = dataRoot;
         _configureServices = configureServices;
@@ -38,6 +40,8 @@ public sealed class ApiHost : WebApplicationFactory<Program>
     }
 
     public string ConnectionString { get; }
+
+    public string Environment { get; }
 
     public string DataRoot { get; }
 
@@ -51,7 +55,7 @@ public sealed class ApiHost : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(Environment);
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
         builder.UseSetting("Database:ApplyMigrationsOnStartup", "true");
         builder.UseSetting("Storage:RootPath", StorageRoot);

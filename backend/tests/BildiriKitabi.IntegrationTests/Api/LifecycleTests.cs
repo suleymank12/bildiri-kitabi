@@ -241,6 +241,28 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
         (await UploadFromAsync("203.0.113.11")).ShouldBe(enabled ? HttpStatusCode.BadRequest : HttpStatusCode.TooManyRequests);
     }
 
+    [Theory]
+    [InlineData("Development", 0)]
+    [InlineData("Production", 1)]
+    public async Task Reset_on_startup_empties_the_database_only_in_development(string environment, int booksLeft)
+    {
+        sql.EnsureAvailable();
+        var connectionString = sql.NewDatabase();
+        var dataRoot = ApiHost.NewDataRoot();
+        var first = Host(connectionString: connectionString, dataRoot: dataRoot);
+        await first.CreateSampleBookAsync();
+        await first.DisposeAsync();
+        _hosts.Remove(first);
+
+        var settings = new Dictionary<string, string> { ["Database:ResetOnStartup"] = "true" };
+        var restarted = new ApiHost(connectionString, dataRoot, settings: settings, environment: environment);
+        _hosts.Add(restarted);
+        using (restarted.Client())
+        {
+            (await restarted.QueryAsync("SELECT COUNT(*) FROM Kitaplar", r => r.GetInt32(0))).ShouldBe([booksLeft]);
+        }
+    }
+
     private ApiHost Host(
         Action<IServiceCollection>? configureServices = null,
         string? connectionString = null,

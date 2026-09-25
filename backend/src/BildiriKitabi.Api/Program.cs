@@ -88,7 +88,15 @@ app.MapHealthChecks("/health");
 if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", false))
 {
     await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
+    var database = scope.ServiceProvider.GetRequiredService<AppDbContext>().Database;
+
+    // End-to-end test runs start from an empty database. Honoured only in Development, never in production.
+    if (app.Environment.IsDevelopment() && app.Configuration.GetValue("Database:ResetOnStartup", false))
+    {
+        await database.EnsureDeletedAsync();
+    }
+
+    await database.MigrateAsync();
 }
 
 await app.RunAsync();
