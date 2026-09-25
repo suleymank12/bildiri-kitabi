@@ -45,6 +45,7 @@ public sealed class GenerationTests(SqlServerFixture sql) : IAsyncLifetime
 
         book.Status.ShouldBe(BookStatus.Completed, book.Error?.Message);
         book.ProgressPercent.ShouldBe(100);
+        book.Stage.ShouldBeNull();
         book.Error.ShouldBeNull();
         book.PdfUrl.ShouldBe($"/api/books/{_book.Id}/pdf");
         book.PageCount.ShouldBe(22);
@@ -62,10 +63,10 @@ public sealed class GenerationTests(SqlServerFixture sql) : IAsyncLifetime
         new BookPdf(bytes).Pages.Count.ShouldBe(22);
 
         var stored = await _api.QueryAsync(
-            "SELECT Durum, SayfaSayisi, PdfBoyutuBayt, PdfDepolamaAnahtari FROM Kitaplar WHERE Id = @id",
-            r => (Status: r.GetString(0), Pages: r.GetInt32(1), Size: r.GetInt64(2), Key: r.GetString(3)),
+            "SELECT Durum, SayfaSayisi, PdfBoyutuBayt, PdfDepolamaAnahtari, Asama FROM Kitaplar WHERE Id = @id",
+            r => (Status: r.GetString(0), Pages: r.GetInt32(1), Size: r.GetInt64(2), Key: r.GetString(3), StageIsNull: r.IsDBNull(4)),
             ("@id", _book.Id));
-        stored.ShouldBe([("Completed", 22, bytes.LongLength, $"books/{_book.Id}/output/book.pdf")]);
+        stored.ShouldBe([("Completed", 22, bytes.LongLength, $"books/{_book.Id}/output/book.pdf", true)]);
         var pages = await _api.QueryAsync(
             "SELECT BaslangicSayfasi, BitisSayfasi FROM Bildiriler WHERE KitapId = @id ORDER BY SiraNo",
             r => (r.GetInt32(0), r.GetInt32(1)),

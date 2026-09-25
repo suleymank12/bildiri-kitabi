@@ -26,9 +26,11 @@ public sealed class BookTests
         book.MarkProcessing(Now);
         book.ReportProgress(GenerationStage.Reading, 10);
         book.ReportProgress(GenerationStage.Rendering, 45);
+        book.ReportProgress(GenerationStage.Saving, 97);
         book.MarkCompleted("books/x/output/book.pdf", 1234, 22, Now.AddSeconds(3));
 
         book.Status.ShouldBe(BookStatus.Completed);
+        book.Stage.ShouldBeNull();
         book.ProgressPercent.ShouldBe((byte)100);
         book.PageCount.ShouldBe(22);
         book.ProcessingStartedAt.ShouldBe(Now);

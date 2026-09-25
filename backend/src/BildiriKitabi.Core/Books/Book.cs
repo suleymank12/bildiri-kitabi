@@ -134,6 +134,7 @@ public sealed class Book
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageCount);
         EnsureStatus(nameof(MarkCompleted), BookStatus.Processing);
         Status = BookStatus.Completed;
+        Stage = null;
         ProgressPercent = 100;
         PdfStorageKey = pdfStorageKey;
         PdfSizeBytes = pdfSizeBytes;
