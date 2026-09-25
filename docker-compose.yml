@@ -1,0 +1,115 @@
+# Whole system with one command: `docker compose up --build`, then http://localhost:8080
+# Passwords come from .env (copy .env.example). Only the web app (8080) and the RabbitMQ management UI (15672)
+# are published, and only on 127.0.0.1.
+
+name: bildiri-kitabi
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -b -Q \"SELECT 1\" -o /dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+    networks: [bildiri]
+    restart: unless-stopped
+
+  # One-off: creates the database and the application login (idempotent), then exits.
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      mssql:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env}
+    volumes:
+      - ./docker/db-init.sql:/db-init/db-init.sql:ro
+    entrypoint:
+      - /bin/bash
+      - -c
+      - /opt/mssql-tools18/bin/sqlcmd -S mssql -U sa -P "$${MSSQL_SA_PASSWORD}" -C -b -i /db-init/db-init.sql -v AppPassword="$${APP_DB_PASSWORD}"
+    networks: [bildiri]
+    restart: "no"
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?Set RABBITMQ_USER in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    ports:
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+    networks: [bildiri]
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./backend
+    depends_on:
+      mssql:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # Encrypt=True with TrustServerCertificate=True: the connection is encrypted, but the SQL Server container's
+      # self-signed certificate is accepted. Use a trusted certificate outside this local setup.
+      ConnectionStrings__Default: Server=mssql,1433;Database=BildiriKitabi;User Id=bildiri_app;Password=${APP_DB_PASSWORD};Encrypt=True;TrustServerCertificate=True
+      Database__ApplyMigrationsOnStartup: "true"
+      Queue__Provider: RabbitMq
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Username: ${RABBITMQ_USER}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
+      Storage__RootPath: /data/storage
+      # nginx (web) is the only client; the real client address arrives in X-Forwarded-For.
+      ForwardedHeaders__Enabled: "true"
+      ForwardedHeaders__KnownNetworks__0: 172.28.0.0/24
+      # No TLS in this local setup (see README); nginx listens on plain HTTP on 127.0.0.1.
+      HttpsRedirection__Enabled: "false"
+      RateLimiting__UploadPermitsPerMinute: ${UPLOAD_RATE_LIMIT_PER_MINUTE:-10}
+      RateLimiting__GeneratePermitsPerMinute: ${GENERATE_RATE_LIMIT_PER_MINUTE:-20}
+    volumes:
+      - storage:/data/storage
+    networks: [bildiri]
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks: [bildiri]
+    restart: unless-stopped
+
+networks:
+  bildiri:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
+volumes:
+  mssql-data:
+  rabbitmq-data:
+  storage:
