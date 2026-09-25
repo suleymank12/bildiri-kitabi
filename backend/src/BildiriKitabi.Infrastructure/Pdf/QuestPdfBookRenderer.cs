@@ -19,6 +19,7 @@ public sealed class QuestPdfBookRenderer : IBookRenderer
     private const float MarginCm = 2.5f;
     private const float BodyFontSize = 11f;
     private const float RunningHeadFontSize = 9f;
+    private const float TocLineHeight = 1.3f;
 
     // Natural single-line height of Liberation Serif/Sans relative to the font size (ascent + descent + gap).
     private const float SingleLineFactor = 1.15f;
@@ -26,6 +27,7 @@ public sealed class QuestPdfBookRenderer : IBookRenderer
     private static readonly CultureInfo Turkish = CultureInfo.GetCultureInfo("tr-TR");
     private static readonly string RuleColor = Colors.Grey.Medium;
     private static readonly string MutedColor = Colors.Grey.Darken2;
+    private static readonly string TocRuleColor = Colors.Grey.Lighten2;
 
     public QuestPdfBookRenderer()
     {
@@ -110,21 +112,29 @@ public sealed class QuestPdfBookRenderer : IBookRenderer
             ConfigurePage(page);
             page.Content().Column(column =>
             {
-                column.Item().PaddingBottom(18).Text("İçindekiler").FontSize(18).Bold();
+                column.Item().PaddingBottom(14).Text("İçindekiler").FontSize(18).Bold();
+                column.Item().LineHorizontal(0.5f).LineColor(TocRuleColor);
                 for (var i = 0; i < book.Papers.Count; i++)
                 {
                     var section = SectionName(i);
-                    column.Item().SectionLink(section).PaddingVertical(4).Row(row =>
+
+                    // The page number shares the title's line height and sits at the bottom of the row, so it lines up
+                    // with the title's last line however many lines the title wraps to. It is nudged down by an
+                    // invisible 0.1 pt so text extraction (copy, search, screen readers) always reads it after the title
+                    // instead of depending on floating-point noise between two equal baselines.
+                    column.Item().SectionLink(section).PaddingVertical(7).Row(row =>
                     {
-                        row.ConstantItem(24).Text($"{i + 1}.");
-                        row.RelativeItem().Text(book.Papers[i].Title).LineHeight(1.25f);
-                        row.ConstantItem(64).AlignBottom().Row(leader =>
+                        row.ConstantItem(22).AlignRight().Text($"{i + 1}.").LineHeight(TocLineHeight).FontColor(MutedColor);
+                        row.ConstantItem(12);
+                        row.RelativeItem().Text(book.Papers[i].Title).LineHeight(TocLineHeight);
+                        row.ConstantItem(16);
+                        row.ConstantItem(28).AlignBottom().OffsetY(0.1f).AlignRight().Text(text =>
                         {
-                            leader.RelativeItem().PaddingHorizontal(4).PaddingBottom(3)
-                                .LineHorizontal(0.75f).LineColor(RuleColor).LineDashPattern([1f, 2.5f]);
-                            leader.ConstantItem(22).AlignRight().Text(text => text.BeginPageNumberOfSection(section));
+                            text.DefaultTextStyle(style => style.LineHeight(TocLineHeight));
+                            text.BeginPageNumberOfSection(section);
                         });
                     });
+                    column.Item().LineHorizontal(0.5f).LineColor(TocRuleColor);
                 }
             });
             ComposePageNumber(page);
