@@ -1,4 +1,6 @@
 using System.Net;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using System.Net.Http.Json;
 using BildiriKitabi.Api.Contracts;
 using BildiriKitabi.Core.Application;
@@ -205,6 +207,39 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
         body.ShouldContain("bir dakika bekleyip");
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Rate_limiting_partitions_by_x_forwarded_for_only_when_forwarded_headers_are_enabled(bool enabled)
+    {
+        var api = Host(
+            services => services.AddSingleton<IStartupFilter>(new RemoteAddressFilter(IPAddress.Parse("172.18.0.5"))),
+            settings: new Dictionary<string, string>
+            {
+                ["RateLimiting:UploadPermitsPerMinute"] = "1",
+                ["ForwardedHeaders:Enabled"] = enabled ? "true" : "false",
+                ["ForwardedHeaders:KnownNetworks:0"] = "172.18.0.0/16",
+            });
+        using var client = api.Client();
+
+        async Task<HttpStatusCode> UploadFromAsync(string clientAddress)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, new Uri("/api/books", UriKind.Relative))
+            {
+                Content = new MultipartFormDataContent { { new StringContent("Deneme"), "name" } },
+            };
+            request.Headers.Add("X-Forwarded-For", clientAddress);
+            using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+            return response.StatusCode;
+        }
+
+        (await UploadFromAsync("203.0.113.10")).ShouldBe(HttpStatusCode.BadRequest);
+        (await UploadFromAsync("203.0.113.10")).ShouldBe(HttpStatusCode.TooManyRequests);
+
+        // Another client behind the same proxy has its own limit only when the header is trusted.
+        (await UploadFromAsync("203.0.113.11")).ShouldBe(enabled ? HttpStatusCode.BadRequest : HttpStatusCode.TooManyRequests);
+    }
+
     private ApiHost Host(
         Action<IServiceCollection>? configureServices = null,
         string? connectionString = null,
@@ -214,6 +249,20 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
         var host = new ApiHost(connectionString ?? sql.NewDatabase(), dataRoot ?? ApiHost.NewDataRoot(), configureServices, settings);
         _hosts.Add(host);
         return host;
+    }
+
+    /// <summary>Gives test requests the address of a proxy (the test server has no remote address).</summary>
+    private sealed class RemoteAddressFilter(IPAddress address) : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+        {
+            app.Use((context, nextMiddleware) =>
+            {
+                context.Connection.RemoteIpAddress = address;
+                return nextMiddleware(context);
+            });
+            next(app);
+        };
     }
 
     /// <summary>Takes longer than the configured time limit before rendering.</summary>

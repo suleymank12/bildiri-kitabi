@@ -26,6 +26,7 @@ builder.Services.AddApiProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddApiRateLimiting();
+builder.Services.AddApiForwardedHeaders();
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
@@ -46,6 +47,12 @@ builder.Services.AddHostedService<GenerationRecoveryService>();
 builder.Services.AddHostedService<BookGenerationWorker>();
 
 var app = builder.Build();
+
+if (ForwardedHeadersSetup.IsEnabled(app.Configuration))
+{
+    // First, so that everything after it (HTTPS redirection, rate limiting, logging) sees the real client.
+    app.UseForwardedHeaders();
+}
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
