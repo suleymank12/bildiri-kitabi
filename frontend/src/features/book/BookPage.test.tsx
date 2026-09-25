@@ -6,6 +6,13 @@ import { renderPage } from '../../test/render';
 import { server } from '../../test/server';
 import { BookPage } from './BookPage';
 
+// The viewer has its own tests (viewer/PdfViewer.test.tsx); here it only has to appear for a finished book.
+vi.mock('../viewer/PdfViewer', () => ({
+  PdfViewer: ({ book }: { book: BookDetail }) => (
+    <section aria-label="PDF görüntüleyici">{book.pdfUrl}</section>
+  ),
+}));
+
 const book = bookDetail();
 const [a, b, c] = book.papers as [
   BookDetail['papers'][number],
@@ -170,6 +177,9 @@ describe('BookPage — generation', () => {
       'Kitap hazır · 22 sayfa · 3 e-posta adresi ve 3 telefon numarası kitaba aktarılmadı',
     );
     expect(screen.queryByRole('list', { name: 'Aşamalar' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'PDF görüntüleyici' })).toHaveTextContent(
+      `/api/books/${book.id}/pdf`,
+    );
   });
 });
 

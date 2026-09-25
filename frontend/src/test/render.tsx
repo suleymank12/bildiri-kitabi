@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { createQueryClient } from '../app/App';
+import { createQueryClient } from '../app/queryClient';
 import { AnnouncerProvider } from '../app/Announcer';
 
 /** Renders a page inside the app providers at the given URL. */

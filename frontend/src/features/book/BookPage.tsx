@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { ApiError, errorMessage } from '../../api/errors';
 import { useBook, useReorderPapers, useStartGeneration } from '../../api/hooks';
@@ -15,6 +15,9 @@ import { GenerationProgress } from './generation/GenerationProgress';
 import { currentStepLabel } from './generation/stages';
 import { PaperOrderList } from './PaperOrderList';
 import { BOOK_STEPS } from './steps';
+
+// pdf.js is large; it is loaded only when a finished book is opened.
+const PdfViewer = lazy(() => import('../viewer/PdfViewer').then((module) => ({ default: module.PdfViewer })));
 
 export function BookPage() {
   const { id = '' } = useParams();
@@ -100,7 +103,20 @@ function BookView({ book }: { book: BookDetail }) {
       ) : isBusy(book.status) ? (
         <GenerationProgress book={book} />
       ) : (
-        <CompletedSummary book={book} />
+        // Room at the bottom on phones for the viewer's fixed toolbar.
+        <div className="flex flex-col gap-4 pb-20 lg:pb-0">
+          <CompletedSummary book={book} />
+          <Suspense
+            fallback={
+              <div aria-busy="true" className="rounded-(--radius) border border-line bg-surface p-6">
+                <span className="sr-only">Görüntüleyici yükleniyor</span>
+                <Skeleton className="mx-auto aspect-[1/1.414] w-full max-w-md" />
+              </div>
+            }
+          >
+            <PdfViewer book={book} />
+          </Suspense>
+        </div>
       )}
     </div>
   );

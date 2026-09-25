@@ -7,6 +7,8 @@ export interface DialogProps {
   children?: ReactNode;
   /** Buttons at the bottom; the first focusable element gets the focus when the dialog opens. */
   actions: ReactNode;
+  /** `bottom` opens as a sheet from the bottom edge (phones). */
+  placement?: 'center' | 'bottom';
 }
 
 const focusableSelector =
@@ -16,7 +18,7 @@ const focusableSelector =
  * Modal dialog on the native `<dialog>` element: the page behind is inert, Esc closes it, Tab stays inside and the
  * focus returns to where it was when the dialog closes.
  */
-export function Dialog({ open, onClose, title, children, actions }: DialogProps) {
+export function Dialog({ open, onClose, title, children, actions, placement = 'center' }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const bodyId = useId();
@@ -72,7 +74,12 @@ export function Dialog({ open, onClose, title, children, actions }: DialogProps)
         event.preventDefault();
         onClose();
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-(--radius) border border-line bg-surface p-0 text-ink shadow-(--shadow-raised) backdrop:bg-ink/40"
+      className={
+        (placement === 'bottom'
+          ? 'mx-0 mt-auto mb-0 max-h-[85dvh] w-full max-w-none overflow-y-auto rounded-b-none '
+          : 'm-auto w-[calc(100%-2rem)] max-w-md ') +
+        'rounded-(--radius) border border-line bg-surface p-0 text-ink shadow-(--shadow-raised) backdrop:bg-ink/40'
+      }
     >
       <div className="flex flex-col gap-3 px-6 pt-6">
         <h2 id={titleId} className="text-xl">
