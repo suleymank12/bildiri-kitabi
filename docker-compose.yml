@@ -14,7 +14,14 @@ services:
     volumes:
       - mssql-data:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -b -Q \"SELECT 1\" -o /dev/null"]
+      # Healthy only when connections are accepted AND the application database, if it already exists, has finished
+      # recovery; accepting connections alone is not enough on a restart with a full volume. The password is passed
+      # through SQLCMDPASSWORD so it never appears on a command line.
+      test:
+        - CMD-SHELL
+        - >-
+          SQLCMDPASSWORD="$${MSSQL_SA_PASSWORD}" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -o /dev/null
+          -Q "IF DB_ID(N'BildiriKitabi') IS NOT NULL EXEC(N'SELECT TOP (0) 1 FROM [BildiriKitabi].sys.objects');"
       interval: 10s
       timeout: 10s
       retries: 20
@@ -22,7 +29,7 @@ services:
     networks: [bildiri]
     restart: unless-stopped
 
-  # One-off: creates the database and the application login (idempotent), then exits.
+  # One-off: creates the database and the application login (idempotent), then exits. Retries for about a minute.
   db-init:
     image: mcr.microsoft.com/mssql/server:2022-latest
     depends_on:
@@ -33,10 +40,8 @@ services:
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env}
     volumes:
       - ./docker/db-init.sql:/db-init/db-init.sql:ro
-    entrypoint:
-      - /bin/bash
-      - -c
-      - /opt/mssql-tools18/bin/sqlcmd -S mssql -U sa -P "$${MSSQL_SA_PASSWORD}" -C -b -i /db-init/db-init.sql -v AppPassword="$${APP_DB_PASSWORD}"
+      - ./docker/db-init.sh:/db-init/db-init.sh:ro
+    entrypoint: ["/bin/bash", "/db-init/db-init.sh"]
     networks: [bildiri]
     restart: "no"
 

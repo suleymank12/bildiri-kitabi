@@ -1,6 +1,6 @@
 -- Runs once per `docker compose up` (db-init service) and is safe to run again: creates the database and the
 -- application login, which owns the database so the API can apply its migrations. The API never uses `sa`.
--- $(AppPassword) is passed by sqlcmd from APP_DB_PASSWORD in .env.
+-- sqlcmd resolves $(AppPassword) from the environment; docker/db-init.sh sets it from APP_DB_PASSWORD in .env.
 
 IF DB_ID(N'BildiriKitabi') IS NULL
     CREATE DATABASE [BildiriKitabi];
