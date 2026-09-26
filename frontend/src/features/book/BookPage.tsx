@@ -7,13 +7,13 @@ import { useAnnounce } from '../../app/Announcer';
 import { NotFoundState } from '../../app/NotFoundPage';
 import { usePageTitle } from '../../app/usePageTitle';
 import { Alert, Button, Card, EmptyState, Skeleton, Stepper } from '../../components/ui';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, formatInteger } from '../../lib/format';
 import { isBusy, statusLabel } from '../../lib/status';
-import { CompletedSummary } from './CompletedSummary';
+import { CleanupInfo } from './CleanupInfo';
 import { FailurePanel } from './generation/FailurePanel';
 import { GenerationProgress } from './generation/GenerationProgress';
 import { currentStepLabel } from './generation/stages';
-import { PaperOrderList } from './PaperOrderList';
+import { PaperOrderList, type PaperMove } from './PaperOrderList';
 import { BOOK_STEPS } from './steps';
 
 // pdf.js is large; it is loaded only when a finished book is opened.
@@ -80,10 +80,18 @@ function BookView({ book }: { book: BookDetail }) {
         <Stepper steps={BOOK_STEPS} current={showOrder ? 1 : 2} />
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl break-words sm:text-4xl">{book.name}</h1>
-          <p className="text-sm text-ink-muted">
-            <span className="numeric">{book.papers.length}</span> bildiri · {formatDateTime(book.createdAt)} ·{' '}
-            {statusLabel(book.status)}
-          </p>
+          <div className="relative text-sm text-ink-muted">
+            <span className="numeric">{book.papers.length}</span> bildiri
+            {book.status === 'Completed' && book.pageCount != null && (
+              <>
+                {' · '}
+                <span className="numeric">{formatInteger(book.pageCount)}</span> sayfa
+              </>
+            )}
+            {' · '}
+            {formatDateTime(book.createdAt)} · {statusLabel(book.status)}
+            {book.status === 'Completed' && <CleanupInfo book={book} />}
+          </div>
         </div>
       </div>
       {generate.isError && (
@@ -107,7 +115,6 @@ function BookView({ book }: { book: BookDetail }) {
       ) : (
         // Room at the bottom on phones for the viewer's fixed toolbar.
         <div className="flex flex-col gap-4 pb-20 lg:pb-0">
-          <CompletedSummary book={book} />
           <Suspense
             fallback={
               <div aria-busy="true" className="rounded-(--radius) border border-line bg-surface p-6">
@@ -137,11 +144,11 @@ function OrderStep({ book, starting, onStart }: OrderStepProps) {
   const [locked, setLocked] = useState(false);
   const reordered = book.papers.some((paper) => paper.order !== paper.uploadOrder);
 
-  function saveOrder(paperIds: string[]) {
+  function saveOrder(paperIds: string[], { paper, position }: PaperMove) {
     setOrderError(undefined);
     reorder.mutate(paperIds, {
       onSuccess: () => {
-        announce('Sıra kaydedildi.');
+        announce(`${paper.fileName}, ${String(position)}. sıraya taşındı.`);
       },
       onError: (error) => {
         if (error instanceof ApiError && error.code === 'PAPER_ORDER_LOCKED') {
@@ -170,8 +177,8 @@ function OrderStep({ book, starting, onStart }: OrderStepProps) {
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl">Sıra ve kontrol</h2>
           <p className="text-sm text-ink-muted">
-            Başlıklar bildirilerden otomatik tespit edildi. Sırayı sürükleyerek veya Yukarı / Aşağı
-            düğmeleriyle değiştirebilirsiniz; her değişiklik hemen kaydedilir.
+            Başlıklar bildirilerden otomatik tespit edildi. Sırayı Yukarı / Aşağı düğmeleriyle
+            değiştirebilirsiniz; her değişiklik hemen kaydedilir.
           </p>
         </div>
         {reordered && (
@@ -182,10 +189,7 @@ function OrderStep({ book, starting, onStart }: OrderStepProps) {
         <PaperOrderList papers={book.papers} locked={locked || starting} onReorder={saveOrder} />
       </Card>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-ink-muted">
-          Kitap oluşturulunca kapak, İçindekiler ve sayfa numaraları eklenir; iletişim bilgileri temizlenir.
-        </p>
+      <div className="flex justify-end">
         <Button variant="primary" loading={starting} disabled={locked || reorder.isPending} onClick={onStart}>
           Kitabı Oluştur
         </Button>

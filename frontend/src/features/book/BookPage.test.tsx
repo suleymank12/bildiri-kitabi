@@ -68,6 +68,38 @@ describe('BookPage — order step', () => {
       expect(body).toEqual({ paperIds: [b.id, a.id, c.id] });
     });
     expect(await screen.findByText('Sıra, yükleme sırasından farklı.')).toBeInTheDocument();
+    // The focus stays on the button that was pressed and the new position is read out.
+    expect(screen.getByRole('button', { name: '01_Bildiri.docx dosyasını aşağı taşı' })).toHaveFocus();
+    expect(await screen.findByText('01_Bildiri.docx, 2. sıraya taşındı.')).toBeInTheDocument();
+  });
+
+  it('has no drag handle; the first row cannot move up and the last cannot move down', async () => {
+    renderBook();
+
+    await screen.findByRole('list', { name: 'Bildiri sırası' });
+    expect(screen.queryByRole('button', { name: /sürükle/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '01_Bildiri.docx dosyasını yukarı taşı' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '03_Bildiri.docx dosyasını aşağı taşı' })).toBeDisabled();
+  });
+
+  it('moves the focus to the other button when a paper reaches the end of the list', async () => {
+    server.use(
+      http.put('/api/books/:id/paper-order', () =>
+        HttpResponse.json({
+          ...book,
+          papers: [
+            { ...a, order: 1 },
+            { ...c, order: 2 },
+            { ...b, order: 3 },
+          ],
+        }),
+      ),
+    );
+    const { user } = renderBook();
+
+    await user.click(await screen.findByRole('button', { name: '02_Bildiri.docx dosyasını aşağı taşı' }));
+
+    expect(screen.getByRole('button', { name: '02_Bildiri.docx dosyasını yukarı taşı' })).toHaveFocus();
   });
 
   it('rolls the order back and explains when saving fails', async () => {
@@ -155,8 +187,8 @@ describe('BookPage — generation', () => {
     expect(stages[0]).toHaveTextContent('Sırada bekliyor (sürüyor)');
   });
 
-  it('turns into a one-line summary when the book is ready', async () => {
-    renderBook({
+  it('shows pages and status in one line, with the removed contact details behind an info button', async () => {
+    const { user } = renderBook({
       ...book,
       status: 'Completed',
       progressPercent: 100,
@@ -172,10 +204,21 @@ describe('BookPage — generation', () => {
       })),
     });
 
-    const summary = await screen.findByText('Kitap hazır');
-    expect(summary.closest('p')).toHaveTextContent(
-      'Kitap hazır · 22 sayfa · 3 e-posta adresi ve 3 telefon numarası kitaba aktarılmadı',
-    );
+    const info = await screen.findByRole('button', { name: 'Temizlenen iletişim bilgileri' });
+    expect(info.parentElement).toHaveTextContent(/^3 bildiri · 22 sayfa · .+ · Hazır/);
+    expect(screen.queryByText('Kitap hazır')).not.toBeInTheDocument();
+
+    // The removed contact details are one click away, not on the page.
+    expect(info).toHaveAttribute('aria-expanded', 'false');
+    await user.click(info);
+    expect(info).toHaveAttribute('aria-expanded', 'true');
+    const breakdown = screen.getByRole('table', { name: 'Bildiri bazında temizlenen iletişim bilgileri' });
+    expect(within(breakdown).getAllByRole('row')).toHaveLength(4);
+    expect(breakdown).toBeVisible();
+    expect(breakdown.parentElement).toHaveTextContent('3 e-posta adresi ve 3 telefon numarası temizlendi');
+    await user.keyboard('{Escape}');
+    expect(info).toHaveAttribute('aria-expanded', 'false');
+    expect(info).toHaveFocus();
     expect(screen.queryByRole('list', { name: 'Aşamalar' })).not.toBeInTheDocument();
     expect(await screen.findByRole('region', { name: 'PDF görüntüleyici' })).toHaveTextContent(
       `/api/books/${book.id}/pdf`,
