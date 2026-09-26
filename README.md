@@ -40,8 +40,8 @@ Bildiri Kitabı, aynı etkinliğe ait on Word (.docx) bildirisini tek bir PDF e-
 | Dosya saklama yaklaşımı çalışıyor ve açıklanıyor | `wwwroot` dışında, sistem üretimli anahtarlarla ve atomik yazımla yerel dosya deposu; ayrıntı [Dosya saklama yaklaşımı](#dosya-saklama) bölümünde. | `LocalFileStorageTests`, `SchemaAndUploadTests.Invalid_uploads_are_rejected_with_their_codes_and_leave_no_trace` |
 | Bekleme, başarılı sonuç ve hata durumları arayüzde görülüyor | Üretim ekranı gerçek aşamaları ve yüzdeyi gösterir; tamamlanınca görüntüleyici açılır; hata ekranı anlaşılır mesaj, tekrar dene ve sırayı düzenle seçenekleri sunar. | E2E `bekleme ekranı erişilebilir`, E2E `üretim hatası: hata ekranı, tekrar dene ve sırayı düzenle`, `BookPage.test.tsx` |
 | Oluşturma başarısız olursa kitabın durumu `Failed` oluyor | Her hata `Durum = 'Failed'`, `HataKodu` ve Türkçe `HataMesaji` ile kaydedilir; veritabanı kısıtı mesajsız `Failed` kaydına izin vermez. | `LifecycleTests.A_renderer_failure_marks_the_book_failed_and_a_retry_completes_it`, `LifecycleTests.A_generation_that_exceeds_the_time_limit_fails_with_a_timeout_code`, `RendererAndLeakScannerTests.Generation_fails_with_contact_leak_code_when_the_rendered_pdf_still_contains_contact_values` |
-| Tam olarak 10 adet .docx yükleniyor; dosya adı ve sıra görülüyor | Hem arayüzde hem sunucuda sayı, tür, boyut ve mükerrer kontrolü; ikinci adımda dosya adı, tespit edilen başlık ve sıra listelenir. | `BookUploadValidatorTests.Nine_files_are_rejected`, `SchemaAndUploadTests.Ten_sample_papers_create_a_book_with_ordered_papers_and_detected_titles`, E2E `istemci doğrulaması: eksik dosya, yanlış tür ve mükerrer dosya` |
-| PDF web arayüzünde görüntüleniyor ve indiriliyor | react-pdf (pdf.js) tabanlı görüntüleyici; İçindekiler paneli, sayfa gezinme, yakınlaştırma, tek/çift sayfa ve indirme. | E2E `mutlu yol`, `PdfViewer.test.tsx` |
+| Tam olarak 10 adet .docx yükleniyor; dosya adı ve sıra görülüyor | Hem arayüzde hem sunucuda sayı, tür, boyut ve mükerrer kontrolü; ikinci adımda dosya adı, tespit edilen başlık ve sıra listelenir, sıra her satırdaki Yukarı / Aşağı düğmeleriyle değiştirilir. | `BookUploadValidatorTests.Nine_files_are_rejected`, `SchemaAndUploadTests.Ten_sample_papers_create_a_book_with_ordered_papers_and_detected_titles`, E2E `istemci doğrulaması: eksik dosya, yanlış tür ve mükerrer dosya` |
+| PDF web arayüzünde görüntüleniyor ve indiriliyor | react-pdf (pdf.js) tabanlı görüntüleyici; İçindekiler paneli, sayfa gezinme, yakınlaştırma, tek/çift sayfa ve indirme. | E2E `mutlu yol`, E2E `görüntüleyici: varsayılan açılış, ortalanmış kapak, yakınlaştırma ve çift dokunma`, `PdfViewer.test.tsx` |
 
 <a id="hizli-baslangic"></a>
 
@@ -218,7 +218,7 @@ API ve arka plan işleyici aynı süreçte çalışır; kuyruk bir arayüzün ar
 2. **Doğrulama** — Kitap adı, dosya sayısı, uzantı, ZIP imzası, Word ana parça türü, boyut sınırları, ZIP bombası ve mükerrer içerik (SHA-256) denetlenir. Tüm sorunlar dosya bazında, Türkçe mesajlarla tek seferde döner; hata varsa hiçbir kayıt veya dosya kalmaz.
 3. **Başlık tespiti** — Her bildiri ayrıştırılır ve başlığı bulunur (sıra aşağıda); başlık ve kaynağı yanıtta döner.
 4. **Kayıt** — Kitap ve bildiriler tek transaction'da kaydedilir, dosyalar kalıcı konumlarına taşınır. Kitabın durumu `Uploaded` olur.
-5. **Sıra** — Varsayılan sıra yükleme sırasıdır. İkinci adımda sürükle-bırak veya yukarı/aşağı düğmeleriyle değiştirilebilir; sıra yükleme sırasından farklıysa arayüz bunu belirtir.
+5. **Sıra** — Varsayılan sıra yükleme sırasıdır. İkinci adımda her satırdaki Yukarı / Aşağı düğmeleriyle değiştirilebilir ve her değişiklik hemen kaydedilir; sıra yükleme sırasından farklıysa arayüz bunu belirtir.
 6. **Kuyruk** — "Kitabı Oluştur" isteği kitabı `Queued` yapar ve kuyruğa yalnızca kitap kimliğini koyar; API hemen `202 Accepted` döner.
 7. **Okuma** — İşleyici kitabı `Processing` olarak sahiplenir, bildirileri sırayla okuyup belge modeline çevirir.
 8. **Temizlik** — Her paragraftan e-posta ve telefon değerleri ile bunlara bağlı etiketler ve ayırıcılar silinir; bildiri başına silinen sayılar kaydedilir.
@@ -326,7 +326,8 @@ Sırasıyla: (1) çözümlenen stil adı `Title` veya `heading 1` olan ilk boş 
 - İçindekiler 2. sayfadan başlar, gerekirse birden çok sayfaya taşar. Her satırda solda sıra numarası, ortada başlık, sağda başlığın son satırıyla hizalı başlangıç sayfası bulunur; girdiler arasında ince açık gri bir çizgi vardır. Satır tıklanabilir bir iç bağlantıdır.
 - Her bildiri yeni sayfada başlar ve QuestPDF'te adlandırılmış bir bölüm (section) olarak dizilir. İçindekiler'deki numara, dizgi motorunun o bölümün ilk sayfası için verdiği numaradır (`BeginPageNumberOfSection`); elle hesap veya tahmin yoktur, bu yüzden İçindekiler'in kendisi uzasa bile numaralar doğru kalır.
 - Basılı sayfa numarası fiziksel sayfa sırasıdır (kapak 1 sayılır). Böylece İçindekiler'deki numara PDF görüntüleyicinin sayfa kutusundaki numarayla aynıdır; "sayfa 11" yazan başlık görüntüleyicide 11. sayfadadır. Roma rakamlı ön sayfalar bu eşleşmeyi bozacağı için seçilmedi.
-- İçerik sayfalarında üst bilgide solda kitap adı, sağda bildiri başlığı (taşarsa üç nokta), alt bilgide ortada sayfa numarası vardır.
+- İçerik sayfalarının üst bilgisi basılı kitaplardaki gibidir: çift numaralı (sol) sayfalarda sola hizalı kitap adı, tek numaralı (sağ) sayfalarda sağa hizalı bildiri başlığı. Metin hiçbir zaman kesilmez ve üç nokta kullanılmaz: tek satıra sığana kadar 9 → 8,5 → 8 → 7,5 → 7 pt küçültülür, 7 pt'de de sığmazsa iki satıra kırılır. Genişlik QuestPDF'in kendi ölçümüyle (gömülü yazı tiplerinin gerçek glif genişlikleri, yedek yazı tipleri dahil) bulunur. Alt bilgide ortada sayfa numarası vardır.
+- İçindekiler'de sayfa numarası, başlığın son satırının taban çizgisiyle aynı hizadadır (testte en fazla 0,5 pt fark).
 - PDF üst verisi (başlık, oluşturan) uygulama tarafından yazılır; kaynak belgelerin üst verisi (başlık, yazar, son değiştiren) PDF'e taşınmaz.
 
 ### Yazı tipleri ve desteklenmeyen karakterler
@@ -414,12 +415,15 @@ MassTransit yerine doğrudan `RabbitMQ.Client` kullanıldı: tek kuyruk ve tek m
 ## Arayüz ve tasarım kararları
 
 - **Adım yapısı:** "Yeni kitap" üç adımlı bir akıştır — (1) kitap adı ve dosyalar, (2) sıra ve kontrol, (3) oluşturma ve görüntüleme. Adımlar üstte bir adım göstergesiyle izlenir; tarayıcı adresi kitaba bağlıdır, sayfa yenilense de akış kaldığı yerden devam eder.
-- **Dosya listesi:** masaüstünde sütunlu bir tablo (sıra, dosya adı, boyut, durum), telefonda aynı bilgileri taşıyan kartlar. Dosyalar sürükle-bırak veya dosya seçiciyle eklenir; eksik, fazla, yanlış türde veya mükerrer dosya hemen, dosya bazında belirtilir.
-- **Sıralama:** ikinci adımda tespit edilen başlıklar ve başlık kaynağı görünür. Sıra sürükle-bırakla (fare, dokunma ve klavye) veya her satırdaki yukarı/aşağı düğmeleriyle değiştirilir; sıra yükleme sırasından farklıysa bir not gösterilir.
+- **Dosya listesi:** masaüstünde başlık ve satırların aynı sütun düzenini paylaştığı bir tablo (sıra, dosya adı, boyut, durum), telefonda aynı bilgileri taşıyan kartlar. Dosyalar yükleme alanına sürükleyip bırakarak veya dosya seçiciyle eklenir; eksik, fazla, yanlış türde veya mükerrer dosya hemen, dosya bazında belirtilir. "Ada göre sırala" doğal sayı sıralaması kullanır (`2_…` önce, `10_…` sonra); liste zaten sıralıysa pasiftir ve bunu yazar, sıralayınca kısa bir onay gösterir.
+- **Yükleme:** önce yükleme yüzdesi, dosyalar gönderildikten sonra "Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…" aşaması gösterilir. Her sayfa geçişinde sayfa en üstten başlar ve odak yeni sayfanın başlığına taşınır (geri/ileri tuşlarında tarayıcının konumu korunur).
+- **Sıralama:** ikinci adımda tespit edilen başlıklar ve başlık kaynağı görünür. Sıra yalnızca her satırdaki Yukarı / Aşağı düğmeleriyle değişir (sürükle-bırak sıralama kaldırıldı); ilk satırda Yukarı, son satırda Aşağı pasiftir. Taşımadan sonra odak aynı bildirinin düğmesinde kalır ve yeni sıra ekran okuyucuya duyurulur; sıra yükleme sırasından farklıysa bir not gösterilir.
 - **Bekleme ekranı:** sunucudaki gerçek aşamalar (okuma, temizlik, düzenleme, PDF oluşturma, kontrol, kaydetme) ve gerçek yüzde gösterilir; yapay gecikme veya sahte ilerleme yoktur. Durum kısa aralıklarla yoklanır, sekme arka plandayken yoklama durur.
-- **Sonuç ve hata:** tamamlanınca özet (sayfa sayısı, silinen e-posta ve telefon sayıları) ve görüntüleyici açılır; görüntüleyicinin İçindekiler panelinde her bildirinin başlangıç sayfası yer alır. Hata durumunda sunucunun Türkçe mesajı, "Tekrar dene" ve "Sırayı düzenle" seçenekleri gösterilir.
-- **Görüntüleyici:** masaüstünde pencere yüksekliğini kullanır; sol panelde İçindekiler, araç çubuğunda sayfa gezinme, yakınlaştırma, sayfaya/genişliğe sığdırma, tek sayfa ve kitap gibi çift sayfa görünümü (kapak tek başına, sonra karşılıklı sayfalar), tam ekran ve indirme bulunur. Geçerli sayfa adres çubuğunda (`?sayfa=`) tutulur. Yüksek çözünürlüklü ekranlarda sayfalar net çizilir.
-- **Mobil:** görüntüleyici tek sayfa ve genişliğe sığdırılmış çalışır; gezinme, İçindekiler ve indirme ekranın altındaki sabit araç çubuğundadır, İçindekiler alttan açılan bir panelde gösterilir.
+- **Sonuç ve hata:** tamamlanınca başlığın altındaki tek satır durumu özetler (`10 bildiri · 22 sayfa · tarih · Hazır`) ve görüntüleyici açılır. Temizlenen e-posta ve telefon sayıları, satırın sonundaki bilgi düğmesinin açtığı küçük panelde toplam ve bildiri bazında gösterilir. Hata durumunda sunucunun Türkçe mesajı, "Tekrar dene" ve "Sırayı düzenle" seçenekleri gösterilir.
+- **Kitaplarım:** her satırda doğrudan bir "Sil" düğmesi (telefonda yalnızca simge) ve onay diyaloğu vardır; kitap kuyrukta veya hazırlanırken düğme pasiftir ve nedeni ipucunda yazar.
+- **Etkileşim:** tıklanabilir her öğede el imleci, pasif öğelerde "izin yok" imleci; tüm düğmelerde belirgin hover ve basılı durumları (130 ms, azaltılmış harekette geçiş yok); "Kaldır" ve "Sil" gibi yıkıcı eylemler normalde nötr, üzerine gelindiğinde veya klavye odağında kırmızıdır. Kaydırma çubukları ince ve uygulamanın renklerindedir.
+- **Görüntüleyici:** hazır kitapta ekranın tam genişliğini (en fazla yaklaşık 1800 px) ve pencere yüksekliğini kullanır. Varsayılan açılış çift sayfa ve genişliğe sığdırmadır; 1920 × 1080 bir ekranda gövde metni yaklaşık 13 px'tir. Sığdırma modlarında yatay kaydırma olmaz; "Sayfaya sığdır" sayfaları tamamen gösterir. Kapak ve tek kalan son sayfa ortada durur, karşılıklı sayfalar ortada birleşir. Yakınlaştırma yüzdesi gerçek boyuta göredir (%100 = A4'ün 96 dpi'deki boyutu); yakınlaştırınca görünen bölgenin ortası yerinde kalır, sayfa değişmez. Sol panelde (daraltılabilir, 330 px) İçindekiler ve vurgulu olarak bulunulan bildiri; araç çubuğunda sayfa gezinme, yakınlaştırma, tek/çift sayfa, tam ekran ve indirme bulunur. Geçerli sayfa adres çubuğunda (`?sayfa=`) tutulur. Sayfalar ekran yoğunluğuna ve yakınlaştırmaya göre (üst sınırlı) net çizilir.
+- **Mobil:** görüntüleyici tek sayfa ve genişliğe sığdırılmış açılır. A4 sayfa telefonda küçük kaldığı için alttaki sabit araç çubuğunda yakınlaştır / uzaklaştır düğmeleri vardır; çift dokunma, dokunulan noktayı ortada tutarak genişliğe sığdır ile %200 arasında geçiş yapar. Yakınlaştırılmış sayfa iki eksende kaydırılır; tarayıcının kendi sıkıştırarak yakınlaştırması da açıktır. İçindekiler alttan açılan bir panelde gösterilir.
 - **Erişilebilirlik:** tüm akış klavyeyle kullanılabilir; aşama değişiklikleri ve sıra değişiklikleri ekran okuyuculara duyurulur; renk çiftlerinin kontrast oranları birim testle (metin 4.5:1, arayüz öğeleri 3:1) doğrulanır; dokunma hedefleri en az 44 px'tir; her ekran E2E testlerinde axe ile taranır.
 
 | Ekran | Masaüstü | Mobil |
@@ -429,6 +433,7 @@ MassTransit yerine doğrudan `RabbitMQ.Client` kullanıldı: tek kuyruk ve tek m
 | Üretim | ![Masaüstü, üretim](docs/screenshots/masaustu-uretim.png) | |
 | Hata | ![Masaüstü, hata](docs/screenshots/masaustu-hata.png) | |
 | Görüntüleyici | ![Masaüstü, görüntüleyici](docs/screenshots/masaustu-goruntuleyici.png) | ![Mobil, görüntüleyici](docs/screenshots/mobil-goruntuleyici.png) |
+| Görüntüleyici: 1920 px varsayılan açılış / mobilde %200 | ![Masaüstü 1920 px, görüntüleyici](docs/screenshots/masaustu-goruntuleyici-1920.png) | ![Mobil, %200 yakınlaştırılmış görüntüleyici](docs/screenshots/mobil-goruntuleyici-yakin.png) |
 
 <a id="api"></a>
 
@@ -457,10 +462,10 @@ Development ortamında OpenAPI belgesi `/openapi/v1.json`, etkileşimli referans
 
 | Komut | Kapsam | Sayı |
 |---|---|---|
-| `cd backend && dotnet test` | Birim testleri (`BildiriKitabi.UnitTests`): okuma, stil çözümleme, temizlik, başlık, doğrulama, durum geçişleri, depolama, kuyruk yapılandırması. Entegrasyon testleri (`BildiriKitabi.IntegrationTests`): örnek bildirilerle uçtan uca PDF, dizgi ve sızıntı tarayıcısı, yazı tipi yedekleri, migration ve kısıtlar, API uçları ve yaşam döngüsü, RabbitMQ topolojisi, onay, DLQ, yeniden teslim ve broker kesintisi. | 365 |
-| `cd frontend && npm run test` | Bileşen ve birim testleri (Vitest, Testing Library, MSW): sayfalar, dosya seçimi, hata eşleme, görüntüleyici, sayfa hesapları, kontrast. | 232 |
-| `cd frontend && npm run test:e2e` | Playwright, masaüstü ve mobil: gerçek API (kendi veritabanıyla, Release derlemesi) ve Vite geliştirme sunucusu otomatik başlatılır; mutlu yol, doğrulama, hata ve bekleme ekranları, liste ve silme, düzen, axe ile erişilebilirlik taraması. | 14 |
-| `cd frontend && npm run test:e2e:docker` | Aynı E2E testleri çalışan Docker kurulumuna karşı (varsayılan http://localhost:8080, `E2E_BASE_URL` ile değiştirilebilir); ayrıca nginx'in CSP'si altında CSP ihlali olmadığını doğrular. | 14 |
+| `cd backend && dotnet test` | Birim testleri (`BildiriKitabi.UnitTests`): okuma, stil çözümleme, temizlik, başlık, doğrulama, durum geçişleri, depolama, kuyruk yapılandırması. Entegrasyon testleri (`BildiriKitabi.IntegrationTests`): örnek bildirilerle uçtan uca PDF, dizgi ve sızıntı tarayıcısı, yazı tipi yedekleri, migration ve kısıtlar, API uçları ve yaşam döngüsü, RabbitMQ topolojisi, onay, DLQ, yeniden teslim ve broker kesintisi. | 368 |
+| `cd frontend && npm run test` | Bileşen ve birim testleri (Vitest, Testing Library, MSW): sayfalar, dosya seçimi, hata eşleme, görüntüleyici, sayfa hesapları, kontrast. | 241 |
+| `cd frontend && npm run test:e2e` | Playwright, masaüstü ve mobil: gerçek API (kendi veritabanıyla, Release derlemesi) ve Vite geliştirme sunucusu otomatik başlatılır; mutlu yol, doğrulama, hata ve bekleme ekranları, liste ve silme, görüntüleyici (1920 px varsayılan açılış, yakınlaştırma, mobilde çift dokunma), düzen, axe ile erişilebilirlik taraması. | 16 |
+| `cd frontend && npm run test:e2e:docker` | Aynı E2E testleri çalışan Docker kurulumuna karşı (varsayılan http://localhost:8080, `E2E_BASE_URL` ile değiştirilebilir); ayrıca nginx'in CSP'si altında CSP ihlali olmadığını doğrular. | 16 |
 
 Diğer kontroller: `npm run lint`, `npm run typecheck`, `npm run build`. İlk E2E çalıştırmasından önce tarayıcı bir kez kurulmalıdır: `npx playwright install chromium`.
 
@@ -496,7 +501,6 @@ Docker gerektirenler:
 | Tailwind CSS v4 | Stil | MIT |
 | TanStack Query, openapi-fetch, openapi-typescript | Sunucu durumu, OpenAPI şemasından tipli istemci | MIT |
 | react-pdf, pdfjs-dist | PDF görüntüleyici | MIT, Apache-2.0 |
-| dnd-kit | Sürükle-bırak sıralama | MIT |
 | Phosphor Icons | Simgeler | MIT |
 | Vitest, Testing Library, MSW, jsdom | Birim ve bileşen testleri | MIT |
 | Playwright, axe-core | E2E ve erişilebilirlik taraması | Apache-2.0, MPL-2.0 |
