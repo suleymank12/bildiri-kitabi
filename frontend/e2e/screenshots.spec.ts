@@ -101,6 +101,13 @@ test.describe('masaüstü', () => {
     await expect(page.locator('[data-page-slot="2"] canvas')).toBeVisible();
     await shoot(page, 'masaustu-goruntuleyici.png');
 
+    // A large screen, as the viewer opens by default: facing pages fitted to the width, the cover centred.
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto(`/kitaplar/${completedId}`);
+    await expect(page.locator('[data-page-slot="1"] canvas')).toBeVisible();
+    await shoot(page, 'masaustu-goruntuleyici-1920.png', false);
+    await page.setViewportSize({ width: 1280, height: 800 });
+
     await pinBook(page, completedId, {
       status: 'Failed',
       stage: 'Rendering',
@@ -142,5 +149,17 @@ test.describe('mobil', () => {
     await page.goto(`/kitaplar/${completedId}?sayfa=3`);
     await expect(page.locator('[data-page-slot="3"] .textLayer')).toContainText('KENTSEL TARIMDA');
     await shoot(page, 'mobil-goruntuleyici.png', false);
+
+    // 200 %: a double tap on the page.
+    const slot = page.locator('[data-page-slot="3"]');
+    const box = await slot.boundingBox();
+    expect(box).not.toBeNull();
+    const x = (box?.x ?? 0) + (box?.width ?? 0) * 0.35;
+    const y = (box?.y ?? 0) + (box?.height ?? 0) * 0.3;
+    await page.touchscreen.tap(x, y);
+    await page.touchscreen.tap(x, y);
+    await expect.poll(async () => (await slot.boundingBox())?.width ?? 0).toBeGreaterThan(1500);
+    await expect(slot.locator('canvas')).toBeVisible();
+    await shoot(page, 'mobil-goruntuleyici-yakin.png', false);
   });
 });

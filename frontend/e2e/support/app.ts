@@ -14,22 +14,6 @@ export const paperFiles: string[] = readdirSync(papersDirectory)
 
 export const isPhone = (page: Page): boolean => (page.viewportSize()?.width ?? 1280) < 1024;
 
-/** Step 1 through the UI: name, ten files, upload; ends on the book page. */
-export async function uploadThroughUi(
-  page: Page,
-  name: string,
-  files: string[] = paperFiles,
-): Promise<string> {
-  await page.goto('/');
-  await page.getByLabel('Kitap adı').fill(name);
-  await page.getByLabel('Bildiri dosyaları').setInputFiles(files);
-  const submit = page.getByRole('button', { name: 'Yükle ve devam et' });
-  await expect(submit).toBeEnabled();
-  await submit.click();
-  await page.waitForURL(/\/kitaplar\/[0-9a-f-]{36}$/);
-  return page.url().split('/').at(-1) ?? '';
-}
-
 /** Creates a book straight through the API (for tests that start later in the flow). */
 export async function createThroughApi(request: APIRequestContext, name: string): Promise<string> {
   const form = new FormData();

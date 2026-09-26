@@ -5,9 +5,9 @@ import {
   currentPage,
   expectAccessible,
   generateThroughApi,
+  isPhone,
   openFromContents,
   paperFiles,
-  uploadThroughUi,
 } from './support/app';
 
 // Books created here stay in the database of a long-running setup (npm run test:e2e:docker); a per-run token
@@ -25,7 +25,28 @@ test('mutlu yol: yükleme, sıralama, oluşturma, görüntüleyicide gezinme ve 
   await page.goto('/');
   await expectAccessible(page, 'Adım 1');
 
-  await uploadThroughUi(page, 'Örnek Bilim Kongresi 2026');
+  // Step 1. The server's answer is held back a little, so the second stage of the upload (the server checking
+  // the files) is on screen long enough to be seen.
+  await page.route('**/api/books', async (route) => {
+    if (route.request().method() === 'POST') {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+
+    await route.continue();
+  });
+  await page.getByLabel('Kitap adı').fill('Örnek Bilim Kongresi 2026');
+  await page.getByLabel('Bildiri dosyaları').setInputFiles(paperFiles);
+  const submit = page.getByRole('button', { name: 'Yükle ve devam et' });
+  await expect(submit).toBeEnabled();
+  await submit.scrollIntoViewIfNeeded();
+  await submit.click();
+  await expect(page.getByText('Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…')).toBeVisible();
+  await page.waitForURL(/\/kitaplar\/[0-9a-f-]{36}$/);
+  await page.unroute('**/api/books');
+
+  // The new page starts at the top with the focus on its heading.
+  await expect(page.getByRole('heading', { level: 1, name: 'Örnek Bilim Kongresi 2026' })).toBeFocused();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
 
   // Step 2: detected titles, then move the first paper one place down.
   await expect(page.getByRole('heading', { name: 'Sıra ve kontrol' })).toBeVisible();
@@ -43,7 +64,9 @@ test('mutlu yol: yükleme, sıralama, oluşturma, görüntüleyicide gezinme ve 
   // Generation: the stage list appears, then the viewer.
   await page.getByRole('button', { name: 'Kitabı Oluştur' }).click();
   await expect(page.getByRole('list', { name: 'Aşamalar' })).toBeVisible();
-  await expect(page.getByText('Kitap hazır', { exact: true })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('button', { name: 'Temizlenen iletişim bilgileri' })).toBeVisible({
+    timeout: 60_000,
+  });
   await expect(page.locator('.react-pdf__Page canvas').first()).toBeVisible();
   await expectAccessible(page, 'Görüntüleyici');
 
@@ -164,13 +187,100 @@ test('Kitaplarım: kitap listede görünür ve onayla silinir', async ({ page, r
   await expect(row.getByText('Hazır')).toBeVisible();
   await expectAccessible(page, 'Kitaplarım');
 
-  await row.getByRole('button', { name: `${name} için işlemler` }).click();
-  await page.getByRole('menuitem', { name: 'Sil' }).click();
+  await row.getByRole('button', { name: `${name} kitabını sil` }).click();
   const dialog = page.getByRole('dialog', { name: 'Kitabı sil' });
   await expect(dialog).toContainText(name);
   await dialog.getByRole('button', { name: 'Sil' }).click();
 
   await expect(page.getByRole('link', { name })).toHaveCount(0);
+});
+
+test('görüntüleyici: varsayılan açılış, ortalanmış kapak, yakınlaştırma ve çift dokunma', async ({
+  page,
+  request,
+}, testInfo) => {
+  const id = await createThroughApi(request, `Görüntüleyici Denemesi ${testInfo.project.name} ${run}`);
+  await generateThroughApi(request, id);
+  const phone = isPhone(page);
+  if (!phone) {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+  }
+
+  await page.goto(`/kitaplar/${id}`);
+  const area = page.getByTestId('page-area');
+  const horizontalOverflow = () => area.evaluate((element) => element.scrollWidth - element.clientWidth);
+  const cover = page.locator('[data-page-slot="1"]');
+  await expect(cover.locator('canvas')).toBeVisible();
+  expect(await horizontalOverflow()).toBeLessThanOrEqual(0);
+
+  if (!phone) {
+    // Default: facing pages fitted to the width; the cover stands alone in the middle.
+    await expect(page.getByRole('button', { name: 'Genişliğe sığdır' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(page.getByRole('button', { name: 'Çift sayfa' })).toHaveAttribute('aria-pressed', 'true');
+    const areaBox = await area.boundingBox();
+    const coverBox = await cover.boundingBox();
+    const middle = (box: { x: number; width: number } | null) => (box ? box.x + box.width / 2 : 0);
+    // The scroll bar gutter on the right makes the area's middle a few pixels off the visible middle.
+    expect(Math.abs(middle(coverBox) - middle(areaBox))).toBeLessThan(10);
+
+    // Pages 2 and 3: how large the body text is on a 1920 × 1080 screen.
+    await page.getByRole('button', { name: 'Sonraki sayfa' }).click();
+    await expect(page.locator('[data-page-slot="3"] .textLayer')).toContainText('ÖZET');
+    const body = page.locator('[data-page-slot="3"] .textLayer span');
+    const line = await body.evaluateAll((spans) => {
+      const heights = spans
+        .filter((span) => span.textContent.trim().length > 30)
+        .map((span) => span.getBoundingClientRect().height)
+        .sort((a, b) => a - b);
+      return heights[Math.floor(heights.length / 2)] ?? 0;
+    });
+    testInfo.annotations.push({ type: 'gövde metni (1920 × 1080)', description: `${line.toFixed(1)} px` });
+    expect(line).toBeGreaterThanOrEqual(12);
+
+    // Zooming in keeps the page and starts from the middle of the pages, not their left edge.
+    await page.getByRole('button', { name: 'Yakınlaştır' }).click();
+    await expect.poll(horizontalOverflow).toBeGreaterThan(0);
+    expect(await currentPage(page)).toBe(2);
+    const { left, overflow } = await area.evaluate((element) => ({
+      left: element.scrollLeft,
+      overflow: element.scrollWidth - element.clientWidth,
+    }));
+    expect(Math.abs(left - overflow / 2)).toBeLessThan(overflow * 0.1 + 2);
+
+    // "Sayfaya sığdır": both pages completely visible.
+    await page.getByRole('button', { name: 'Sayfaya sığdır' }).click();
+    await expect.poll(horizontalOverflow).toBeLessThanOrEqual(0);
+    const pageBox = await page.locator('[data-page-slot="3"]').boundingBox();
+    const shown = await area.boundingBox();
+    expect(pageBox && shown && pageBox.y + pageBox.height <= shown.y + shown.height + 1).toBe(true);
+  } else {
+    // Phones: a double tap zooms to 200 % around the tap, a second one fits the width again. Page 3 is body
+    // text (page 2, the table of contents, is all links).
+    await page.goto(`/kitaplar/${id}?sayfa=3`);
+    const slot = page.locator('[data-page-slot="3"]');
+    await expect(slot.locator('canvas')).toBeVisible();
+    const fitted = (await slot.boundingBox())?.width ?? 0;
+    const box = await slot.boundingBox();
+    const x = (box?.x ?? 0) + (box?.width ?? 0) * 0.3;
+    const y = (box?.y ?? 0) + Math.min(200, (box?.height ?? 0) / 2);
+    await page.touchscreen.tap(x, y);
+    await page.touchscreen.tap(x, y);
+    await expect.poll(async () => (await slot.boundingBox())?.width ?? 0).toBeGreaterThan(fitted * 1.8);
+    expect(await horizontalOverflow()).toBeGreaterThan(0);
+    expect(await currentPage(page)).toBe(3);
+
+    await page.getByRole('button', { name: 'Sonraki sayfa' }).click();
+    await expect.poll(() => currentPage(page)).toBe(4);
+
+    // The zoomed page fills the screen; tapping twice in its middle fits it to the width again.
+    await page.touchscreen.tap(195, 420);
+    await page.touchscreen.tap(195, 420);
+    await expect.poll(horizontalOverflow).toBeLessThanOrEqual(0);
+    await expect(page.getByRole('button', { name: 'Uzaklaştır' })).toBeDisabled();
+  }
 });
 
 test('düzen: yatay kaydırma yok ve dokunma hedefleri en az 44 px', async ({ page, request }, testInfo) => {
@@ -216,16 +326,16 @@ test('düzen: yatay kaydırma yok ve dokunma hedefleri en az 44 px', async ({ pa
           (element) =>
             `${element.tagName} "${(element.getAttribute('aria-label') ?? element.textContent).trim().slice(0, 30)}"`,
         );
-      const footer = document.querySelector('footer')?.getBoundingClientRect().bottom ?? 0;
+      const main = document.querySelector('main')?.getBoundingClientRect().bottom ?? 0;
       return {
         overflow: document.documentElement.scrollWidth - width,
-        belowFooter: document.documentElement.scrollHeight - (footer + window.scrollY),
+        belowMain: document.documentElement.scrollHeight - (main + window.scrollY),
         small,
       };
     });
 
     expect(layout.overflow, `${path}: yatay taşma`).toBeLessThanOrEqual(0);
-    expect(layout.belowFooter, `${path}: altbilginin altında boşluk`).toBeLessThanOrEqual(1);
+    expect(layout.belowMain, `${path}: içeriğin altında boşluk`).toBeLessThanOrEqual(1);
     expect(layout.small, `${path}: 44 px'ten küçük dokunma hedefleri`).toEqual([]);
   }
 });
