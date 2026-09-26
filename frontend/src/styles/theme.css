@@ -118,13 +118,16 @@
     color: var(--color-ink);
   }
 
+  /* No transitions at all with reduced motion. A tiny duration would not do: the initial transition-property is
+     "all", so every size change on the page would briefly lag behind its new value. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
+      transition-duration: 0s !important;
+      transition-delay: 0s !important;
       scroll-behavior: auto !important;
     }
   }
