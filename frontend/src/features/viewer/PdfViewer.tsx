@@ -745,7 +745,7 @@ function PageInput({
             setDraft(undefined);
           }
         }}
-        className="numeric h-11 w-14 rounded-(--radius) border border-ink-subtle bg-surface text-center text-ink"
+        className="field-control numeric h-11 w-14 text-center"
       />
       <span aria-hidden="true">
         / <span className="numeric">{numPages}</span>
@@ -833,7 +833,7 @@ function ZoomInput({ percent, onApply }: { percent: number; onApply: (percent: n
           }
         }}
         // A fixed width, so the toolbar does not shift as the value changes.
-        className="numeric h-11 w-[4.5rem] rounded-(--radius) border border-ink-subtle bg-surface text-center text-sm text-ink"
+        className="field-control numeric h-11 w-[4.5rem] text-center text-sm"
       />
       <span className="sr-only" aria-live="polite">
         Yakınlaştırma %{percent}

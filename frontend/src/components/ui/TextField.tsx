@@ -26,11 +26,7 @@ export function TextField({ label, hint, error, aside, className = '', ...rest }
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy || undefined}
-        className={
-          'min-h-11 w-full rounded-(--radius) border bg-surface px-3 text-base text-ink transition-colors duration-150 ' +
-          'placeholder:text-ink-muted ' +
-          (error ? 'border-danger' : 'border-ink-subtle hover:border-ink-muted')
-        }
+        className="field-control min-h-11 w-full px-3 text-base placeholder:text-ink-muted"
         {...rest}
       />
       {hint && (

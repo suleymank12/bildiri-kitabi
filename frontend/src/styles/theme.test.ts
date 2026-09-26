@@ -75,6 +75,7 @@ const uiPairs: [string, string][] = [
   ['ink-subtle', 'surface-muted'],
   ['accent', 'paper'],
   ['accent', 'surface'],
+  ['danger', 'surface'],
 ];
 
 describe('theme tokens', () => {
@@ -111,6 +112,19 @@ describe('theme tokens', () => {
 
   it.each(uiPairs)('%s on %s reaches 3:1 for UI components', (foreground, background) => {
     expect(contrast(color(foreground), color(background))).toBeGreaterThanOrEqual(3);
+  });
+
+  it('keeps the focused text field border clear of its halo', () => {
+    // .field-control: a 1px border in the accent (or danger) colour, and a 3px halo of the same colour at 20%.
+    const halo = (hex: string): string =>
+      '#' +
+      [1, 3, 5]
+        .map((i) => Math.round(Number.parseInt(hex.slice(i, i + 2), 16) * 0.2 + 255 * 0.8))
+        .map((c) => c.toString(16).padStart(2, '0'))
+        .join('');
+    expect(themeCss).toMatch(/color-mix\(in srgb, var\(--color-accent\) 20%, transparent\)/);
+    expect(contrast(color('accent'), halo(color('accent')))).toBeGreaterThanOrEqual(3);
+    expect(contrast(color('danger'), halo(color('danger')))).toBeGreaterThanOrEqual(3);
   });
 
   it('computes the reference contrast of black on white', () => {

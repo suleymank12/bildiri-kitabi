@@ -138,6 +138,39 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Text inputs: one thin border that turns accent on focus, with a soft, gapless halo instead of the global outline
+   (border and outline together looked heavy). The accent border is 7.95:1 on white (and 5.74:1 on its own halo);
+   the danger border 6.57:1. Buttons, links and the drop zone keep the global :focus-visible outline. The
+   reduced-motion rule above turns the transition off. */
+@utility field-control {
+  border: 1px solid var(--color-ink-subtle);
+  border-radius: var(--radius);
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  transition:
+    border-color 150ms ease-out,
+    box-shadow 150ms ease-out;
+
+  &:hover {
+    border-color: var(--color-ink-muted);
+  }
+
+  &[aria-invalid='true'] {
+    border-color: var(--color-danger);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
+  }
+
+  &[aria-invalid='true']:focus {
+    border-color: var(--color-danger);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 20%, transparent);
+  }
+}
+
 /* Tooltip: fades in and rises a little (the element leaves display: none, hence @starting-style); it closes at
    once. The reduced-motion rule above turns the transition off. */
 .tooltip-pop {
