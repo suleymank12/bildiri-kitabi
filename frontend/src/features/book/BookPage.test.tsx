@@ -31,7 +31,7 @@ const fileOrder = () =>
     .map((row) => within(row).getByText(/\.docx$/).textContent);
 
 describe('BookPage — order step', () => {
-  it('shows file names, detected titles and where each title came from', async () => {
+  it('shows file names, detected titles and a note only for a title found by a fallback method', async () => {
     renderBook({ ...book, papers: [a, b, paper(3, { titleSource: 'FileName', title: '03 Bildiri' })] });
 
     expect(
@@ -39,8 +39,8 @@ describe('BookPage — order step', () => {
     ).toBeInTheDocument();
     expect(fileOrder()).toEqual(['01_Bildiri.docx', '02_Bildiri.docx', '03_Bildiri.docx']);
     expect(screen.getByText('BİLDİRİ 01 BAŞLIĞI')).toBeInTheDocument();
-    expect(screen.getAllByText('Başlık stilinden')).toHaveLength(2);
-    expect(screen.getByText('Dosya adından')).toBeInTheDocument();
+    expect(screen.getAllByText(/Kontrol edin\./i)).toHaveLength(1);
+    expect(screen.getByText('Başlık bulunamadı, dosya adı kullanıldı. Kontrol edin.')).toBeInTheDocument();
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('Sıra ve kontrol');
   });
 

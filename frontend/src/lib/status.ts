@@ -39,10 +39,11 @@ export const GENERATION_STAGES: readonly GenerationStage[] = [
   'Saving',
 ];
 
-const titleSourceLabels: Record<TitleSource, string> = {
-  TitleStyle: 'Başlık stilinden',
-  FirstBoldParagraph: 'Kalın ilk paragraftan',
-  FileName: 'Dosya adından',
+// Only a title found by a fallback method needs a second look; one from the title style needs no note.
+const titleSourceWarnings: Record<TitleSource, string | undefined> = {
+  TitleStyle: undefined,
+  FirstBoldParagraph: 'Başlık ilk kalın paragraftan alındı, kontrol edin.',
+  FileName: 'Başlık bulunamadı, dosya adı kullanıldı. Kontrol edin.',
 };
 
 export function statusLabel(status: BookStatus): string {
@@ -57,13 +58,9 @@ export function stageLabel(stage: GenerationStage): string {
   return stageLabels[stage];
 }
 
-export function titleSourceLabel(source: TitleSource): string {
-  return titleSourceLabels[source];
-}
-
-/** A title taken from the file name is a guess; it is shown in the warning colour. */
-export function titleSourceTone(source: TitleSource): Tone {
-  return source === 'FileName' ? 'warning' : 'neutral';
+/** The note asking the user to check a title found by a fallback method; undefined for the title style. */
+export function titleSourceWarning(source: TitleSource): string | undefined {
+  return titleSourceWarnings[source];
 }
 
 /** True while the server owns the book: it is waiting in the queue or being generated. */

@@ -1,13 +1,5 @@
 import type { BookStatus, GenerationStage, TitleSource } from '../api/types';
-import {
-  isBusy,
-  isEditable,
-  stageLabel,
-  statusLabel,
-  statusTone,
-  titleSourceLabel,
-  titleSourceTone,
-} from './status';
+import { isBusy, isEditable, stageLabel, statusLabel, statusTone, titleSourceWarning } from './status';
 
 describe('status labels', () => {
   it.each<[BookStatus, string, string]>([
@@ -32,13 +24,12 @@ describe('status labels', () => {
     expect(stageLabel(stage)).toBe(label);
   });
 
-  it.each<[TitleSource, string, string]>([
-    ['TitleStyle', 'Başlık stilinden', 'neutral'],
-    ['FirstBoldParagraph', 'Kalın ilk paragraftan', 'neutral'],
-    ['FileName', 'Dosya adından', 'warning'],
-  ])('title source %s → %s', (source, label, tone) => {
-    expect(titleSourceLabel(source)).toBe(label);
-    expect(titleSourceTone(source)).toBe(tone);
+  it.each<[TitleSource, string | undefined]>([
+    ['TitleStyle', undefined],
+    ['FirstBoldParagraph', 'Başlık ilk kalın paragraftan alındı, kontrol edin.'],
+    ['FileName', 'Başlık bulunamadı, dosya adı kullanıldı. Kontrol edin.'],
+  ])('title source %s → %s', (source, warning) => {
+    expect(titleSourceWarning(source)).toBe(warning);
   });
 
   it('knows which states are busy and which can be edited', () => {
