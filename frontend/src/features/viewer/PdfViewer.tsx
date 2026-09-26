@@ -554,10 +554,10 @@ function ToolButton({
       disabled={disabled}
       onClick={onClick}
       className={
-        'inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-(--radius) px-2 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ' +
+        'inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-(--radius) px-2 text-sm font-medium transition-colors duration-[130ms] motion-reduce:transition-none disabled:opacity-40 ' +
         (pressed
           ? 'bg-accent-soft text-accent'
-          : 'text-ink-muted hover:enabled:bg-surface-muted hover:enabled:text-ink')
+          : 'text-ink-muted hover:enabled:bg-paper hover:enabled:text-ink active:enabled:bg-line')
       }
     >
       <span aria-hidden="true">{children}</span>

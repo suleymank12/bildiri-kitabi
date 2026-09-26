@@ -82,7 +82,7 @@ export function SelectedFileList({ files, serverErrors, onRemove, disabled = fal
               <span className="col-start-2 md:col-start-auto">{status.badge}</span>
               <div className="col-span-2 flex justify-end border-t border-line pt-2 md:col-span-1 md:border-0 md:pt-0">
                 <Button
-                  variant="ghost"
+                  variant="danger-quiet"
                   size="sm"
                   icon={<TrashIcon size={16} aria-hidden="true" />}
                   disabled={disabled}

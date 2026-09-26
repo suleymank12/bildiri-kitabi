@@ -15,12 +15,14 @@
   --color-line-strong: #cfc8b8;
   --color-accent: #0e5a5e;
   --color-accent-hover: #0b4a4d;
+  --color-accent-active: #083a3c;
   --color-accent-soft: #e3efee;
   --color-success: #2f6b3a;
   --color-success-soft: #e6f0e7;
   --color-warning: #8a5a00;
   --color-warning-soft: #f7eedb;
   --color-danger: #a33a2b;
+  --color-danger-hover: #862e22;
   --color-danger-soft: #f8e7e4;
 
   --radius: 6px;
@@ -59,6 +61,56 @@
   :focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
+  }
+
+  /* Tailwind's preflight leaves buttons with the arrow cursor; everything clickable gets the hand. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  a[href],
+  summary,
+  label[for],
+  select,
+  input[type='file'],
+  input[type='file']::file-selector-button {
+    cursor: pointer;
+  }
+
+  :disabled,
+  [aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+
+  /* Thin scroll bars everywhere (viewer and table of contents included). Chrome and Safari draw the WebKit
+     version, which has a hover colour; Firefox only knows the standard properties. */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-color: var(--color-line-strong);
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-ink-subtle);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  @supports (-moz-appearance: none) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-line-strong) transparent;
+    }
   }
 
   ::selection {
@@ -114,5 +166,26 @@
     animation: none !important;
     opacity: 1;
     transform: none;
+  }
+}
+
+/* Indeterminate progress: a short bar sweeps across; with reduced motion it stays still in the middle. */
+@keyframes progress-sweep {
+  from {
+    left: -33%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+.progress-indeterminate {
+  animation: progress-sweep 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-indeterminate {
+    left: 33%;
+    animation: none !important;
   }
 }
