@@ -50,7 +50,7 @@ export function Layout() {
       </a>
       <div className="group/app flex min-h-dvh flex-col">
         <header className="border-b border-line bg-paper">
-          <div className="mx-auto flex max-w-[1100px] group-has-[[data-wide-page]]/app:max-w-[1440px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <div className="mx-auto flex max-w-[1100px] group-has-[[data-wide-page]]/app:max-w-[1848px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
             <Link to="/" className="flex flex-col leading-tight">
               <span className="font-serif text-xl font-semibold whitespace-nowrap text-ink">
                 Bildiri Kitabı
@@ -66,7 +66,7 @@ export function Layout() {
         <main
           ref={main}
           id="icerik"
-          className="mx-auto w-full max-w-[1100px] group-has-[[data-wide-page]]/app:max-w-[1440px] flex-1 px-4 py-8 sm:px-6 sm:py-10"
+          className="mx-auto w-full max-w-[1100px] group-has-[[data-wide-page]]/app:max-w-[1848px] flex-1 px-4 py-8 sm:px-6 sm:py-10"
         >
           {/* Keyed by path: moving to another page clears a caught error. */}
           <ErrorBoundary key={location.pathname}>

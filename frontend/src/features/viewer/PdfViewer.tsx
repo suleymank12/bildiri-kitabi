@@ -14,7 +14,16 @@ import {
   PlusIcon,
   SidebarSimpleIcon,
 } from '@phosphor-icons/react';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Document, Page } from 'react-pdf';
 import { useSearchParams } from 'react-router';
 import { pdfUrl } from '../../api/hooks';
@@ -23,7 +32,7 @@ import { Alert, Button, Dialog, Skeleton, buttonClasses } from '../../components
 import { DESKTOP_QUERY, useMediaQuery } from '../../lib/useMediaQuery';
 import { PAGE_PARAM, parsePageParam } from './pageParam';
 import { A4, pdfOptions } from './pdfjs';
-import { buildSpreads, sideOfPage, spreadIndexOfPage, type ViewMode } from './spreads';
+import { buildSpreads, spreadIndexOfPage, type ViewMode } from './spreads';
 import { ViewerToc, paperOnPages } from './ViewerToc';
 
 type Zoom = { fit: 'page' } | { fit: 'width' } | { scale: number };
@@ -31,8 +40,24 @@ type Zoom = { fit: 'page' } | { fit: 'width' } | { scale: number };
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 3;
 const SCALE_STEP = 0.25;
+/** Double tap on a phone switches between "fit width" and this scale. */
+const DOUBLE_TAP_SCALE = 2;
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_DISTANCE = 30;
+/** 100 % is the page at its real size on a 96 dpi screen: one PDF point (1/72 in) is 96/72 CSS pixels. */
+const CSS_PX_PER_POINT = 96 / 72;
 const MAX_PIXEL_RATIO = 2;
+/** Upper bound for a page canvas' width in device pixels, so a zoomed page on a dense screen stays affordable. */
+const MAX_CANVAS_WIDTH = 4096;
 const AREA_PADDING = { desktop: 24, phone: 8 };
+
+/** A point of the page area kept in place across a zoom: fractions of the content size and its screen position. */
+interface ZoomAnchor {
+  fx: number;
+  fy: number;
+  clientX: number;
+  clientY: number;
+}
 
 /** Width and height of an element, kept up to date. */
 function useElementSize<T extends HTMLElement>() {
@@ -77,7 +102,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
   const [numPages, setNumPages] = useState(book.pageCount ?? 0);
   const [pageSize, setPageSize] = useState(A4);
   const [preferredMode, setPreferredMode] = useState<ViewMode>('double');
-  const [zoom, setZoom] = useState<Zoom>({ fit: 'page' });
+  const [zoom, setZoom] = useState<Zoom>({ fit: 'width' });
   const [tocOpen, setTocOpen] = useState(true);
   const [mobileTocOpen, setMobileTocOpen] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -88,7 +113,10 @@ export function PdfViewer({ book }: { book: BookDetail }) {
 
   const mode: ViewMode = desktop ? preferredMode : 'single';
   const padding = desktop ? AREA_PADDING.desktop : AREA_PADDING.phone;
-  const effectiveZoom: Zoom = desktop ? zoom : { fit: 'width' };
+  // Phones have no "fit page": a whole A4 page on a phone is too small to read.
+  const effectiveZoom: Zoom = !desktop && 'fit' in zoom ? { fit: 'width' } : zoom;
+  const anchor = useRef<ZoomAnchor>(undefined);
+  const lastTap = useRef<{ time: number; x: number; y: number }>(undefined);
   const page = parsePageParam(searchParams.get(PAGE_PARAM), numPages);
   const spreads = useMemo(() => buildSpreads(numPages, mode), [numPages, mode]);
   const spreadIndex = spreadIndexOfPage(page, numPages, mode);
@@ -103,20 +131,26 @@ export function PdfViewer({ book }: { book: BookDetail }) {
   const availableWidth = Math.max(160, area.width || 800 - padding * 2);
   const availableHeight = Math.max(200, area.height || 1000 - padding * 2);
   const fitWidth = availableWidth / slots;
+  const realWidth = pageSize.width * CSS_PX_PER_POINT;
   const pageWidth = Math.floor(
     'scale' in effectiveZoom
-      ? pageSize.width * effectiveZoom.scale
+      ? realWidth * effectiveZoom.scale
       : effectiveZoom.fit === 'width'
         ? fitWidth
         : Math.min(fitWidth, availableHeight / aspect),
   );
   const pageHeight = Math.round(pageWidth * aspect);
-  // Sharp on high-density screens, but a 3x phone does not need three times the canvas memory.
-  const pixelRatio = Math.min(
-    MAX_PIXEL_RATIO,
-    typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1,
+  const scale = pageWidth / realWidth;
+  // Sharp on high-density screens and when zoomed in, but a 3x phone at 300 % does not need a giant canvas.
+  const pixelRatio = Math.max(
+    1,
+    Math.min(
+      MAX_PIXEL_RATIO,
+      typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1,
+      MAX_CANVAS_WIDTH / pageWidth,
+    ),
   );
-  const scalePercent = Math.round((pageWidth / pageSize.width) * 100);
+  const scalePercent = Math.round(scale * 100);
 
   const goToPage = useCallback(
     (target: number) => {
@@ -207,10 +241,77 @@ export function PdfViewer({ book }: { book: BookDetail }) {
     }
   }
 
+  /** Remembers which point of the content is at the given screen position, to keep it there after a zoom. */
+  function captureAnchor(clientX?: number, clientY?: number) {
+    const area = areaRef.current;
+    if (!area) {
+      return;
+    }
+
+    const rect = area.getBoundingClientRect();
+    const scrollsVertically = area.scrollHeight > area.clientHeight + 1;
+    const x = clientX ?? rect.left + area.clientWidth / 2;
+    // Without its own vertical scroll (phones) the area scrolls with the page: use the middle of the window.
+    const y = clientY ?? (scrollsVertically ? rect.top + area.clientHeight / 2 : window.innerHeight / 2);
+    anchor.current = {
+      fx: (area.scrollLeft + x - rect.left) / area.scrollWidth,
+      fy: ((scrollsVertically ? area.scrollTop : 0) + y - rect.top) / area.scrollHeight,
+      clientX: x,
+      clientY: y,
+    };
+  }
+
+  function applyZoom(next: Zoom, clientX?: number, clientY?: number) {
+    captureAnchor(clientX, clientY);
+    setZoom(next);
+  }
+
   function changeScale(direction: 1 | -1) {
-    const current = pageWidth / pageSize.width;
-    const stepped = Math.round((current + direction * SCALE_STEP) / SCALE_STEP) * SCALE_STEP;
-    setZoom({ scale: Math.min(MAX_SCALE, Math.max(MIN_SCALE, stepped)) });
+    const stepped = Math.round((scale + direction * SCALE_STEP) / SCALE_STEP) * SCALE_STEP;
+    applyZoom({ scale: Math.min(MAX_SCALE, Math.max(MIN_SCALE, stepped)) });
+  }
+
+  // After a zoom the remembered point goes to the middle of the visible area (the page shown stays the same).
+  useLayoutEffect(() => {
+    const area = areaRef.current;
+    const kept = anchor.current;
+    anchor.current = undefined;
+    if (!area || !kept) {
+      return;
+    }
+
+    area.scrollLeft = kept.fx * area.scrollWidth - area.clientWidth / 2;
+    if (area.scrollHeight > area.clientHeight + 1) {
+      area.scrollTop = kept.fy * area.scrollHeight - area.clientHeight / 2;
+    } else {
+      const rect = area.getBoundingClientRect();
+      window.scrollBy({ top: rect.top + kept.fy * area.scrollHeight - window.innerHeight / 2 });
+    }
+  }, [areaRef, pageWidth]);
+
+  /** Phones: a double tap switches between "fit width" and 200 %, around the tapped point. */
+  function onPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    if (desktop || event.pointerType !== 'touch') {
+      return;
+    }
+
+    const now = event.timeStamp;
+    const previousTap = lastTap.current;
+    if (
+      previousTap &&
+      now - previousTap.time < DOUBLE_TAP_MS &&
+      Math.hypot(event.clientX - previousTap.x, event.clientY - previousTap.y) < DOUBLE_TAP_DISTANCE
+    ) {
+      lastTap.current = undefined;
+      applyZoom(
+        'scale' in zoom ? { fit: 'width' } : { scale: DOUBLE_TAP_SCALE },
+        event.clientX,
+        event.clientY,
+      );
+      return;
+    }
+
+    lastTap.current = { time: now, x: event.clientX, y: event.clientY };
   }
 
   if (loadError) {
@@ -242,33 +343,26 @@ export function PdfViewer({ book }: { book: BookDetail }) {
   }
 
   const pageIndicator = `${String(page)} / ${String(numPages)}`;
-  const slot = (pageNumber: number | undefined, key: string): ReactNode => (
+  const slot = (pageNumber: number): ReactNode => (
     <div
-      key={key}
-      className={
-        pageNumber === undefined ? 'shrink-0' : 'relative shrink-0 bg-surface shadow-(--shadow-raised)'
-      }
+      key={pageNumber}
+      className="relative shrink-0 bg-surface shadow-(--shadow-raised)"
       style={{ width: pageWidth, height: pageHeight }}
       data-page-slot={pageNumber}
     >
-      {pageNumber !== undefined && (
-        <Page
-          pageNumber={pageNumber}
-          width={pageWidth}
-          devicePixelRatio={pixelRatio}
-          renderTextLayer
-          renderAnnotationLayer
-          loading={<Skeleton className="absolute inset-0" />}
-        />
-      )}
+      <Page
+        pageNumber={pageNumber}
+        width={pageWidth}
+        devicePixelRatio={pixelRatio}
+        renderTextLayer
+        renderAnnotationLayer
+        loading={<Skeleton className="absolute inset-0" />}
+      />
     </div>
   );
 
-  // Facing pages: even on the left, odd on the right; an empty slot keeps the cover and the last page in place.
-  const visibleSlots =
-    mode === 'double'
-      ? [spread.find((p) => sideOfPage(p) === 'left'), spread.find((p) => sideOfPage(p) === 'right')]
-      : [spread[0]];
+  // Facing pages side by side (even left, odd right); a page on its own (the cover, a last even page) is centred.
+  const visiblePages = [...spread].sort((a, b) => a - b);
 
   const toc = (
     <ViewerToc
@@ -321,7 +415,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
           <div className="flex items-center gap-1">
             <ToolButton
               label="Uzaklaştır"
-              disabled={pageWidth / pageSize.width <= MIN_SCALE}
+              disabled={scale <= MIN_SCALE}
               onClick={() => {
                 changeScale(-1);
               }}
@@ -333,7 +427,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
             </span>
             <ToolButton
               label="Yakınlaştır"
-              disabled={pageWidth / pageSize.width >= MAX_SCALE}
+              disabled={scale >= MAX_SCALE}
               onClick={() => {
                 changeScale(1);
               }}
@@ -344,7 +438,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
               label="Sayfaya sığdır"
               pressed={'fit' in zoom && zoom.fit === 'page'}
               onClick={() => {
-                setZoom({ fit: 'page' });
+                applyZoom({ fit: 'page' });
               }}
             >
               <FrameCornersIcon size={20} />
@@ -353,7 +447,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
               label="Genişliğe sığdır"
               pressed={'fit' in zoom && zoom.fit === 'width'}
               onClick={() => {
-                setZoom({ fit: 'width' });
+                applyZoom({ fit: 'width' });
               }}
             >
               <ArrowsOutLineHorizontalIcon size={20} />
@@ -409,7 +503,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
         {desktop && tocOpen && (
           <nav
             aria-label="Bildiriler"
-            className="relative w-64 shrink-0 overflow-y-auto border-r border-line bg-surface px-2 py-3"
+            className="relative w-[330px] shrink-0 overflow-y-auto border-r border-line bg-surface px-2 py-3"
           >
             <h2 className="px-3 pb-2 text-lg">İçindekiler</h2>
             {toc}
@@ -418,8 +512,12 @@ export function PdfViewer({ book }: { book: BookDetail }) {
 
         <div
           ref={areaRef}
-          className="relative min-w-0 flex-1 overflow-auto bg-surface-muted"
+          data-testid="page-area"
+          // A permanent scroll bar gutter keeps "fit width" from flipping when the vertical scroll bar appears.
+          // touch-action: the browser's double-tap zoom gives way to ours; pinch-zoom stays available.
+          className="relative min-w-0 flex-1 touch-manipulation overflow-auto bg-surface-muted [scrollbar-gutter:stable]"
           style={{ padding }}
+          onPointerUp={onPointerUp}
         >
           <Document
             key={reloadKey}
@@ -447,8 +545,11 @@ export function PdfViewer({ book }: { book: BookDetail }) {
               </div>
             }
           >
-            <div className="flex min-w-fit justify-center">
-              {visibleSlots.map((pageNumber, index) => slot(pageNumber, `slot-${String(index)}`))}
+            {/* Centred while smaller than the area; once larger it scrolls, and no part is out of reach. */}
+            <div className="flex min-h-full min-w-fit [align-items:safe_center] [justify-content:safe_center]">
+              <div className="flex" data-spread={visiblePages.join('-')}>
+                {visiblePages.map(slot)}
+              </div>
             </div>
             {nextSpread && (
               // The next spread is drawn out of sight so turning the page shows it at once.
@@ -476,20 +577,38 @@ export function PdfViewer({ book }: { book: BookDetail }) {
         <div
           role="toolbar"
           aria-label="Görüntüleyici araçları"
-          className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between gap-2 border-t border-line bg-surface px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+          className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between border-t border-line bg-surface px-1.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         >
           <ToolButton label="Önceki sayfa" disabled={spreadIndex === 0} onClick={previous}>
             <CaretLeftIcon size={22} />
           </ToolButton>
-          <span className="numeric text-sm text-ink" data-testid="page-indicator">
+          <span className="numeric text-sm whitespace-nowrap text-ink" data-testid="page-indicator">
             {pageIndicator}
           </span>
           <ToolButton label="Sonraki sayfa" disabled={spreadIndex >= spreads.length - 1} onClick={next}>
             <CaretRightIcon size={22} />
           </ToolButton>
           <ToolButton
+            label="Uzaklaştır"
+            disabled={'fit' in effectiveZoom}
+            onClick={() => {
+              const stepped = Math.round((scale - SCALE_STEP) / SCALE_STEP) * SCALE_STEP;
+              applyZoom(stepped <= fitWidth / realWidth ? { fit: 'width' } : { scale: stepped });
+            }}
+          >
+            <MinusIcon size={20} />
+          </ToolButton>
+          <ToolButton
+            label="Yakınlaştır"
+            disabled={scale >= MAX_SCALE}
+            onClick={() => {
+              changeScale(1);
+            }}
+          >
+            <PlusIcon size={20} />
+          </ToolButton>
+          <ToolButton
             label="İçindekiler"
-            showLabel
             onClick={() => {
               setMobileTocOpen(true);
             }}

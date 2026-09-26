@@ -26,15 +26,19 @@ export function ViewerToc({ papers, activePaperId, onSelect }: ViewerTocProps) {
                 }
               }}
               className={
-                'relative grid min-h-11 w-full grid-cols-[2.5ch_minmax(0,1fr)_auto] items-baseline gap-x-2 rounded-(--radius-sm) px-3 py-2 text-left transition-colors duration-150 ' +
+                'relative grid min-h-11 w-full grid-cols-[2.5ch_minmax(0,1fr)_3ch] items-baseline gap-x-2 rounded-(--radius-sm) px-3 py-1.5 text-left transition-colors duration-[130ms] motion-reduce:transition-none ' +
                 (active ? 'bg-accent-soft text-ink' : 'text-ink hover:bg-paper active:bg-line')
               }
             >
-              <span className={`numeric text-sm ${active ? 'text-accent' : 'text-ink-muted'}`}>
+              <span
+                className={`numeric text-[13px] ${active ? 'font-semibold text-accent' : 'text-ink-muted'}`}
+              >
                 {paper.order}.
               </span>
-              <span className="font-serif text-sm leading-snug">{paper.title}</span>
-              <span className="numeric text-sm text-ink-muted">
+              <span className={`font-serif text-[13.5px] leading-tight ${active ? 'font-semibold' : ''}`}>
+                {paper.title}
+              </span>
+              <span className="numeric text-right text-[13px] text-ink-muted">
                 <span className="sr-only">sayfa </span>
                 {start ?? '–'}
               </span>

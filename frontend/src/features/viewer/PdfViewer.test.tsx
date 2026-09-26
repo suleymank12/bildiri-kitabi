@@ -55,11 +55,11 @@ function renderViewer(query = '') {
   });
 }
 
-/** Page numbers in the visible slots, in screen order ('' for an empty slot in facing pages). */
+/** Page numbers on screen, left to right (the prefetched next spread is not counted). */
 function visibleSlots(): string[] {
-  return Array.from(document.querySelectorAll('[data-page-slot], .shrink-0:not([data-page-slot])'))
-    .filter((element) => element.parentElement?.classList.contains('justify-center'))
-    .map((element) => element.getAttribute('data-page-slot') ?? '');
+  return Array.from(document.querySelectorAll('[data-spread] [data-page-slot]')).map(
+    (element) => element.getAttribute('data-page-slot') ?? '',
+  );
 }
 
 const pageBox = () => screen.getByLabelText('Sayfa numarası');
@@ -77,11 +77,28 @@ describe('PdfViewer on a wide screen', () => {
     expect(screen.getByRole('button', { name: 'Çift sayfa' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('shows the cover alone on the right and falls back to it for an invalid page', async () => {
+  it('shows the cover alone (centred, without an empty partner) and falls back to it for an invalid page', async () => {
     renderViewer('?sayfa=abc');
 
     expect(await screen.findByDisplayValue('1')).toBe(pageBox());
-    expect(visibleSlots()).toEqual(['', '1']);
+    expect(visibleSlots()).toEqual(['1']);
+  });
+
+  it('opens at "fit width" and reports the zoom against the real page size', async () => {
+    const { user } = renderViewer('?sayfa=3');
+    await screen.findByDisplayValue('3');
+
+    expect(screen.getByRole('button', { name: 'Genişliğe sığdır' })).toHaveAttribute('aria-pressed', 'true');
+    // jsdom has no layout: the area falls back to 800 px, so each of the two pages is 376 px wide, 47 % of an
+    // A4 page at 96 dpi (793 px).
+    expect(screen.getByText('%47')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Yakınlaştır' }));
+    expect(screen.getByText('%75')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Genişliğe sığdır' })).toHaveAttribute('aria-pressed', 'false');
+    // Zooming keeps the page.
+    expect(pageBox()).toHaveValue('3');
+    expect(visibleSlots()).toEqual(['2', '3']);
   });
 
   it('moves spread by spread with the next and previous buttons', async () => {
@@ -94,7 +111,7 @@ describe('PdfViewer on a wide screen', () => {
 
     await user.click(screen.getByRole('button', { name: 'Önceki sayfa' }));
     await user.click(screen.getByRole('button', { name: 'Önceki sayfa' }));
-    expect(visibleSlots()).toEqual(['', '1']);
+    expect(visibleSlots()).toEqual(['1']);
     expect(screen.getByRole('button', { name: 'Önceki sayfa' })).toBeDisabled();
   });
 
@@ -135,9 +152,9 @@ describe('PdfViewer on a wide screen', () => {
     await user.keyboard('{ArrowRight}');
     expect(visibleSlots()).toEqual(['4', '5']);
     await user.keyboard('{End}');
-    expect(visibleSlots()).toEqual(['22', '']);
+    expect(visibleSlots()).toEqual(['22']);
     await user.keyboard('{Home}');
-    expect(visibleSlots()).toEqual(['', '1']);
+    expect(visibleSlots()).toEqual(['1']);
   });
 
   it('offers download and a new tab', async () => {
@@ -190,5 +207,23 @@ describe('PdfViewer on a phone', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByTestId('page-indicator')).toHaveTextContent('13 / 22');
     expect(visibleSlots()).toEqual(['13']);
+  });
+
+  it('zooms with the toolbar buttons and returns to "fit width"', async () => {
+    const { user } = renderViewer('?sayfa=3');
+    await screen.findByTestId('page-indicator');
+    const zoomOut = screen.getByRole('button', { name: 'Uzaklaştır' });
+    expect(zoomOut).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Yakınlaştır' }));
+    expect(zoomOut).toBeEnabled();
+    const zoomed = document.querySelector<HTMLElement>('[data-page-slot="3"]')!.style.width;
+
+    // 125 % → 100 % → below the fitted width, which is where zooming out stops.
+    await user.click(zoomOut);
+    await user.click(zoomOut);
+    expect(zoomOut).toBeDisabled();
+    expect(document.querySelector<HTMLElement>('[data-page-slot="3"]')!.style.width).not.toBe(zoomed);
+    expect(screen.getByTestId('page-indicator')).toHaveTextContent('3 / 22');
   });
 });
