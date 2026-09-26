@@ -140,8 +140,9 @@
 
 /* Text inputs: one thin border that turns accent on focus, with a soft, gapless halo instead of the global outline
    (border and outline together looked heavy). The accent border is 7.95:1 on white (and 5.74:1 on its own halo);
-   the danger border 6.57:1. Buttons, links and the drop zone keep the global :focus-visible outline. The
-   reduced-motion rule above turns the transition off. */
+   the danger border 6.57:1. The transparent outline stays invisible, but Windows High Contrast (forced colors)
+   paints it, since the halo is dropped there. Buttons, links and the drop zone keep the global :focus-visible
+   outline. The reduced-motion rule above turns the transition off. */
 @utility field-control {
   border: 1px solid var(--color-ink-subtle);
   border-radius: var(--radius);
@@ -160,12 +161,15 @@
   }
 
   &:focus {
-    outline: none;
+    outline: 2px solid transparent;
+    outline-offset: 0;
     border-color: var(--color-accent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
   }
 
   &[aria-invalid='true']:focus {
+    outline: 2px solid transparent;
+    outline-offset: 0;
     border-color: var(--color-danger);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 20%, transparent);
   }
