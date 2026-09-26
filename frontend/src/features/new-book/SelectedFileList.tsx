@@ -3,6 +3,7 @@ import { Badge, Button, Spinner } from '../../components/ui';
 import { BreakableFileName } from '../../lib/fileName';
 import { describeIssue } from '../../lib/files';
 import { formatBytes } from '../../lib/format';
+import { FILE_TABLE_COLUMNS, NUMERIC_COLUMN } from '../../lib/tableColumns';
 import type { SelectedFile } from './useFileSelection';
 
 export interface SelectedFileListProps {
@@ -38,11 +39,11 @@ export function SelectedFileList({ files, serverErrors, onRemove, disabled = fal
     <div className="flex flex-col gap-2 md:gap-0">
       <div
         aria-hidden="true"
-        className="hidden grid-cols-[2.5rem_minmax(0,1fr)_6rem_8rem_7rem] gap-4 border-b border-line px-3 pb-2 text-xs font-medium tracking-wide text-ink-muted uppercase md:grid"
+        className={`hidden border-b border-line px-3 pb-2 text-xs font-medium tracking-wide text-ink-muted uppercase md:grid ${FILE_TABLE_COLUMNS}`}
       >
         <span>Sıra</span>
         <span>Dosya</span>
-        <span className="text-right">Boyut</span>
+        <span className={NUMERIC_COLUMN}>Boyut</span>
         <span>Durum</span>
         <span />
       </div>
@@ -56,7 +57,7 @@ export function SelectedFileList({ files, serverErrors, onRemove, disabled = fal
               aria-describedby={status.message ? messageId : undefined}
               className={
                 'grid grid-cols-[2.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-(--radius) border px-3 py-3 ' +
-                'md:grid-cols-[2.5rem_minmax(0,1fr)_6rem_8rem_7rem] md:items-center md:gap-4 md:rounded-none md:border-0 md:border-b ' +
+                `${FILE_TABLE_COLUMNS} md:items-center md:rounded-none md:border-0 md:border-b ` +
                 (status.message
                   ? 'border-danger/40 bg-danger-soft/40 md:border-line'
                   : 'border-line bg-surface md:bg-transparent')
@@ -75,7 +76,9 @@ export function SelectedFileList({ files, serverErrors, onRemove, disabled = fal
                   </span>
                 )}
               </div>
-              <span className="numeric col-start-2 text-sm text-ink-muted md:col-start-auto md:text-right">
+              <span
+                className={`numeric col-start-2 text-sm text-ink-muted md:col-start-auto ${NUMERIC_COLUMN}`}
+              >
                 <span className="md:sr-only">Boyut: </span>
                 {formatBytes(file.file.size)}
               </span>

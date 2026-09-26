@@ -10,6 +10,7 @@ import { usePageTitle } from '../../app/usePageTitle';
 import { Alert, Badge, Button, Card, Dialog, EmptyState, Skeleton, buttonClasses } from '../../components/ui';
 import { formatDateTime, formatInteger } from '../../lib/format';
 import { isBusy, statusLabel, statusTone } from '../../lib/status';
+import { LIBRARY_TABLE_COLUMNS, NUMERIC_COLUMN } from '../../lib/tableColumns';
 
 const DELETE_BLOCKED_REASON = 'Kitap hazırlanırken silinemez.';
 
@@ -94,12 +95,12 @@ export function LibraryPage() {
         <Card className="overflow-visible">
           <div
             aria-hidden="true"
-            className="hidden grid-cols-[minmax(0,1fr)_8rem_5rem_5rem_11rem_5.5rem] gap-4 border-b border-line px-5 py-3 text-xs font-medium tracking-wide text-ink-muted uppercase md:grid"
+            className={`hidden border-b border-line px-5 py-3 text-xs font-medium tracking-wide text-ink-muted uppercase md:grid ${LIBRARY_TABLE_COLUMNS}`}
           >
             <span>Kitap</span>
             <span>Durum</span>
-            <span className="text-right">Bildiri</span>
-            <span className="text-right">Sayfa</span>
+            <span className={NUMERIC_COLUMN}>Bildiri</span>
+            <span className={NUMERIC_COLUMN}>Sayfa</span>
             <span>Oluşturulma</span>
             <span className="sr-only">İşlem</span>
           </div>
@@ -185,7 +186,9 @@ function BookRow({ book, onDelete }: { book: BookSummary; onDelete: () => void }
   const busy = isBusy(book.status);
   const reasonId = useId();
   return (
-    <li className="relative grid grid-cols-[minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2 border-b border-line px-5 py-4 last:border-b-0 hover:bg-surface-muted md:grid-cols-[minmax(0,1fr)_8rem_5rem_5rem_11rem_5.5rem] md:items-center md:gap-4">
+    <li
+      className={`relative grid grid-cols-[minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2 border-b border-line px-5 py-4 last:border-b-0 hover:bg-surface-muted md:items-center ${LIBRARY_TABLE_COLUMNS}`}
+    >
       <Link
         to={paths.book(book.id)}
         className="flex min-h-11 items-center font-serif text-lg leading-snug font-semibold break-words text-ink after:absolute after:inset-0 after:content-[''] hover:underline"
@@ -217,11 +220,11 @@ function BookRow({ book, onDelete }: { book: BookSummary; onDelete: () => void }
         <span>
           <Badge tone={statusTone(book.status)}>{statusLabel(book.status)}</Badge>
         </span>
-        <span className="numeric md:text-right">
+        <span className={`numeric ${NUMERIC_COLUMN}`}>
           {formatInteger(book.paperCount)}
           <span className="md:sr-only"> bildiri</span>
         </span>
-        <span className="numeric md:text-right">
+        <span className={`numeric ${NUMERIC_COLUMN}`}>
           {book.pageCount != null ? formatInteger(book.pageCount) : '–'}
           <span className="md:sr-only"> sayfa</span>
         </span>

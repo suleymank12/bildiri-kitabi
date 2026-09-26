@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import type { BookSummary } from '../../api/types';
+import { LIBRARY_TABLE_COLUMNS, NUMERIC_COLUMN } from '../../lib/tableColumns';
 import { bookSummary } from '../../test/fixtures';
 import { renderPage } from '../../test/render';
 import { server } from '../../test/server';
@@ -26,6 +27,36 @@ describe('LibraryPage', () => {
     const row = (await screen.findByRole('link', { name: 'Örnek Bilim Kongresi 2026' })).closest('li')!;
     expect(within(row).getByText('Hazır')).toBeInTheDocument();
     expect(within(row).getByText('29 Eylül 2026 10:00')).toBeInTheDocument();
+  });
+
+  it('lays out the heading and the rows with the same columns and the same alignment per column', async () => {
+    server.use(http.get('/api/books', () => HttpResponse.json(listOf([bookSummary()]))));
+    const { container } = renderPage(<LibraryPage />, { path: '/kitaplar', route: '/kitaplar' });
+
+    const row = (await screen.findByRole('link', { name: 'Örnek Bilim Kongresi 2026' })).closest('li')!;
+    const heading = container.querySelector('section > [aria-hidden="true"]')!;
+    expect(heading.className).toContain(LIBRARY_TABLE_COLUMNS);
+    expect(row.className).toContain(LIBRARY_TABLE_COLUMNS);
+
+    const alignment = (element: Element) =>
+      [...element.classList].filter((name) => /^md:text-(left|center|right)$/.test(name));
+    // Status, paper count, page count and date sit in a "display: contents" group on wide screens.
+    const headingCells = [...heading.children].slice(1, 5);
+    const rowCells = [...row.children[2]!.children];
+    expect(headingCells.map((cell) => cell.textContent)).toEqual([
+      'Durum',
+      'Bildiri',
+      'Sayfa',
+      'Oluşturulma',
+    ]);
+    expect(rowCells).toHaveLength(headingCells.length);
+    headingCells.forEach((cell, index) => {
+      expect(alignment(rowCells[index]!)).toEqual(alignment(cell));
+    });
+    for (const index of [1, 2]) {
+      expect(headingCells[index]).toHaveClass(NUMERIC_COLUMN);
+      expect(rowCells[index]).toHaveClass(NUMERIC_COLUMN, 'numeric');
+    }
   });
 
   it('deletes a book after confirmation', async () => {
