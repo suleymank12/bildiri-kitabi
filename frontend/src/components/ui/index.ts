@@ -9,3 +9,4 @@ export { Skeleton } from './Skeleton';
 export { Spinner } from './Spinner';
 export { Stepper } from './Stepper';
 export { TextField } from './TextField';
+export { Tooltip, type TooltipTriggerProps } from './Tooltip';

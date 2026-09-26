@@ -138,6 +138,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Tooltip: fades in and rises a little (the element leaves display: none, hence @starting-style); it closes at
+   once. The reduced-motion rule above turns the transition off. */
+.tooltip-pop {
+  transition:
+    opacity 140ms ease-out,
+    translate 140ms ease-out;
+
+  @starting-style {
+    opacity: 0;
+    translate: 0 3px;
+  }
+}
+
 /* Progress illustration: a page drops onto the book, rests, then fades for the next one. */
 @keyframes page-settle {
   0% {
