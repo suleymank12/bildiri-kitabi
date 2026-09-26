@@ -79,25 +79,33 @@ public sealed partial class BookEndToEndTests(SampleBookFixture fixture) : IClas
     }
 
     [Fact]
-    public void Table_of_contents_page_numbers_sit_on_the_baseline_of_the_titles_last_line()
+    public void Table_of_contents_page_numbers_are_centred_on_the_entry_title_lines()
     {
-        var words = _pdf.Page(2).PositionedWords.Where(w => !w.Sans).ToList();
+        var words = _pdf.Page(2).PositionedWords.Where(w => !w.Sans && w.Text != "İçindekiler").ToList();
         var right = words.Max(w => w.Right);
 
-        // The page numbers are the right-aligned column; the titles end well before it.
-        var numbers = words.Where(w => right - w.Right < 0.5 && int.TryParse(w.Text, NumberStyles.None, CultureInfo.InvariantCulture, out _)).ToList();
+        // The page numbers are the right-aligned column; the titles end well before it. The sequence numbers ("1.")
+        // sit on each entry's first line, so an entry's title lines lie from its marker down to the next marker.
+        var numbers = words.Where(w => right - w.Right < 0.5 && IsInteger(w.Text)).ToList();
         numbers.Count.ShouldBe(10);
-        var titleWords = words.Except(numbers)
-            .Where(w => w.Text != "İçindekiler" && !(w.Text.EndsWith('.') && int.TryParse(w.Text[..^1], NumberStyles.None, CultureInfo.InvariantCulture, out _)))
-            .ToList();
+        var markers = words.Where(w => w.Text.EndsWith('.') && IsInteger(w.Text[..^1])).OrderByDescending(w => w.Baseline).ToList();
+        markers.Count.ShouldBe(10);
+        var titleWords = words.Except(numbers).Except(markers).ToList();
 
-        foreach (var number in numbers)
+        for (var i = 0; i < markers.Count; i++)
         {
-            // The title line closest to the number is the entry's last line; entries are more than 7 pt apart.
-            var lastLine = titleWords.Where(w => w.Right < number.Left).MinBy(w => Math.Abs(w.Baseline - number.Baseline))!;
-            Math.Abs(lastLine.Baseline - number.Baseline).ShouldBeLessThanOrEqualTo(0.5, $"sayfa {number.Text}: başlık {lastLine.Baseline:F2}, numara {number.Baseline:F2}");
+            var top = markers[i].Baseline + 0.5;
+            var bottom = i + 1 < markers.Count ? markers[i + 1].Baseline + 0.5 : double.NegativeInfinity;
+            var lines = titleWords.Where(w => w.Baseline <= top && w.Baseline > bottom).Select(w => w.Baseline).ToList();
+            var number = numbers.Single(w => w.Baseline <= top && w.Baseline > bottom);
+
+            // Same font and size, so the vertical centres differ exactly as the baselines do.
+            var titleCentre = (lines.Max() + lines.Min()) / 2;
+            Math.Abs(titleCentre - number.Baseline).ShouldBeLessThanOrEqualTo(1, $"{markers[i].Text} başlık merkezi {titleCentre:F2}, numara {number.Baseline:F2}");
         }
     }
+
+    private static bool IsInteger(string text) => int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out _);
 
     [Fact]
     public void Book_contains_no_email_addresses_or_turkish_phone_numbers()
@@ -219,10 +227,13 @@ public sealed partial class BookEndToEndTests(SampleBookFixture fixture) : IClas
         }
     }
 
-    /// <summary>Reads "n. title … page" entries from the table of contents text, not from the renderer.</summary>
+    /// <summary>
+    /// Reads "n. title … page" entries from the table of contents text, not from the renderer, in the order the text
+    /// is drawn: copying or searching an entry must give its whole title before its page number.
+    /// </summary>
     private List<(SourcePaper Source, int Page)> ReadTableOfContents()
     {
-        var words = _pdf.Page(2).BodyWords;
+        var words = _pdf.Page(2).ContentOrderBodyWords;
         var entries = new List<(SourcePaper, int)>();
         var position = 0;
         for (var i = 0; i < _sources.Count; i++)

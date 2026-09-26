@@ -122,17 +122,16 @@ public sealed class QuestPdfBookRenderer : IBookRenderer
                 {
                     var section = SectionName(i);
 
-                    // The page number shares the title's line height and sits at the bottom of the row, so it lines up
-                    // with the title's last line however many lines the title wraps to. It is nudged down by an
-                    // invisible 0.1 pt so text extraction (copy, search, screen readers) always reads it after the title
-                    // instead of depending on floating-point noise between two equal baselines.
+                    // The page number shares the title's line height and is centred on the row, so it sits midway
+                    // between the title's first and last lines (on the line itself for a one-line title). The row draws
+                    // the title first, so text extraction (copy, search, screen readers) reads the number after it.
                     column.Item().SectionLink(section).PaddingVertical(7).Row(row =>
                     {
                         row.ConstantItem(22).AlignRight().Text($"{i + 1}.").LineHeight(TocLineHeight).FontColor(MutedColor);
                         row.ConstantItem(12);
                         row.RelativeItem().Text(book.Papers[i].Title).LineHeight(TocLineHeight);
                         row.ConstantItem(16);
-                        row.ConstantItem(28).AlignBottom().OffsetY(0.1f).AlignRight().Text(text =>
+                        row.ConstantItem(28).AlignMiddle().AlignRight().Text(text =>
                         {
                             text.DefaultTextStyle(style => style.LineHeight(TocLineHeight));
                             text.BeginPageNumberOfSection(section);

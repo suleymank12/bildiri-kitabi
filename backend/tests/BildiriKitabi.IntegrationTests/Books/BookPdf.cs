@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 
@@ -50,6 +51,7 @@ public sealed class BookPdfPage
         var body = words.Where(w => !IsSans(w)).ToList();
         BodyWords = body.Select(w => w.Text).ToList();
         BodyText = string.Join(' ', BodyWords);
+        ContentOrderBodyWords = ContentOrderWords(page.Letters.Where(l => !IsSans(l.FontName)));
 
         // The page number is a bottom line that consists of a single integer.
         var runningHead = words.Where(IsSans).ToList();
@@ -76,6 +78,12 @@ public sealed class BookPdfPage
 
     public string BodyText { get; }
 
+    /// <summary>
+    /// Body words in the order they are drawn, which is the order copy and search follow in content-order readers
+    /// (pdf.js, pdftotext -raw). <see cref="BodyWords"/> is sorted by position instead.
+    /// </summary>
+    public IReadOnlyList<string> ContentOrderBodyWords { get; }
+
     public int? FooterNumber { get; }
 
     /// <summary>The running head at the top of a paper page: its sans words above the page number line.</summary>
@@ -83,7 +91,42 @@ public sealed class BookPdfPage
 
     public IReadOnlyList<PositionedWord> PositionedWords { get; }
 
-    private static bool IsSans(Word word) => word.FontName?.Contains("LiberationSans", StringComparison.Ordinal) == true;
+    private static bool IsSans(Word word) => IsSans(word.FontName);
+
+    private static bool IsSans(string? fontName) => fontName?.Contains("LiberationSans", StringComparison.Ordinal) == true;
+
+    /// <summary>A word ends at a space, a baseline change or a horizontal gap wider than a fifth of the font size.</summary>
+    private static List<string> ContentOrderWords(IEnumerable<Letter> letters)
+    {
+        var words = new List<string>();
+        var current = new StringBuilder();
+        Letter? previous = null;
+        foreach (var letter in letters)
+        {
+            var separated = previous is not null
+                && (Math.Abs(letter.StartBaseLine.Y - previous.StartBaseLine.Y) > 0.5
+                    || Math.Abs(letter.StartBaseLine.X - previous.EndBaseLine.X) > letter.PointSize / 5);
+            if ((string.IsNullOrWhiteSpace(letter.Value) || separated) && current.Length > 0)
+            {
+                words.Add(current.ToString());
+                current.Clear();
+            }
+
+            if (!string.IsNullOrWhiteSpace(letter.Value))
+            {
+                current.Append(letter.Value);
+            }
+
+            previous = letter;
+        }
+
+        if (current.Length > 0)
+        {
+            words.Add(current.ToString());
+        }
+
+        return words;
+    }
 }
 
 /// <param name="Baseline">Baseline of the word's first letter, in points from the bottom of the page.</param>
