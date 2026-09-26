@@ -38,6 +38,20 @@ test('mutlu yol: yükleme, sıralama, oluşturma, görüntüleyicide gezinme ve 
   await page.getByLabel('Bildiri dosyaları').setInputFiles(paperFiles);
   const submit = page.getByRole('button', { name: 'Yükle ve devam et' });
   await expect(submit).toBeEnabled();
+
+  // The papers arrive in name order: "Ada göre sırala" explains that in a tooltip (hover, or a tap on phones).
+  const sort = page.getByRole('button', { name: 'Ada göre sırala' });
+  if (isPhone(page)) {
+    // Playwright does not tap an aria-disabled element on its own; a person can.
+    await sort.tap({ force: true });
+  } else {
+    await sort.hover();
+  }
+  await expect(page.getByRole('tooltip')).toHaveText('Dosyalar zaten ada göre sıralı');
+  await expectAccessible(page, 'Adım 1, ipucu açık');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('tooltip')).toBeHidden();
+
   await submit.scrollIntoViewIfNeeded();
   await submit.click();
   await expect(page.getByText('Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…')).toBeVisible();

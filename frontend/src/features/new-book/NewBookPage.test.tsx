@@ -118,9 +118,59 @@ describe('NewBookPage', () => {
     const sort = screen.getByRole('button', { name: 'Ada göre sırala' });
     expect(sort).toHaveAttribute('aria-disabled', 'true');
     expect(sort).toHaveAccessibleDescription('Dosyalar zaten ada göre sıralı');
+    // The reason is a tooltip now, not a line of text next to the button.
+    expect(screen.queryByText('Dosyalar zaten ada göre sıralı')).not.toBeVisible();
     await user.click(sort);
     expect(rows()).toHaveLength(3);
     expect(screen.getByRole('status')).toHaveTextContent('');
+  });
+
+  it('shows the "already sorted" tooltip on hover and closes it the moment the pointer leaves', async () => {
+    const { user, input } = setup();
+    await user.upload(
+      input,
+      names(3).map((name) => docx(name)),
+    );
+    const sort = screen.getByRole('button', { name: 'Ada göre sırala' });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+    await user.hover(sort);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Dosyalar zaten ada göre sıralı');
+    expect(sort).toHaveAttribute('aria-describedby', screen.getByRole('tooltip').id);
+
+    await user.unhover(sort);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('shows the "already sorted" tooltip on keyboard focus and closes it with Esc', async () => {
+    const { user, input } = setup();
+    await user.upload(
+      input,
+      names(3).map((name) => docx(name)),
+    );
+    const sort = screen.getByRole('button', { name: 'Ada göre sırala' });
+
+    // The file input sits right before the button in the tab order.
+    await user.click(screen.getByLabelText('Bildiri dosyaları'));
+    await user.tab();
+    expect(sort).toHaveFocus();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Dosyalar zaten ada göre sıralı');
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    expect(sort).toHaveFocus();
+  });
+
+  it('has no tooltip while the files are not in order', async () => {
+    const { user, input } = setup();
+    await user.upload(input, [docx('2_Bildiri.docx'), docx('1_Bildiri.docx')]);
+    const sort = screen.getByRole('button', { name: 'Ada göre sırala' });
+
+    await user.hover(sort);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    expect(sort).not.toHaveAttribute('aria-describedby');
+    sort.focus();
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
   it('shows the server check as a second stage once the upload reached 100 %', async () => {

@@ -1,12 +1,12 @@
 import { SortAscendingIcon } from '@phosphor-icons/react';
-import { useEffect, useId, useState, type SubmitEvent } from 'react';
+import { useEffect, useState, type SubmitEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { mapUploadErrors, type UploadErrors } from '../../api/errors';
 import { useCreateBook } from '../../api/hooks';
 import { useAnnounce } from '../../app/Announcer';
 import { paths } from '../../app/paths';
 import { usePageTitle } from '../../app/usePageTitle';
-import { Alert, Button, Card, ProgressBar, Stepper, TextField } from '../../components/ui';
+import { Alert, Button, Card, ProgressBar, Stepper, TextField, Tooltip } from '../../components/ui';
 import {
   BOOK_NAME_MAX,
   REQUIRED_PAPER_COUNT,
@@ -37,7 +37,6 @@ export function NewBookPage() {
   const [nameTouched, setNameTouched] = useState(false);
   const [serverErrors, setServerErrors] = useState<UploadErrors>(noServerErrors);
   const [sortNotice, setSortNotice] = useState(false);
-  const sortHintId = useId();
 
   useEffect(() => {
     if (!sortNotice) {
@@ -190,30 +189,34 @@ export function NewBookPage() {
         {count > 0 && (
           <>
             <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
-              {/* The confirmation is read out; the "already sorted" hint only describes the button. */}
+              {/* The confirmation is read out; the "already sorted" tooltip only describes the button. */}
               <p role="status" className="text-sm font-medium text-success">
                 {sortNotice ? 'Dosyalar ada göre sıralandı.' : ''}
               </p>
-              {!sortNotice && sortedByName && count > 1 && (
-                <p id={sortHintId} className="text-sm text-ink-muted">
-                  Dosyalar zaten ada göre sıralı
-                </p>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={<SortAscendingIcon size={16} aria-hidden="true" />}
-                disabled={uploading || count < 2}
-                softDisabled={sortedByName}
-                aria-describedby={!sortNotice && sortedByName && count > 1 ? sortHintId : undefined}
-                onClick={() => {
-                  clearServerErrors();
-                  selection.sortByName();
-                  setSortNotice(true);
-                }}
+              <Tooltip
+                align="end"
+                content={
+                  !sortNotice && sortedByName && count > 1 ? 'Dosyalar zaten ada göre sıralı' : undefined
+                }
               >
-                Ada göre sırala
-              </Button>
+                {(tooltip) => (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<SortAscendingIcon size={16} aria-hidden="true" />}
+                    disabled={uploading || count < 2}
+                    softDisabled={sortedByName}
+                    {...tooltip}
+                    onClick={() => {
+                      clearServerErrors();
+                      selection.sortByName();
+                      setSortNotice(true);
+                    }}
+                  >
+                    Ada göre sırala
+                  </Button>
+                )}
+              </Tooltip>
             </div>
             <SelectedFileList
               files={files}
