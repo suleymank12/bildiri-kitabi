@@ -89,20 +89,61 @@ describe('NewBookPage', () => {
     expect(screen.getByText(/seçildi/)).toHaveTextContent("10 dosyadan 2'si seçildi");
   });
 
-  it('sorts the list by file name', async () => {
+  it('sorts ten unordered files in natural name order and confirms it', async () => {
+    const { user, input, rows } = setup();
+    const ordered = Array.from({ length: 10 }, (_, i) => `${String(i + 1)}_Bildiri.docx`);
+    await user.upload(
+      input,
+      ['10', '3', '1', '7', '2', '9', '4', '6', '8', '5'].map((n) => docx(`${n}_Bildiri.docx`)),
+    );
+    const sort = screen.getByRole('button', { name: 'Ada göre sırala' });
+    expect(sort).not.toHaveAttribute('aria-disabled');
+
+    await user.click(sort);
+
+    expect(rows().map((row) => within(row).getByText(/\.docx$/).textContent)).toEqual(ordered);
+    expect(screen.getByRole('status')).toHaveTextContent('Dosyalar ada göre sıralandı.');
+    // The button stays focusable but is no longer available: the list is sorted now.
+    expect(sort).toHaveAttribute('aria-disabled', 'true');
+    expect(sort).toHaveFocus();
+  });
+
+  it('keeps "Ada göre sırala" unavailable and says why when the files are already in order', async () => {
     const { user, input, rows } = setup();
     await user.upload(
       input,
-      ['10_Son.docx', '02_Orta.docx', '01_Ilk.docx'].map((name) => docx(name)),
+      names(3).map((name) => docx(name)),
     );
 
-    await user.click(screen.getByRole('button', { name: 'Ada göre sırala' }));
+    const sort = screen.getByRole('button', { name: 'Ada göre sırala' });
+    expect(sort).toHaveAttribute('aria-disabled', 'true');
+    expect(sort).toHaveAccessibleDescription('Dosyalar zaten ada göre sıralı');
+    await user.click(sort);
+    expect(rows()).toHaveLength(3);
+    expect(screen.getByRole('status')).toHaveTextContent('');
+  });
 
-    expect(rows().map((row) => within(row).getByText(/\.docx$/).textContent)).toEqual([
-      '01_Ilk.docx',
-      '02_Orta.docx',
-      '10_Son.docx',
-    ]);
+  it('shows the server check as a second stage once the upload reached 100 %', async () => {
+    upload.mockImplementation((_name, _files, onProgress) => {
+      onProgress(100);
+      return new Promise(() => undefined);
+    });
+    const { user, input } = setup();
+    await user.type(screen.getByLabelText('Kitap adı'), 'Örnek Bilim Kongresi 2026');
+    await user.upload(
+      input,
+      names(10).map((name) => docx(name)),
+    );
+    await waitUntilChecked();
+
+    await user.click(screen.getByRole('button', { name: 'Yükle ve devam et' }));
+
+    expect(
+      await screen.findByText('Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…'),
+    ).toBeInTheDocument();
+    const bar = screen.getByRole('progressbar', { name: 'Dosyalar kontrol ediliyor' });
+    expect(bar).not.toHaveAttribute('aria-valuenow');
+    expect(screen.getByRole('button', { name: 'Kontrol ediliyor' })).toBeDisabled();
   });
 
   it('uploads in list order and opens the book page', async () => {

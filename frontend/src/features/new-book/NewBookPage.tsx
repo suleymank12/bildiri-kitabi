@@ -1,5 +1,5 @@
 import { SortAscendingIcon } from '@phosphor-icons/react';
-import { useState, type SubmitEvent } from 'react';
+import { useEffect, useId, useState, type SubmitEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { mapUploadErrors, type UploadErrors } from '../../api/errors';
 import { useCreateBook } from '../../api/hooks';
@@ -13,6 +13,7 @@ import {
   bookNameError,
   describeSelectionProblem,
   isSelectionReady,
+  isSortedByName,
   selectionProblems,
 } from '../../lib/files';
 import { possessiveSuffix } from '../../lib/format';
@@ -23,6 +24,9 @@ import { useFileSelection } from './useFileSelection';
 
 const noServerErrors: UploadErrors = { files: new Map(), general: [] };
 
+/** How long the "sorted" confirmation stays on screen. */
+const SORT_NOTICE_MS = 2500;
+
 export function NewBookPage() {
   usePageTitle('Yeni kitap');
   const navigate = useNavigate();
@@ -32,6 +36,21 @@ export function NewBookPage() {
   const [name, setName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
   const [serverErrors, setServerErrors] = useState<UploadErrors>(noServerErrors);
+  const [sortNotice, setSortNotice] = useState(false);
+  const sortHintId = useId();
+
+  useEffect(() => {
+    if (!sortNotice) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setSortNotice(false);
+    }, SORT_NOTICE_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [sortNotice]);
 
   const nameError = bookNameError(name);
   const shownNameError = serverErrors.name ?? (nameTouched ? nameError : undefined);
@@ -45,6 +64,9 @@ export function NewBookPage() {
     nameError === undefined &&
     isSelectionReady(files.map((f) => ({ name: f.file.name, size: f.file.size, hash: f.hash })));
   const uploading = createBook.isPending;
+  const sortedByName = isSortedByName(files.map((f) => f.file.name));
+  // The upload reports 100 % once the last byte is sent; the server still has to check the files.
+  const checking = uploading && createBook.progress >= 100;
 
   function clearServerErrors() {
     if (serverErrors !== noServerErrors) {
@@ -84,7 +106,8 @@ export function NewBookPage() {
           <h1 className="text-3xl sm:text-4xl">Yeni kitap</h1>
           <p className="max-w-2xl text-ink-muted">
             Kitap adını yazın ve {REQUIRED_PAPER_COUNT} bildiri dosyasını seçin. Sonraki adımda sırayı ve
-            tespit edilen başlıkları kontrol edebilirsiniz.
+            tespit edilen başlıkları kontrol edebilirsiniz. E-posta adresleri ve telefon numaraları kitaba
+            eklenmeden temizlenir.
           </p>
         </div>
       </div>
@@ -142,7 +165,8 @@ export function NewBookPage() {
           <div className="flex flex-col gap-1">
             <h2 className="text-2xl">Bildirileri yükleyin</h2>
             <p className="text-sm text-ink-muted">
-              Bildiriler bu sırayla kitaba eklenir. Sonraki adımda sürükleyerek değiştirebilirsiniz.
+              Bildiriler bu sırayla kitaba eklenir. Sonraki adımda Yukarı / Aşağı düğmeleriyle
+              değiştirebilirsiniz.
             </p>
           </div>
           <p
@@ -165,16 +189,27 @@ export function NewBookPage() {
 
         {count > 0 && (
           <>
-            <div className="flex justify-end">
+            <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+              {/* The confirmation is read out; the "already sorted" hint only describes the button. */}
+              <p role="status" className="text-sm font-medium text-success">
+                {sortNotice ? 'Dosyalar ada göre sıralandı.' : ''}
+              </p>
+              {!sortNotice && sortedByName && count > 1 && (
+                <p id={sortHintId} className="text-sm text-ink-muted">
+                  Dosyalar zaten ada göre sıralı
+                </p>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
                 icon={<SortAscendingIcon size={16} aria-hidden="true" />}
                 disabled={uploading || count < 2}
+                softDisabled={sortedByName}
+                aria-describedby={!sortNotice && sortedByName && count > 1 ? sortHintId : undefined}
                 onClick={() => {
                   clearServerErrors();
                   selection.sortByName();
-                  announce('Dosyalar ada göre sıralandı.');
+                  setSortNotice(true);
                 }}
               >
                 Ada göre sırala
@@ -195,13 +230,24 @@ export function NewBookPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         {uploading && (
-          <div className="flex flex-1 items-center gap-3">
-            <ProgressBar value={createBook.progress} label="Yükleme ilerlemesi" />
-            <span className="numeric text-sm text-ink-muted">%{createBook.progress}</span>
+          // Two stages: the bytes going up, then the server checking the files and finding the titles.
+          <div className="flex flex-1 flex-col gap-1.5">
+            <div className="flex items-baseline justify-between gap-3 text-sm text-ink-muted">
+              <p role="status">
+                {checking
+                  ? 'Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…'
+                  : 'Dosyalar yükleniyor…'}
+              </p>
+              {!checking && <span className="numeric">%{createBook.progress}</span>}
+            </div>
+            <ProgressBar
+              value={checking ? undefined : createBook.progress}
+              label={checking ? 'Dosyalar kontrol ediliyor' : 'Yükleme ilerlemesi'}
+            />
           </div>
         )}
         <Button type="submit" variant="primary" loading={uploading} disabled={!ready}>
-          {uploading ? 'Yükleniyor' : 'Yükle ve devam et'}
+          {uploading ? (checking ? 'Kontrol ediliyor' : 'Yükleniyor') : 'Yükle ve devam et'}
         </Button>
       </div>
     </form>

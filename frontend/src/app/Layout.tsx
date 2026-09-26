@@ -1,8 +1,9 @@
 import { BooksIcon, FilePlusIcon } from '@phosphor-icons/react';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { AnnouncerProvider } from './Announcer';
 import { ErrorBoundary } from './ErrorBoundary';
+import { useRouteFocus } from './useRouteFocus';
 
 function NavItem({
   to,
@@ -22,8 +23,10 @@ function NavItem({
       to={to}
       end={end}
       className={({ isActive }) =>
-        'inline-flex min-h-11 items-center gap-2 rounded-(--radius) px-3 text-sm font-medium transition-colors duration-150 ' +
-        (isActive ? 'bg-accent-soft text-accent' : 'text-ink-muted hover:bg-surface-muted hover:text-ink')
+        'inline-flex min-h-11 items-center gap-2 rounded-(--radius) px-3 text-sm font-medium transition-colors duration-[130ms] motion-reduce:transition-none ' +
+        (isActive
+          ? 'bg-accent-soft text-accent'
+          : 'text-ink-muted hover:bg-line/60 hover:text-ink active:bg-line')
       }
     >
       <span aria-hidden="true">{icon}</span>
@@ -35,6 +38,8 @@ function NavItem({
 
 export function Layout() {
   const location = useLocation();
+  const main = useRef<HTMLElement>(null);
+  useRouteFocus(main);
   return (
     <AnnouncerProvider>
       <a
@@ -59,6 +64,7 @@ export function Layout() {
           </div>
         </header>
         <main
+          ref={main}
           id="icerik"
           className="mx-auto w-full max-w-[1100px] group-has-[[data-wide-page]]/app:max-w-[1440px] flex-1 px-4 py-8 sm:px-6 sm:py-10"
         >
@@ -67,11 +73,6 @@ export function Layout() {
             <Outlet />
           </ErrorBoundary>
         </main>
-        <footer className="border-t border-line">
-          <p className="mx-auto max-w-[1100px] group-has-[[data-wide-page]]/app:max-w-[1440px] px-4 py-4 text-sm text-ink-muted sm:px-6">
-            Bildiri Kitabı · E-posta adresleri ve telefon numaraları kitaba aktarılmadan temizlenir.
-          </p>
-        </footer>
       </div>
     </AnnouncerProvider>
   );

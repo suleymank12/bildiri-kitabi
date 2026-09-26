@@ -140,7 +140,14 @@ export async function sha256(file: Blob): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-/** Order by file name the way a Turkish reader expects ("01_…" before "10_…"). */
+const fileNameCollator = new Intl.Collator('tr', { numeric: true, sensitivity: 'base' });
+
+/** Order by file name the way a Turkish reader expects: natural numbers ("2_…" before "10_…"), Turkish letters. */
 export function compareFileNames(a: string, b: string): number {
-  return a.localeCompare(b, 'tr-TR', { numeric: true, sensitivity: 'base' });
+  return fileNameCollator.compare(a, b);
+}
+
+/** True when the names are already in {@link compareFileNames} order. */
+export function isSortedByName(names: readonly string[]): boolean {
+  return names.every((name, i) => i === 0 || compareFileNames(names[i - 1] ?? '', name) <= 0);
 }

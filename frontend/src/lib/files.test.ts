@@ -4,6 +4,7 @@ import {
   basicIssue,
   bookNameError,
   compareFileNames,
+  isSortedByName,
   describeIssue,
   describeSelectionProblem,
   fileIssues,
@@ -136,5 +137,13 @@ describe('compareFileNames', () => {
       'Şule.docx',
       'Zeynep.docx',
     ]);
+  });
+});
+
+describe('isSortedByName', () => {
+  it('recognises a list in natural name order', () => {
+    expect(isSortedByName(['01_a.docx', '2_b.docx', '10_c.docx'])).toBe(true);
+    expect(isSortedByName(['10_c.docx', '2_b.docx'])).toBe(false);
+    expect(isSortedByName([])).toBe(true);
   });
 });

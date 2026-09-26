@@ -69,7 +69,7 @@ export function FileDropZone({ onFiles, disabled = false }: FileDropZoneProps) {
       <div className="flex flex-col gap-1">
         <p className="font-medium text-ink">Dosyaları buraya sürükleyin</p>
         <p id={hintId} className="text-sm text-ink-muted">
-          Yalnızca .docx; dosya başına en fazla 10 MB, toplam 60 MB.
+          Yalnızca .docx; dosya başına en fazla 10 MB.
         </p>
       </div>
       <Button
