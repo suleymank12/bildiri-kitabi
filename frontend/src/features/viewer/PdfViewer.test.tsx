@@ -91,14 +91,104 @@ describe('PdfViewer on a wide screen', () => {
     expect(screen.getByRole('button', { name: 'Genişliğe sığdır' })).toHaveAttribute('aria-pressed', 'true');
     // jsdom has no layout: the area falls back to 800 px, so each of the two pages is 376 px wide, 47 % of an
     // A4 page at 96 dpi (793 px).
-    expect(screen.getByText('%47')).toBeInTheDocument();
+    expect(screen.getByLabelText('Yakınlaştırma yüzdesi')).toHaveValue('%47');
 
     await user.click(screen.getByRole('button', { name: 'Yakınlaştır' }));
-    expect(screen.getByText('%75')).toBeInTheDocument();
+    expect(screen.getByLabelText('Yakınlaştırma yüzdesi')).toHaveValue('%75');
     expect(screen.getByRole('button', { name: 'Genişliğe sığdır' })).toHaveAttribute('aria-pressed', 'false');
     // Zooming keeps the page.
     expect(pageBox()).toHaveValue('3');
     expect(visibleSlots()).toEqual(['2', '3']);
+  });
+
+  describe('zoom box', () => {
+    const zoomBox = () => screen.getByLabelText('Yakınlaştırma yüzdesi');
+    const fitWidth = () => screen.getByRole('button', { name: 'Genişliğe sığdır' });
+
+    async function typeZoom(text: string) {
+      const view = renderViewer('?sayfa=3');
+      await screen.findByDisplayValue('3');
+      await view.user.click(zoomBox());
+      await view.user.keyboard(`${text}{Enter}`);
+      return view;
+    }
+
+    it('selects the value when clicked', async () => {
+      const { user } = renderViewer('?sayfa=3');
+      await screen.findByDisplayValue('3');
+
+      await user.click(zoomBox());
+
+      const box = zoomBox() as HTMLInputElement;
+      expect(box.value).toBe('%47');
+      expect([box.selectionStart, box.selectionEnd]).toEqual([0, 3]);
+    });
+
+    it.each(['150', '%150', '150%'])('applies "%s" and leaves the fit mode, on the same page', async (text) => {
+      await typeZoom(text);
+
+      expect(zoomBox()).toHaveValue('%150');
+      expect(fitWidth()).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByRole('button', { name: 'Sayfaya sığdır' })).toHaveAttribute('aria-pressed', 'false');
+      expect(pageBox()).toHaveValue('3');
+      expect(visibleSlots()).toEqual(['2', '3']);
+    });
+
+    it('clamps values outside 25–400 %', async () => {
+      const { user } = await typeZoom('500');
+      expect(zoomBox()).toHaveValue('%400');
+      expect(screen.getByRole('button', { name: 'Yakınlaştır' })).toBeDisabled();
+
+      // After Enter the box keeps the focus with the value selected, so typing replaces it.
+      await user.keyboard('10{Enter}');
+      expect(zoomBox()).toHaveValue('%25');
+      expect(screen.getByRole('button', { name: 'Uzaklaştır' })).toBeDisabled();
+    });
+
+    it('rejects a value that is not a number and keeps the current zoom', async () => {
+      await typeZoom('abc');
+
+      expect(zoomBox()).toHaveValue('%47');
+      expect(fitWidth()).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('applies the value when the box is left', async () => {
+      const { user } = renderViewer('?sayfa=3');
+      await screen.findByDisplayValue('3');
+
+      await user.click(zoomBox());
+      await user.keyboard('200');
+      await user.tab();
+
+      expect(zoomBox()).toHaveValue('%200');
+    });
+
+    it('cancels the typed value with Esc', async () => {
+      const { user } = renderViewer('?sayfa=3');
+      await screen.findByDisplayValue('3');
+
+      await user.click(zoomBox());
+      await user.keyboard('200{Escape}');
+      expect(zoomBox()).toHaveValue('%47');
+
+      await user.tab();
+      expect(zoomBox()).toHaveValue('%47');
+      expect(fitWidth()).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('steps by 10 points with the up and down arrows', async () => {
+      const { user } = renderViewer('?sayfa=3');
+      await screen.findByDisplayValue('3');
+
+      await user.click(zoomBox());
+      await user.keyboard('{ArrowUp}');
+      expect(zoomBox()).toHaveValue('%57');
+      expect(fitWidth()).toHaveAttribute('aria-pressed', 'false');
+
+      await user.keyboard('{ArrowDown}{ArrowDown}');
+      expect(zoomBox()).toHaveValue('%37');
+      expect(pageBox()).toHaveValue('3');
+    });
   });
 
   it('moves spread by spread with the next and previous buttons', async () => {

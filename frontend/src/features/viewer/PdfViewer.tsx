@@ -37,9 +37,14 @@ import { ViewerToc, paperOnPages } from './ViewerToc';
 
 type Zoom = { fit: 'page' } | { fit: 'width' } | { scale: number };
 
-const MIN_SCALE = 0.5;
-const MAX_SCALE = 3;
+/** Zoom range in percent, shared by the zoom box and the + / − buttons. */
+const MIN_PERCENT = 25;
+const MAX_PERCENT = 400;
+const MIN_SCALE = MIN_PERCENT / 100;
+const MAX_SCALE = MAX_PERCENT / 100;
 const SCALE_STEP = 0.25;
+/** ↑ / ↓ in the zoom box change the zoom by this many percentage points. */
+const PERCENT_KEY_STEP = 10;
 /** Double tap on a phone switches between "fit width" and this scale. */
 const DOUBLE_TAP_SCALE = 2;
 const DOUBLE_TAP_MS = 300;
@@ -80,6 +85,16 @@ function useElementSize<T extends HTMLElement>() {
     };
   }, []);
   return [ref, size] as const;
+}
+
+function clampPercent(percent: number): number {
+  return Math.min(MAX_PERCENT, Math.max(MIN_PERCENT, percent));
+}
+
+/** "150", "%150" and "150%" (and a decimal comma) read as 150; anything else is not a zoom. */
+function parseZoomPercent(text: string): number | undefined {
+  const match = /^\s*%?\s*(\d+(?:[.,]\d+)?)\s*%?\s*$/.exec(text);
+  return match?.[1] === undefined ? undefined : Math.round(Number(match[1].replace(',', '.')));
 }
 
 function isTyping(target: EventTarget | null): boolean {
@@ -272,6 +287,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
   }
 
   // After a zoom the remembered point goes to the middle of the visible area (the page shown stays the same).
+  // `zoom` is a dependency too, so a zoom that keeps the page width does not leave a stale point behind.
   useLayoutEffect(() => {
     const area = areaRef.current;
     const kept = anchor.current;
@@ -287,7 +303,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
       const rect = area.getBoundingClientRect();
       window.scrollBy({ top: rect.top + kept.fy * area.scrollHeight - window.innerHeight / 2 });
     }
-  }, [areaRef, pageWidth]);
+  }, [areaRef, pageWidth, zoom]);
 
   /** Phones: a double tap switches between "fit width" and 200 %, around the tapped point. */
   function onPointerUp(event: React.PointerEvent<HTMLDivElement>) {
@@ -415,19 +431,22 @@ export function PdfViewer({ book }: { book: BookDetail }) {
           <div className="flex items-center gap-1">
             <ToolButton
               label="Uzaklaştır"
-              disabled={scale <= MIN_SCALE}
+              disabled={scalePercent <= MIN_PERCENT}
               onClick={() => {
                 changeScale(-1);
               }}
             >
               <MinusIcon size={20} />
             </ToolButton>
-            <span className="numeric w-12 text-center text-sm text-ink-muted" aria-live="polite">
-              %{scalePercent}
-            </span>
+            <ZoomInput
+              percent={scalePercent}
+              onApply={(percent) => {
+                applyZoom({ scale: percent / 100 });
+              }}
+            />
             <ToolButton
               label="Yakınlaştır"
-              disabled={scale >= MAX_SCALE}
+              disabled={scalePercent >= MAX_PERCENT}
               onClick={() => {
                 changeScale(1);
               }}
@@ -600,7 +619,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
           </ToolButton>
           <ToolButton
             label="Yakınlaştır"
-            disabled={scale >= MAX_SCALE}
+            disabled={scalePercent >= MAX_PERCENT}
             onClick={() => {
               changeScale(1);
             }}
@@ -735,5 +754,90 @@ function PageInput({
         toplam {numPages} sayfa
       </span>
     </div>
+  );
+}
+
+/**
+ * The zoom percentage, editable like the page box: a click selects it, Enter or leaving the box applies the typed
+ * value (clamped to the zoom range), Esc restores the current zoom, ↑ / ↓ step it by 10 points.
+ */
+function ZoomInput({ percent, onApply }: { percent: number; onApply: (percent: number) => void }) {
+  const [draft, setDraft] = useState<string>();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const justFocused = useRef(false);
+  const reselect = useRef(false);
+  const value = draft ?? `%${String(percent)}`;
+
+  // After Enter, Esc or an arrow key the box keeps the focus with the shown value selected, ready to be replaced.
+  useLayoutEffect(() => {
+    if (reselect.current && document.activeElement === inputRef.current) {
+      inputRef.current?.select();
+    }
+
+    reselect.current = false;
+  }, [value]);
+
+  function commit() {
+    if (draft === undefined) {
+      return;
+    }
+
+    const typed = parseZoomPercent(draft);
+    setDraft(undefined);
+    if (typed !== undefined) {
+      onApply(clampPercent(typed));
+    }
+  }
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        aria-label="Yakınlaştırma yüzdesi"
+        inputMode="numeric"
+        value={value}
+        onFocus={(event) => {
+          justFocused.current = true;
+          event.currentTarget.select();
+        }}
+        onMouseUp={(event) => {
+          // The mouse up of the focusing click would otherwise drop the selection.
+          if (justFocused.current) {
+            event.preventDefault();
+          }
+
+          justFocused.current = false;
+        }}
+        onChange={(event) => {
+          setDraft(event.target.value);
+        }}
+        onBlur={() => {
+          justFocused.current = false;
+          commit();
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            reselect.current = true;
+            commit();
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            reselect.current = true;
+            setDraft(undefined);
+          } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            reselect.current = true;
+            const base = (draft === undefined ? undefined : parseZoomPercent(draft)) ?? percent;
+            setDraft(undefined);
+            onApply(clampPercent(base + (event.key === 'ArrowUp' ? PERCENT_KEY_STEP : -PERCENT_KEY_STEP)));
+          }
+        }}
+        // A fixed width, so the toolbar does not shift as the value changes.
+        className="numeric h-11 w-[4.5rem] rounded-(--radius) border border-ink-subtle bg-surface text-center text-sm text-ink"
+      />
+      <span className="sr-only" aria-live="polite">
+        Yakınlaştırma %{percent}
+      </span>
+    </>
   );
 }

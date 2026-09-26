@@ -250,6 +250,18 @@ test('görüntüleyici: varsayılan açılış, ortalanmış kapak, yakınlaşt�
     }));
     expect(Math.abs(left - overflow / 2)).toBeLessThan(overflow * 0.1 + 2);
 
+    // A zoom typed into the percentage box, on the same page.
+    const zoomBox = page.getByLabel('Yakınlaştırma yüzdesi');
+    await zoomBox.click();
+    await zoomBox.pressSequentially('150');
+    await zoomBox.press('Enter');
+    await expect(zoomBox).toHaveValue('%150');
+    await expect(page.getByRole('button', { name: 'Genişliğe sığdır' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(await currentPage(page)).toBe(2);
+
     // "Sayfaya sığdır": both pages completely visible.
     await page.getByRole('button', { name: 'Sayfaya sığdır' }).click();
     await expect.poll(horizontalOverflow).toBeLessThanOrEqual(0);
