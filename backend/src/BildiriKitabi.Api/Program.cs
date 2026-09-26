@@ -111,7 +111,9 @@ if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", false))
         await database.EnsureDeletedAsync();
     }
 
-    await database.MigrateAsync();
+    // SQL Server may still be starting (container or machine restart): wait for it for up to a minute.
+    var retry = new StartupRetry(app.Services.GetRequiredService<TimeProvider>(), app.Logger);
+    await DatabaseStartup.MigrateAsync(database, retry, app.Lifetime.ApplicationStopping);
 }
 
 await app.RunAsync();
