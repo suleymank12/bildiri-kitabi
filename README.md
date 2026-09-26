@@ -94,6 +94,8 @@ docker compose down      # konteynerleri ve ağı kaldırır, veriler (volume'la
 docker compose down -v   # veritabanı, kuyruk ve üretilen PDF'ler dahil her şeyi siler
 ```
 
+Yeniden başlatma desteklenir: `stop` ya da `down` sonrasında `docker compose up -d` (veya `docker compose start`) sistemi veriler korunarak yeniden açar; önceki kitaplar ve PDF'leri yerinde kalır.
+
 Notlar:
 
 - Yalnızca web arayüzü (8080) ve RabbitMQ yönetim arayüzü (15672) yayımlanır, ikisi de yalnızca `127.0.0.1` üzerinde. API ve veritabanı dışarıya açılmaz; tarayıcı API'ye nginx üzerinden ulaşır.
@@ -209,6 +211,8 @@ Katmanlar ve bağımlılık yönü `Api → Infrastructure → Core`:
 | `BildiriKitabi.Api` | Controller'lar, ProblemDetails hata biçimi, rate limiting, güvenlik başlıkları, sağlık kontrolü, arka plan işleyici, açılış kurtarması ve kuyruk süpürücüsü. |
 
 API ve arka plan işleyici aynı süreçte çalışır; kuyruk bir arayüzün arkasında olduğundan işleyici ayrı bir sürece taşınabilir.
+
+Docker'da açılış sırası: `mssql` sağlık kontrolü yalnızca bağlantı kabul edilmesine değil, `BildiriKitabi` veritabanı varsa gerçekten okunabilmesine (kurtarmanın bitmesine) bakar; `db-init` ve API bu kontrolden sonra başlar. `db-init` yine de SQL Server'a ulaşamazsa yaklaşık 60 sn boyunca 2 sn arayla yeniden dener (yanlış `sa` parolasında hemen durur). API de açılıştaki migration'dan önce veritabanını bekler: geçici SQL hatalarında üstel geri çekilmeyle yaklaşık 60 sn yeniden dener, kalıcı hatalarda (ör. hatalı giriş) hemen durur; bu sayede Docker veya bilgisayar yeniden başladığında API'nin SQL Server'dan önce kalkması sorun olmaz. Parolalar `sqlcmd`'ye komut satırıyla değil ortam değişkeniyle verilir.
 
 <a id="isleme-akisi"></a>
 
@@ -462,7 +466,7 @@ Development ortamında OpenAPI belgesi `/openapi/v1.json`, etkileşimli referans
 
 | Komut | Kapsam | Sayı |
 |---|---|---|
-| `cd backend && dotnet test` | Birim testleri (`BildiriKitabi.UnitTests`): okuma, stil çözümleme, temizlik, başlık, doğrulama, durum geçişleri, depolama, kuyruk yapılandırması. Entegrasyon testleri (`BildiriKitabi.IntegrationTests`): örnek bildirilerle uçtan uca PDF, dizgi ve sızıntı tarayıcısı, yazı tipi yedekleri, migration ve kısıtlar, API uçları ve yaşam döngüsü, RabbitMQ topolojisi, onay, DLQ, yeniden teslim ve broker kesintisi. | 368 |
+| `cd backend && dotnet test` | Birim testleri (`BildiriKitabi.UnitTests`): okuma, stil çözümleme, temizlik, başlık, doğrulama, durum geçişleri, depolama, kuyruk yapılandırması, açılış migration'ının yeniden deneme kuralları (sahte saatle). Entegrasyon testleri (`BildiriKitabi.IntegrationTests`): örnek bildirilerle uçtan uca PDF, dizgi ve sızıntı tarayıcısı, yazı tipi yedekleri, migration ve kısıtlar, gerçek SQL Server hatalarının geçici/kalıcı ayrımı, API uçları ve yaşam döngüsü, RabbitMQ topolojisi, onay, DLQ, yeniden teslim ve broker kesintisi. | 384 |
 | `cd frontend && npm run test` | Bileşen ve birim testleri (Vitest, Testing Library, MSW): sayfalar, dosya seçimi, hata eşleme, görüntüleyici, sayfa hesapları, kontrast. | 250 |
 | `cd frontend && npm run test:e2e` | Playwright, masaüstü ve mobil: gerçek API (kendi veritabanıyla, Release derlemesi) ve Vite geliştirme sunucusu otomatik başlatılır; mutlu yol, doğrulama, hata ve bekleme ekranları, liste ve silme, görüntüleyici (1920 px varsayılan açılış, yakınlaştırma ve yazılan yüzde, mobilde çift dokunma), düzen, axe ile erişilebilirlik taraması. | 16 |
 | `cd frontend && npm run test:e2e:docker` | Aynı E2E testleri çalışan Docker kurulumuna karşı (varsayılan http://localhost:8080, `E2E_BASE_URL` ile değiştirilebilir); ayrıca nginx'in CSP'si altında CSP ihlali olmadığını doğrular. | 16 |
@@ -591,6 +595,7 @@ bildiri-kitabi/
 │  ├─ nginx.conf                       Docker'daki web sunucusu ve API vekili
 │  └─ Dockerfile
 ├─ docker/db-init.sql                  Veritabanını ve uygulama girişini oluşturan betik
+├─ docker/db-init.sh                   db-init'in sınırlı yeniden deneme döngüsü
 ├─ docs/screenshots/                   README ekran görüntüleri (`npm run screenshots`)
 ├─ testdata/bildiriler/                On örnek bildiri (.docx)
 ├─ docker-compose.yml
