@@ -1,5 +1,5 @@
 import { BookOpenIcon, CaretLeftIcon, CaretRightIcon, TrashIcon } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { errorMessage } from '../../api/errors';
 import { LIST_PAGE_SIZE, useBookList, useDeleteBook } from '../../api/hooks';
@@ -10,7 +10,8 @@ import { usePageTitle } from '../../app/usePageTitle';
 import { Alert, Badge, Button, Card, Dialog, EmptyState, Skeleton, buttonClasses } from '../../components/ui';
 import { formatDateTime, formatInteger } from '../../lib/format';
 import { isBusy, statusLabel, statusTone } from '../../lib/status';
-import { RowMenu } from './RowMenu';
+
+const DELETE_BLOCKED_REASON = 'Kitap hazırlanırken silinemez.';
 
 export function LibraryPage() {
   usePageTitle('Kitaplarım');
@@ -93,14 +94,14 @@ export function LibraryPage() {
         <Card className="overflow-visible">
           <div
             aria-hidden="true"
-            className="hidden grid-cols-[minmax(0,1fr)_8rem_5rem_5rem_11rem_3rem] gap-4 border-b border-line px-5 py-3 text-xs font-medium tracking-wide text-ink-muted uppercase md:grid"
+            className="hidden grid-cols-[minmax(0,1fr)_8rem_5rem_5rem_11rem_5.5rem] gap-4 border-b border-line px-5 py-3 text-xs font-medium tracking-wide text-ink-muted uppercase md:grid"
           >
             <span>Kitap</span>
             <span>Durum</span>
             <span className="text-right">Bildiri</span>
             <span className="text-right">Sayfa</span>
             <span>Oluşturulma</span>
-            <span />
+            <span className="sr-only">İşlem</span>
           </div>
           <ul aria-label="Kitaplar" className="flex flex-col">
             {data.items.map((book) => (
@@ -182,8 +183,9 @@ export function LibraryPage() {
 
 function BookRow({ book, onDelete }: { book: BookSummary; onDelete: () => void }) {
   const busy = isBusy(book.status);
+  const reasonId = useId();
   return (
-    <li className="relative grid grid-cols-[minmax(0,1fr)_3rem] gap-x-3 gap-y-2 border-b border-line px-5 py-4 last:border-b-0 hover:bg-surface-muted md:grid-cols-[minmax(0,1fr)_8rem_5rem_5rem_11rem_3rem] md:items-center md:gap-4">
+    <li className="relative grid grid-cols-[minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2 border-b border-line px-5 py-4 last:border-b-0 hover:bg-surface-muted md:grid-cols-[minmax(0,1fr)_8rem_5rem_5rem_11rem_5.5rem] md:items-center md:gap-4">
       <Link
         to={paths.book(book.id)}
         className="flex min-h-11 items-center font-serif text-lg leading-snug font-semibold break-words text-ink after:absolute after:inset-0 after:content-[''] hover:underline"
@@ -191,19 +193,25 @@ function BookRow({ book, onDelete }: { book: BookSummary; onDelete: () => void }
         {book.name}
       </Link>
       <div className="relative z-10 row-span-2 self-start md:order-last md:row-span-1 md:self-center">
-        <RowMenu
-          label={`${book.name} için işlemler`}
-          items={[
-            {
-              label: 'Sil',
-              icon: <TrashIcon size={16} aria-hidden="true" />,
-              tone: 'danger',
-              disabled: busy,
-              disabledReason: 'Kitap hazırlanırken silinemez.',
-              onSelect: onDelete,
-            },
-          ]}
-        />
+        {/* Stays focusable while the book is being prepared, so the reason can be read. */}
+        <Button
+          variant="danger-quiet"
+          size="sm"
+          className="w-11 px-0 md:w-auto md:px-3"
+          icon={<TrashIcon size={18} aria-hidden="true" />}
+          softDisabled={busy}
+          aria-label={`${book.name} kitabını sil`}
+          aria-describedby={busy ? reasonId : undefined}
+          title={busy ? DELETE_BLOCKED_REASON : undefined}
+          onClick={onDelete}
+        >
+          <span className="hidden md:inline">Sil</span>
+        </Button>
+        {busy && (
+          <span id={reasonId} className="sr-only">
+            {DELETE_BLOCKED_REASON}
+          </span>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted md:contents">
         <span>

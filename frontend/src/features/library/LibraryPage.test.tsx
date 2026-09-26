@@ -41,8 +41,7 @@ describe('LibraryPage', () => {
     );
     const { user } = renderPage(<LibraryPage />, { path: '/kitaplar', route: '/kitaplar' });
 
-    await user.click(await screen.findByRole('button', { name: 'Örnek Bilim Kongresi 2026 için işlemler' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Sil' }));
+    await user.click(await screen.findByRole('button', { name: 'Örnek Bilim Kongresi 2026 kitabını sil' }));
 
     const dialog = screen.getByRole('dialog', { name: 'Kitabı sil' });
     expect(dialog).toHaveTextContent('kalıcı olarak silinecek');
@@ -66,8 +65,7 @@ describe('LibraryPage', () => {
     );
     const { user } = renderPage(<LibraryPage />, { path: '/kitaplar', route: '/kitaplar' });
 
-    await user.click(await screen.findByRole('button', { name: 'Örnek Bilim Kongresi 2026 için işlemler' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Sil' }));
+    await user.click(await screen.findByRole('button', { name: 'Örnek Bilim Kongresi 2026 kitabını sil' }));
     await user.click(screen.getByRole('button', { name: 'Vazgeç' }));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -92,13 +90,12 @@ describe('LibraryPage', () => {
     );
     const { user } = renderPage(<LibraryPage />, { path: '/kitaplar', route: '/kitaplar' });
 
-    await user.click(await screen.findByRole('button', { name: 'Örnek Bilim Kongresi 2026 için işlemler' }));
-    const item = screen.getByRole('menuitem', { name: 'Sil' });
+    const button = await screen.findByRole('button', { name: 'Örnek Bilim Kongresi 2026 kitabını sil' });
 
-    expect(item).toHaveAttribute('aria-disabled', 'true');
-    expect(item).toHaveAttribute('title', 'Kitap hazırlanırken silinemez.');
-    expect(screen.getByText('Kitap hazırlanırken silinemez.')).toBeVisible();
-    await user.click(item);
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveAttribute('title', 'Kitap hazırlanırken silinemez.');
+    expect(button).toHaveAccessibleDescription('Kitap hazırlanırken silinemez.');
+    await user.click(button);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
