@@ -3,6 +3,7 @@ import { statSync } from 'node:fs';
 import {
   createThroughApi,
   currentPage,
+  doubleTap,
   expectAccessible,
   generateThroughApi,
   isPhone,
@@ -292,18 +293,28 @@ test('görüntüleyici: varsayılan açılış, ortalanmış kapak, yakınlaşt�
     const box = await slot.boundingBox();
     const x = (box?.x ?? 0) + (box?.width ?? 0) * 0.3;
     const y = (box?.y ?? 0) + Math.min(200, (box?.height ?? 0) / 2);
-    await page.touchscreen.tap(x, y);
-    await page.touchscreen.tap(x, y);
+    await doubleTap(page, x, y);
     await expect.poll(async () => (await slot.boundingBox())?.width ?? 0).toBeGreaterThan(fitted * 1.8);
     expect(await horizontalOverflow()).toBeGreaterThan(0);
     expect(await currentPage(page)).toBe(3);
 
     await page.getByRole('button', { name: 'Sonraki sayfa' }).click();
     await expect.poll(() => currentPage(page)).toBe(4);
+    const next = page.locator('[data-page-slot="4"] canvas');
+    await expect(next).toBeVisible();
 
-    // The zoomed page fills the screen; tapping twice in its middle fits it to the width again.
-    await page.touchscreen.tap(195, 420);
-    await page.touchscreen.tap(195, 420);
+    // The zoomed page fills the screen; tapping twice on the visible part of it fits it to the width again.
+    const canvasBox = await next.boundingBox();
+    const areaBox = await area.boundingBox();
+    const viewport = page.viewportSize();
+    if (!canvasBox || !areaBox || !viewport) {
+      throw new Error('Görüntüleyici alanı veya sayfa bulunamadı.');
+    }
+    const left = Math.max(canvasBox.x, areaBox.x, 0);
+    const right = Math.min(canvasBox.x + canvasBox.width, areaBox.x + areaBox.width, viewport.width);
+    const top = Math.max(canvasBox.y, areaBox.y, 0);
+    const bottom = Math.min(canvasBox.y + canvasBox.height, areaBox.y + areaBox.height, viewport.height);
+    await doubleTap(page, (left + right) / 2, (top + bottom) / 2);
     await expect.poll(horizontalOverflow).toBeLessThanOrEqual(0);
     await expect(page.getByRole('button', { name: 'Uzaklaştır' })).toBeDisabled();
   }

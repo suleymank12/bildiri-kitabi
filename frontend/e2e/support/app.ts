@@ -57,6 +57,32 @@ export async function currentPage(page: Page): Promise<number> {
   return Number.parseInt(await page.getByLabel('Sayfa numarası').inputValue(), 10);
 }
 
+/**
+ * A double tap as a touch screen reports it: every touch carries the time it happened, and the two taps are 80 ms
+ * apart. `page.touchscreen.tap` stamps a tap when it is sent and sends the next one only after the page has handled
+ * it, so while the viewer is still drawing a page the two taps drift apart past the double-tap limit.
+ */
+export async function doubleTap(page: Page, x: number, y: number): Promise<void> {
+  const session = await page.context().newCDPSession(page);
+  const start = Date.now() / 1000;
+  try {
+    for (const offset of [0, 0.08]) {
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [{ x, y }],
+        timestamp: start + offset,
+      });
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchEnd',
+        touchPoints: [],
+        timestamp: start + offset + 0.02,
+      });
+    }
+  } finally {
+    await session.detach();
+  }
+}
+
 /** Opens a paper from the viewer's table of contents (side panel on desktop, bottom sheet on phones). */
 export async function openFromContents(page: Page, title: RegExp): Promise<void> {
   if (isPhone(page)) {
