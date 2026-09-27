@@ -16,7 +16,7 @@ const baseURL = externalBaseURL ?? localBaseURL;
 
 /**
  * End-to-end tests against the real API (own database and storage, see e2e/support/start-backend.mjs) and the
- * Vite dev server, on a desktop and a phone-sized Chromium. `npm run screenshots` renders the README images.
+ * Vite dev server, on a desktop and a phone-sized Chromium.
  * With E2E_BASE_URL the same tests run against that address instead (`npm run test:e2e:docker`).
  */
 export default defineConfig({
@@ -38,12 +38,10 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop',
-      testIgnore: /screenshots\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
     {
       name: 'mobile',
-      testIgnore: /screenshots\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 390, height: 844 },
@@ -51,11 +49,6 @@ export default defineConfig({
         isMobile: true,
         hasTouch: true,
       },
-    },
-    {
-      name: 'screenshots',
-      testMatch: /screenshots\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'] },
     },
   ],
   webServer: externalBaseURL

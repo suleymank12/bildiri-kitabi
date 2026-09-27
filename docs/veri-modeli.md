@@ -4,6 +4,33 @@
 
 Tablo ve kolon adları Türkçe, C# sınıfları İngilizcedir (`Book` → `Kitaplar`, `Paper` → `Bildiriler`); eşleme `IEntityTypeConfiguration` sınıflarında açıkça yapılır. Durum ve aşama değerleri metin olarak saklanır.
 
+## Genel bakış
+
+```mermaid
+erDiagram
+    Kitaplar ||--o{ Bildiriler : "içerir"
+    Kitaplar {
+        uniqueidentifier Id PK
+        nvarchar Ad
+        nvarchar Durum
+        tinyint IlerlemeYuzdesi
+        nvarchar HataMesaji
+        nvarchar PdfDepolamaAnahtari
+        datetime2 OlusturulmaZamani
+    }
+    Bildiriler {
+        uniqueidentifier Id PK
+        uniqueidentifier KitapId FK
+        int SiraNo
+        nvarchar OrijinalDosyaAdi
+        binary Sha256
+        nvarchar Baslik
+        int BaslangicSayfasi
+        int SilinenEpostaSayisi
+        int SilinenTelefonSayisi
+    }
+```
+
 ## `Kitaplar`
 
 | Kolon | Tip | Açıklama |

@@ -14,7 +14,7 @@ Diğer kontroller: `npm run lint`, `npm run typecheck`, `npm run build`. İlk E2
 Örnek bildiriler: case ile gönderilen 10 .docx dosyası şirkete ait olduğu için depoda yoktur; testler ve E2E senaryoları onları `testdata/bildiriler/` klasöründe arar.
 
 - Dosyalar yoksa onlara dayanan backend testleri (114 test) "Örnek bildiriler bulunamadı: case ile gönderilen 10 .docx dosyasını testdata/bildiriler/ klasörüne kopyalayın." nedeniyle atlanır (skip); kalanlar normal çalışır.
-- `npm run test:e2e`, `npm run test:e2e:docker` ve `npm run screenshots` her senaryoda bu dosyaları yüklediği için dosyalar yoksa başlamadan aynı mesajla durur.
+- `npm run test:e2e` ve `npm run test:e2e:docker` her senaryoda bu dosyaları yüklediği için dosyalar yoksa başlamadan aynı mesajla durur.
 
 Docker gerektirenler:
 

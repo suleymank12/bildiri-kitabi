@@ -128,7 +128,6 @@ bildiri-kitabi/
 ├─ docker/db-init.sql                  Veritabanını ve uygulama girişini oluşturan betik
 ├─ docker/db-init.sh                   db-init'in sınırlı yeniden deneme döngüsü
 ├─ docs/                              Ayrıntılı belgeler (kurulum, mimari, veri modeli, testler …)
-│  └─ screenshots/                     README ekran görüntüleri (`npm run screenshots`)
 ├─ scripts/env-olustur.ps1, .sh        .env'i rastgele parolalarla oluşturan betikler
 ├─ testdata/bildiriler/                Case'in 10 örnek bildirisi buraya kopyalanır (şirkete ait, git'te yok)
 ├─ docker-compose.yml
