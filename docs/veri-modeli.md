@@ -53,8 +53,8 @@ stateDiagram-v2
     Uploaded --> Queued: Kitabı Oluştur
     Queued --> Processing: işleyici sahiplenir
     Processing --> Completed: PDF kaydedildi
-    Processing --> Failed: hata veya zaman aşımı
-    Processing --> Queued: süreç yarıda kaldı (açılışta kurtarma)
+    Processing --> Failed: hata, zaman aşımı veya ikinci kez yarıda kalma
+    Processing --> Queued: süreç yarıda kaldı (açılışta veya süpürücüde kurtarma, bir kez)
     Failed --> Queued: Tekrar dene
     Completed --> [*]
 ```

@@ -90,6 +90,21 @@ public sealed class BookTests
         book.QueuedAt.ShouldBe(Now.AddMinutes(1));
         book.ProgressPercent.ShouldBe((byte)0);
         book.ProcessingStartedAt.ShouldBeNull();
+        book.ProcessingFinishedAt.ShouldBe(Now.AddMinutes(1));
+        book.WasInterrupted.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Queueing_by_the_user_clears_the_interruption()
+    {
+        var book = Processing();
+        book.ReturnToQueue(Now.AddMinutes(1));
+        book.MarkProcessing(Now.AddMinutes(2));
+        book.MarkFailed("GENERATION_INTERRUPTED", "Yarıda kaldı.", Now.AddMinutes(3));
+
+        book.MarkQueued(Now.AddMinutes(4));
+
+        book.WasInterrupted.ShouldBeFalse();
     }
 
     public static TheoryData<string, Action<Book>> InvalidTransitions => new()

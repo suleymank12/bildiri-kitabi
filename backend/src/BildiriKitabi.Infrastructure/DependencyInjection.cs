@@ -78,6 +78,7 @@ public static class DependencyInjection
         services.AddScoped<BookCommandService>();
         services.AddScoped<BookGenerationHandler>();
         services.AddScoped<QueueSweepService>();
+        services.AddScoped<InterruptedGenerationRecovery>();
         return services;
     }
 }

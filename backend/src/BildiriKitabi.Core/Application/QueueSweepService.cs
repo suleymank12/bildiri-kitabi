@@ -11,11 +11,13 @@ namespace BildiriKitabi.Core.Application;
 /// Enqueues again the books that have been <c>Queued</c> for longer than <c>Generation:RequeueStaleAfterSeconds</c>:
 /// their message may never have reached the broker (it was down when "generate" was called) or may have been lost.
 /// The database row is the record of intent, like a simple outbox; a duplicate message is harmless because only
-/// one handler can claim a queued book.
+/// one handler can claim a queued book. Before that, books stuck in <c>Processing</c> for longer than the time limit
+/// plus that delay are recovered by <see cref="InterruptedGenerationRecovery"/> (queued once more, then failed).
 /// </summary>
 public sealed partial class QueueSweepService(
     IAppDbContext db,
     IBookGenerationQueue queue,
+    InterruptedGenerationRecovery recovery,
     IOptions<GenerationOptions> options,
     TimeProvider timeProvider,
     ILogger<QueueSweepService> logger)
@@ -26,18 +28,31 @@ public sealed partial class QueueSweepService(
     public static bool IsStale(BookStatus status, DateTime? queuedAt, DateTime now, TimeSpan staleAfter) =>
         status == BookStatus.Queued && (queuedAt is null || now - queuedAt.Value >= staleAfter);
 
+    /// <summary>
+    /// A run that is still alive after this long is impossible: the handler gives up at the time limit. The extra
+    /// requeue delay leaves room for writing the outcome.
+    /// </summary>
+    public static TimeSpan StuckAfter(GenerationOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return TimeSpan.FromSeconds(options.TimeoutSeconds + options.RequeueStaleAfterSeconds);
+    }
+
     /// <returns>The number of books enqueued again.</returns>
     public async Task<int> SweepAsync(CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
+        var recovered = await recovery.RecoverAsync(now - StuckAfter(options.Value), cancellationToken).ConfigureAwait(false);
+
         var threshold = now - TimeSpan.FromSeconds(options.Value.RequeueStaleAfterSeconds);
-        var stale = await db.Books.AsNoTracking()
+        var waiting = await db.Books.AsNoTracking()
             .Where(b => b.Status == BookStatus.Queued && (b.QueuedAt == null || b.QueuedAt <= threshold))
             .OrderBy(b => b.QueuedAt)
             .Select(b => b.Id)
             .Take(BatchSize)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
+        var stale = recovered.Concat(waiting).ToList();
 
         var requeued = 0;
         foreach (var bookId in stale)

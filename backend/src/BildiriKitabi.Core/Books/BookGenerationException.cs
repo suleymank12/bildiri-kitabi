@@ -7,6 +7,7 @@ public static class BookErrorCodes
     public const string RenderFailed = "RENDER_FAILED";
     public const string UnsupportedCharacter = "UNSUPPORTED_CHARACTER";
     public const string GenerationTimeout = "GENERATION_TIMEOUT";
+    public const string GenerationInterrupted = "GENERATION_INTERRUPTED";
     public const string InternalError = "INTERNAL_ERROR";
 }
 

@@ -188,7 +188,11 @@ public sealed partial class BookGenerationHandler(
         }
     }
 
-    private async Task FailAsync(Guid bookId, string code, string message)
+    /// <summary>
+    /// Writes the failure. Never throws: when the database cannot be reached the book stays <c>Processing</c> and the
+    /// sweeper recovers it once the time limit has passed.
+    /// </summary>
+    internal async Task FailAsync(Guid bookId, string code, string message)
     {
         try
         {
@@ -203,7 +207,7 @@ public sealed partial class BookGenerationHandler(
             await db.SaveChangesAsync(CancellationToken.None).ConfigureAwait(false);
             await storage.DeleteAsync(StorageKeys.Output(bookId), CancellationToken.None).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException or IOException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             LogFailWriteFailed(logger, ex, bookId);
         }

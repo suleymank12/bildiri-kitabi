@@ -1,3 +1,4 @@
+using BildiriKitabi.Core.Application;
 using BildiriKitabi.Core.Books;
 using BildiriKitabi.Core.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -6,13 +7,13 @@ namespace BildiriKitabi.Api.Hosting;
 
 /// <summary>
 /// Startup recovery, registered before the worker: books left <c>Processing</c> by a stopped process go back to
-/// <c>Queued</c>, then every queued book is enqueued again, oldest first. Safe because generation is idempotent.
+/// <c>Queued</c> (or fail if they were already interrupted once, see <see cref="InterruptedGenerationRecovery"/>),
+/// then every queued book is enqueued again, oldest first. Safe because generation is idempotent.
 /// Enqueueing runs in the background so a queue smaller than the backlog cannot block startup.
 /// </summary>
 public sealed partial class GenerationRecoveryService(
     IServiceScopeFactory scopeFactory,
     IBookGenerationQueue queue,
-    TimeProvider timeProvider,
     ILogger<GenerationRecoveryService> logger) : IHostedService, IDisposable
 {
     private readonly CancellationTokenSource _stopping = new();
@@ -25,14 +26,11 @@ public sealed partial class GenerationRecoveryService(
         var scope = scopeFactory.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
+            // No run is alive at startup, so every processing book is recovered; one interrupted before fails.
+            var interrupted = await scope.ServiceProvider.GetRequiredService<InterruptedGenerationRecovery>()
+                .RecoverAsync(startedBefore: null, cancellationToken)
+                .ConfigureAwait(false);
             var db = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
-            var interrupted = await db.Books.Where(b => b.Status == BookStatus.Processing).ToListAsync(cancellationToken).ConfigureAwait(false);
-            foreach (var book in interrupted)
-            {
-                book.ReturnToQueue(timeProvider.GetUtcNow().UtcDateTime);
-            }
-
-            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             queued = await db.Books.AsNoTracking()
                 .Where(b => b.Status == BookStatus.Queued)
                 .OrderBy(b => b.CreatedAt)

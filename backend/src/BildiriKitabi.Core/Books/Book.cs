@@ -57,7 +57,14 @@ public sealed class Book
     /// <summary>When the book was last put in the queue; the sweeper enqueues it again if it waits too long.</summary>
     public DateTime? QueuedAt { get; private set; }
 
+    /// <summary>
+    /// When the last run ended. While the book is <c>Queued</c> or <c>Processing</c> it is set only if an earlier run
+    /// of the same attempt was interrupted (see <see cref="ReturnToQueue"/>); queueing by the user clears it.
+    /// </summary>
     public DateTime? ProcessingFinishedAt { get; private set; }
+
+    /// <summary>True when a run of the current attempt was already interrupted and the book got its one more run.</summary>
+    public bool WasInterrupted => Status is BookStatus.Queued or BookStatus.Processing && ProcessingFinishedAt is not null;
 
     public byte[] RowVersion { get; private set; } = [];
 
@@ -113,7 +120,10 @@ public sealed class Book
         ProcessingStartedAt = startedAtUtc;
     }
 
-    /// <summary>Puts a job interrupted by an application stop back in the queue.</summary>
+    /// <summary>
+    /// Puts an interrupted run back in the queue and records when it ended, which marks the book as
+    /// <see cref="WasInterrupted"/>.
+    /// </summary>
     public void ReturnToQueue(DateTime queuedAtUtc)
     {
         EnsureStatus(nameof(ReturnToQueue), BookStatus.Processing);
@@ -122,6 +132,7 @@ public sealed class Book
         Stage = null;
         ProgressPercent = 0;
         ProcessingStartedAt = null;
+        ProcessingFinishedAt = queuedAtUtc;
     }
 
     /// <summary>Progress never goes backwards and stays below 100 until the book is completed.</summary>
