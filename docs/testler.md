@@ -1,0 +1,36 @@
+# Testler
+
+← [README](../README.md)
+
+| Komut | Kapsam | Sayı |
+|---|---|---|
+| `cd backend && dotnet test` | Birim testleri (`BildiriKitabi.UnitTests`): okuma, stil çözümleme, temizlik, başlık, doğrulama, durum geçişleri, depolama, kuyruk yapılandırması, açılış migration'ının yeniden deneme kuralları (sahte saatle). Entegrasyon testleri (`BildiriKitabi.IntegrationTests`): örnek bildirilerle uçtan uca PDF, dizgi ve sızıntı tarayıcısı, yazı tipi yedekleri, migration ve kısıtlar, gerçek SQL Server hatalarının geçici/kalıcı ayrımı, API uçları ve yaşam döngüsü, RabbitMQ topolojisi, onay, DLQ, yeniden teslim ve broker kesintisi. | 402 |
+| `cd frontend && npm run test` | Bileşen ve birim testleri (Vitest, Testing Library, MSW): sayfalar, dosya seçimi, ipucu balonu, tablo sütun hizaları, başlık kaynağı uyarısı, hata eşleme, görüntüleyici, sayfa hesapları, kontrast. | 269 |
+| `cd frontend && npm run test:e2e` | Playwright, masaüstü ve mobil: gerçek API (kendi veritabanıyla, Release derlemesi) ve Vite geliştirme sunucusu otomatik başlatılır; mutlu yol, doğrulama, hata ve bekleme ekranları, liste ve silme, görüntüleyici (1920 px varsayılan açılış, yakınlaştırma ve yazılan yüzde, mobilde çift dokunma), düzen, axe ile erişilebilirlik taraması (ipucu balonu açıkken de). | 16 |
+| `cd frontend && npm run test:e2e:docker` | Aynı E2E testleri çalışan Docker kurulumuna karşı (varsayılan http://localhost:8080, `E2E_BASE_URL` ile değiştirilebilir); ayrıca nginx'in CSP'si altında CSP ihlali olmadığını doğrular. | 16 |
+
+Diğer kontroller: `npm run lint`, `npm run typecheck`, `npm run build`. İlk E2E çalıştırmasından önce tarayıcı bir kez kurulmalıdır: `npx playwright install chromium`.
+
+Docker gerektirenler:
+
+- Entegrasyon testlerinin SQL Server ve RabbitMQ kullananları Testcontainers ile geçici konteynerler başlatır; Docker yoksa bu testler nedeni yazılarak atlanır (skip).
+- `npm run test:e2e` yerelde SQL Server bekler: varsayılan olarak LocalDB (`BildiriKitabi_E2E` veritabanı, her koşuda sıfırlanır); başka bir sunucu `E2E_CONNECTION_STRING` ortam değişkeniyle verilir.
+- `npm run test:e2e:docker` için Docker kurulumu çalışır durumda ve rate limit değerleri yükseltilmiş olmalıdır ([Kurulum](kurulum.md#hizli-baslangic) notlarına bakın).
+
+<a id="kabul-kriterleri"></a>
+
+## Kabul kriterleri ve doğrulayan testler
+
+| Kriter | Nasıl karşılanıyor | Doğrulayan testler |
+|---|---|---|
+| Yüklenen Word belgeleri tek bir PDF olarak oluşturuluyor | On bildiri belirlenen sırayla okunur, temizlenir ve QuestPDF ile tek belgede dizilir; her bildiri yeni sayfada başlar. | `BookEndToEndTests.Every_paper_is_reproduced_word_for_word_without_contact_values`, `GenerationTests.Generation_runs_in_the_background_and_stores_page_numbers`, E2E `mutlu yol` |
+| İçindekiler'deki her başlık doğru başlangıç sayfasını gösteriyor | Sayfa numarası QuestPDF'in bölüm (section) özelliğiyle dizgi sırasında hesaplanır; tahmin yoktur. Satırlar ilgili sayfaya bağlantıdır. | `BookEndToEndTests.Every_table_of_contents_entry_points_to_the_page_where_the_paper_starts`, `RendererAndLeakScannerTests.Paper_page_ranges_follow_explicit_page_breaks`, E2E `mutlu yol` (beşinci bildiri 11. sayfada) |
+| Kitap sayfalarında tutarlı sayfa numaraları var | Basılı numara, PDF'teki fiziksel sayfa sırasıdır; kapak 1 sayılır ama numarası basılmaz. | `BookEndToEndTests.Every_page_after_the_cover_shows_its_physical_page_number` |
+| E-posta ve telefonlar PDF'te görünmüyor, diğer içerik aynen korunuyor | Sunucu tarafında değer tespiti ve temizlik; üretim sonrası PDF metni ayrıca taranır. | `ContactInfoSanitizerTests`, `BookEndToEndTests.Book_contains_no_email_addresses_or_turkish_phone_numbers`, `BookEndToEndTests.Orcid_identifiers_are_kept` |
+| React arayüzü masaüstünde ve dar mobil ekranda temel akışı sunuyor | Tüm akış 1280 px masaüstü ve 390 px telefon görünümünde çalışır; yatay kaydırma yoktur, dokunma hedefleri en az 44 px'tir. | `frontend/e2e/book.spec.ts` (`desktop` ve `mobile` projeleri), E2E `düzen: yatay kaydırma yok ve dokunma hedefleri en az 44 px` |
+| MSSQL şeması migration ile kuruluyor, iki tablo arasındaki ilişki çalışıyor | EF Core migration'ları `Kitaplar` ve `Bildiriler` tablolarını, yabancı anahtarı (silmede cascade), benzersiz indeksleri ve CHECK kısıtlarını kurar. | `SchemaAndUploadTests.Migration_creates_the_tables_keys_and_constraints_on_an_empty_database`, `SchemaAndUploadTests.Check_constraints_reject_a_completed_book_without_pdf_and_a_failed_book_without_message`, `LifecycleTests.Delete_removes_the_book_papers_and_files_but_not_while_it_is_processing` |
+| Dosya saklama yaklaşımı çalışıyor ve açıklanıyor | `wwwroot` dışında, sistem üretimli anahtarlarla ve atomik yazımla yerel dosya deposu; ayrıntı [Dosya saklama yaklaşımı](mimari.md#dosya-saklama) bölümünde. | `LocalFileStorageTests`, `SchemaAndUploadTests.Invalid_uploads_are_rejected_with_their_codes_and_leave_no_trace` |
+| Bekleme, başarılı sonuç ve hata durumları arayüzde görülüyor | Üretim ekranı gerçek aşamaları ve yüzdeyi gösterir; tamamlanınca görüntüleyici açılır; hata ekranı anlaşılır mesaj, tekrar dene ve sırayı düzenle seçenekleri sunar. | E2E `bekleme ekranı erişilebilir`, E2E `üretim hatası: hata ekranı, tekrar dene ve sırayı düzenle`, `BookPage.test.tsx` |
+| Oluşturma başarısız olursa kitabın durumu `Failed` oluyor | Her hata `Durum = 'Failed'`, `HataKodu` ve Türkçe `HataMesaji` ile kaydedilir; veritabanı kısıtı mesajsız `Failed` kaydına izin vermez. | `LifecycleTests.A_renderer_failure_marks_the_book_failed_and_a_retry_completes_it`, `LifecycleTests.A_generation_that_exceeds_the_time_limit_fails_with_a_timeout_code`, `RendererAndLeakScannerTests.Generation_fails_with_contact_leak_code_when_the_rendered_pdf_still_contains_contact_values` |
+| Tam olarak 10 adet .docx yükleniyor; dosya adı ve sıra görülüyor | Hem arayüzde hem sunucuda sayı, tür, boyut ve mükerrer kontrolü; ikinci adımda dosya adı, tespit edilen başlık ve sıra listelenir, sıra her satırdaki Yukarı / Aşağı düğmeleriyle değiştirilir. | `BookUploadValidatorTests.Nine_files_are_rejected`, `SchemaAndUploadTests.Ten_sample_papers_create_a_book_with_ordered_papers_and_detected_titles`, E2E `istemci doğrulaması: eksik dosya, yanlış tür ve mükerrer dosya` |
+| PDF web arayüzünde görüntüleniyor ve indiriliyor | react-pdf (pdf.js) tabanlı görüntüleyici; İçindekiler paneli, sayfa gezinme, yakınlaştırma, tek/çift sayfa ve indirme. | E2E `mutlu yol`, E2E `görüntüleyici: varsayılan açılış, ortalanmış kapak, yakınlaştırma ve çift dokunma`, `PdfViewer.test.tsx` |
