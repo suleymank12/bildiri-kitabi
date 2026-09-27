@@ -50,7 +50,22 @@ docker compose down      # konteynerler kaldırılır, veriler kalır
 docker compose down -v   # veritabanı, kuyruk ve PDF'ler dahil her şey silinir
 ```
 
-Docker olmadan çalıştırma, RabbitMQ yönetim arayüzü ve diğer notlar: [docs/kurulum.md](docs/kurulum.md).
+### Docker olmadan (MSSQL bağlantısı)
+
+Gereksinimler: .NET 10 SDK, Node.js 22.12+, SQL Server (LocalDB yeterli). API bağlantı dizesini `ConnectionStrings:Default` anahtarından okur; Development ortamındaki varsayılan LocalDB'dir:
+
+```text
+Server=(localdb)\MSSQLLocalDB;Database=BildiriKitabi;Trusted_Connection=True;TrustServerCertificate=True
+```
+
+Başka bir sunucu için dizeyi `ConnectionStrings__Default` ortam değişkeniyle verin. API Development ortamında açılışta migration'ları uygular; elle uygulamak için `backend` klasöründe `dotnet ef database update --project src/BildiriKitabi.Infrastructure --startup-project src/BildiriKitabi.Api` çalıştırın. Ardından iki ayrı terminalde:
+
+```sh
+cd backend && dotnet run --project src/BildiriKitabi.Api   # API: http://localhost:5080
+cd frontend && npm ci && npm run dev                       # arayüz: http://localhost:5173
+```
+
+Diğer sunucular, user-secrets, RabbitMQ ve yönetim arayüzü: [docs/kurulum.md](docs/kurulum.md).
 
 ## Nasıl kullanılır
 
@@ -62,7 +77,15 @@ Docker olmadan çalıştırma, RabbitMQ yönetim arayüzü ve diğer notlar: [do
 |---|---|---|
 | <img src="docs/screenshots/masaustu-adim1.png" width="260" alt="Adım 1: kitap adı ve dosyalar"> | <img src="docs/screenshots/masaustu-adim2.png" width="260" alt="Adım 2: sıra ve tespit edilen başlıklar"> | <img src="docs/screenshots/masaustu-uretim.png" width="260" alt="Adım 3: üretim aşamaları"> |
 
-Tüm ekranlar (mobil dahil) ve tasarım kararları: [docs/arayuz.md](docs/arayuz.md).
+## Tasarım kararları (masaüstü ve mobil)
+
+- Üç adımlı akış: ad ve dosyalar → sıra ve kontrol → oluşturma ve görüntüleme. Üstte adım göstergesi vardır; adres kitaba bağlı olduğundan sayfa yenilense de akış kaldığı yerden sürer.
+- Dosya listesi masaüstünde tablo, telefonda aynı bilgileri taşıyan kartlardır.
+- Bekleme ekranı sunucudaki gerçek aşamaları ve yüzdeyi gösterir; yapay ilerleme yoktur.
+- Görüntüleyici masaüstünde çift sayfa ve İçindekiler paneliyle açılır. Telefonda tek sayfa gösterilir; yakınlaştırma düğmeleri alttaki sabit araç çubuğundadır, çift dokunma %200'e yakınlaştırır.
+- Erişilebilirlik: akışın tamamı klavyeyle kullanılır, dokunma hedefleri en az 44 px'tir, her ekran E2E testlerinde axe ile taranır.
+
+Tüm ekranlar (mobil dahil) ve ayrıntılı kararlar: [docs/arayuz.md](docs/arayuz.md).
 
 <a id="kabul-kriterleri"></a>
 
@@ -86,7 +109,7 @@ Tüm test adlarıyla tam tablo: [docs/testler.md](docs/testler.md#kabul-kriterle
 
 ## Mimari
 
-Tarayıcı yalnızca nginx'e bağlanır; nginx arayüzün statik dosyalarını verir ve `/api` isteklerini ASP.NET Core API'ye iletir. API yüklemeyi doğrulayıp SQL Server'a kaydeder ve "Kitabı Oluştur" isteğinde RabbitMQ'ya yalnızca kitap kimliğini koyar. Aynı süreçteki arka plan işleyici mesajı alır, bildirileri okur, temizler, QuestPDF ile dizer, PDF'i sızıntıya karşı tarar ve dosya deposuna yazar. Katmanlar `Api → Infrastructure → Core` yönünde bağımlıdır.
+Tarayıcı yalnızca nginx'e bağlanır; nginx arayüzün statik dosyalarını verir ve `/api` isteklerini ASP.NET Core API'ye iletir. API kayıtları SQL Server'da, dosyaları yerel depoda tutar; üretim işleri RabbitMQ üzerinden aynı süreçteki arka plan işleyiciye gider. Katmanlar `Api → Infrastructure → Core` yönünde bağımlıdır.
 
 ```mermaid
 flowchart TB
@@ -104,7 +127,16 @@ flowchart TB
     W --> FS[("Dosya deposu")]
 ```
 
-İşleme akışı, kuyruk, API uçları ve proje yapısı: [docs/mimari.md](docs/mimari.md). Word okuma, stil çözümleme ve kitap düzeni: [docs/word-pdf.md](docs/word-pdf.md).
+Kuyruk, kurtarma, API uçları ve proje yapısı: [docs/mimari.md](docs/mimari.md). Word okuma, stil çözümleme ve kitap düzeni: [docs/word-pdf.md](docs/word-pdf.md).
+
+## İşleme akışı
+
+1. Yükleme ve doğrulama: kitap adı ve 10 dosya tek istekle gelir; sayı, tür, boyut, ZIP güvenliği ve mükerrer içerik denetlenir. Hata varsa hiçbir kayıt veya dosya kalmaz.
+2. Başlık tespiti: sırasıyla Word'ün başlık stili, ilk beş paragraftaki ortalı ve tamamı kalın paragraf, dosya adı denenir; yedek yöntemle bulunan başlık arayüzde "kontrol edin" uyarısıyla işaretlenir.
+3. Kayıt: kitap ve bildiriler tek transaction'da kaydedilir; kitap `Uploaded` olur.
+4. Sıra: varsayılan sıra yükleme sırasıdır. İkinci adımda her satırdaki Yukarı / Aşağı düğmeleriyle değiştirilir ve hemen kaydedilir; sıra yükleme sırasından farklıysa arayüz bunu belirtir. İlk adımdaki "Ada göre sırala" dosyaları doğal sayı sırasına dizer (`2_…` önce, `10_…` sonra).
+5. Kuyruk: "Kitabı Oluştur" kitabı `Queued` yapar ve kuyruğa yalnızca kitap kimliğini koyar; işleyici kitabı sahiplenince durum `Processing` olur.
+6. Üretim: bildiriler okunur, iletişim bilgileri temizlenir, QuestPDF ile dizilir ve PDF sızıntıya karşı taranır. Sonunda kitap `Completed` olur ya da hata kodu ve Türkçe mesajla `Failed`.
 
 ## Veri modeli
 
@@ -203,6 +235,8 @@ QuestPDF Community lisansı bireyler, açık kaynak projeler ve yıllık brüt g
 - Word biçim sadakati sınırlı: görseller, liste numaraları ve yazı rengi PDF'e taşınmaz.
 - Docker kurulumu yerel değerlendirme içindir; TLS içermez, yalnızca `127.0.0.1` üzerinde yayımlanır.
 - PDF'te yer imleri (outline) yok; gezinme İçindekiler bağlantılarıyla yapılır.
+- Kitap adına yazılan iletişim bilgisi temizlenmez, çünkü kural Word içeriği içindir.
+- Yüklenip hiç oluşturulmayan kitapların dosyaları otomatik silinmez; kullanıcı "Sil" ile kaldırabilir.
 
 Tam liste ve güvenlik notları: [docs/sinirlamalar.md](docs/sinirlamalar.md).
 

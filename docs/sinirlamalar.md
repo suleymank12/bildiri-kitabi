@@ -32,3 +32,5 @@ Case'in zorunlu maddelerinin tamamı karşılanmıştır (bkz. [Kabul kriterleri
 - **SQL Server ARM:** SQL Server imajı yalnızca amd64'tür; Apple Silicon'da Rosetta öykünmesiyle çalışır ve daha yavaştır.
 - **Erişilebilir PDF:** üretilen PDF etiketli (tagged PDF) veya PDF/A uyumlu değildir.
 - **Örnek bildiriler depoda yok:** Case ile gönderilen örnek bildiriler şirkete ait olduğu ve üst verilerinde kişisel veri bulunduğu için depoya eklenmemiştir. Testler ve E2E senaryoları onları `testdata/bildiriler/` klasöründe arar.
+- **Kitap adındaki iletişim bilgisi:** kitap adına yazılan iletişim bilgisi temizlenmez, çünkü kural Word içeriği içindir (bkz. [İletişim bilgisi temizliği](iletisim-temizligi.md)).
+- **Oluşturulmayan kitaplar:** yüklenip hiç oluşturulmayan kitapların dosyaları otomatik silinmez; kullanıcı Kitaplarım'daki "Sil" düğmesiyle kaldırabilir.
