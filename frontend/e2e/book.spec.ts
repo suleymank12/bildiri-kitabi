@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { statSync } from 'node:fs';
 import {
+  animationsFinished,
   createThroughApi,
   currentPage,
   doubleTap,
   expectAccessible,
   generateThroughApi,
+  holdUploadResponse,
   isPhone,
   openFromContents,
   paperFiles,
@@ -26,15 +28,7 @@ test('mutlu yol: yükleme, sıralama, oluşturma, görüntüleyicide gezinme ve 
   await page.goto('/');
   await expectAccessible(page, 'Adım 1');
 
-  // Step 1. The server's answer is held back a little, so the second stage of the upload (the server checking
-  // the files) is on screen long enough to be seen.
-  await page.route('**/api/books', async (route) => {
-    if (route.request().method() === 'POST') {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-    }
-
-    await route.continue();
-  });
+  // Step 1.
   await page.getByLabel('Kitap adı').fill('Örnek Bilim Kongresi 2026');
   await page.getByLabel('Bildiri dosyaları').setInputFiles(paperFiles);
   const submit = page.getByRole('button', { name: 'Yükle ve devam et' });
@@ -48,16 +42,21 @@ test('mutlu yol: yükleme, sıralama, oluşturma, görüntüleyicide gezinme ve 
   } else {
     await sort.hover();
   }
-  await expect(page.getByRole('tooltip')).toHaveText('Dosyalar zaten ada göre sıralı');
+  const tooltip = page.getByRole('tooltip');
+  await expect(tooltip).toHaveText('Dosyalar zaten ada göre sıralı');
+  // The tooltip fades in; contrast is measured once it is fully opaque.
+  await animationsFinished(tooltip);
   await expectAccessible(page, 'Adım 1, ipucu açık');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('tooltip')).toBeHidden();
 
+  // The server's answer is held until the second stage of the upload (the server checking the files) is seen.
+  const upload = await holdUploadResponse(page);
   await submit.scrollIntoViewIfNeeded();
   await submit.click();
   await expect(page.getByText('Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…')).toBeVisible();
+  await upload.release();
   await page.waitForURL(/\/kitaplar\/[0-9a-f-]{36}$/);
-  await page.unroute('**/api/books');
 
   // The new page starts at the top with the focus on its heading.
   await expect(page.getByRole('heading', { level: 1, name: 'Örnek Bilim Kongresi 2026' })).toBeFocused();

@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { listPaperFiles } from './papers';
@@ -81,6 +81,40 @@ export async function doubleTap(page: Page, x: number, y: number): Promise<void>
   } finally {
     await session.detach();
   }
+}
+
+/**
+ * Holds the server's answer to the next upload (POST /api/books) until `release` is called, then passes it on
+ * unchanged. The request itself goes to the real API untouched: with `page.route` Chromium reports no upload
+ * progress, so the page would never reach its "checking the files" stage while the request waits.
+ */
+export async function holdUploadResponse(page: Page): Promise<{ release: () => Promise<void> }> {
+  const session = await page.context().newCDPSession(page);
+  const paused = new Promise<string>((resolve) => {
+    session.on('Fetch.requestPaused', (event) => {
+      if (event.request.method === 'POST') {
+        resolve(event.requestId);
+      } else {
+        void session.send('Fetch.continueResponse', { requestId: event.requestId });
+      }
+    });
+  });
+  await session.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/books', requestStage: 'Response' }] });
+
+  return {
+    release: async () => {
+      await session.send('Fetch.continueResponse', { requestId: await paused });
+      await session.send('Fetch.disable');
+      await session.detach();
+    },
+  };
+}
+
+/** Waits until the CSS transitions and animations of an element and its children have finished. */
+export async function animationsFinished(locator: Locator): Promise<void> {
+  await locator.evaluate((element) =>
+    Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)),
+  );
 }
 
 /** Opens a paper from the viewer's table of contents (side panel on desktop, bottom sheet on phones). */
