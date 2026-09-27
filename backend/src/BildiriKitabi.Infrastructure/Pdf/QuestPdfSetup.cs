@@ -41,7 +41,7 @@ public static class QuestPdfSetup
 
     private static bool Initialize()
     {
-        // Community license: free for organizations below USD 1M annual revenue (see README).
+        // Community license: free for organizations below USD 1M annual revenue (see docs/kutuphaneler.md).
         Settings.License = LicenseType.Community;
 
         // Only the bundled fonts are used so the output does not depend on the machine it runs on.

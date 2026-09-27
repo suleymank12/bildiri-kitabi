@@ -88,7 +88,7 @@ services:
       # nginx (web) is the only client; the real client address arrives in X-Forwarded-For.
       ForwardedHeaders__Enabled: "true"
       ForwardedHeaders__KnownNetworks__0: 172.28.0.0/24
-      # No TLS in this local setup (see README); nginx listens on plain HTTP on 127.0.0.1.
+      # No TLS in this local setup (see docs/sinirlamalar.md); nginx listens on plain HTTP on 127.0.0.1.
       HttpsRedirection__Enabled: "false"
       RateLimiting__UploadPermitsPerMinute: ${UPLOAD_RATE_LIMIT_PER_MINUTE:-10}
       RateLimiting__GeneratePermitsPerMinute: ${GENERATE_RATE_LIMIT_PER_MINUTE:-20}
