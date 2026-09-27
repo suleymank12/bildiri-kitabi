@@ -4,12 +4,17 @@
 
 | Komut | Kapsam | Sayı |
 |---|---|---|
-| `cd backend && dotnet test` | Birim testleri (`BildiriKitabi.UnitTests`): okuma, stil çözümleme, temizlik, başlık, doğrulama, durum geçişleri, depolama, kuyruk yapılandırması, açılış migration'ının yeniden deneme kuralları (sahte saatle). Entegrasyon testleri (`BildiriKitabi.IntegrationTests`): örnek bildirilerle uçtan uca PDF, dizgi ve sızıntı tarayıcısı, yazı tipi yedekleri, migration ve kısıtlar, gerçek SQL Server hatalarının geçici/kalıcı ayrımı, API uçları ve yaşam döngüsü, RabbitMQ topolojisi, onay, DLQ, yeniden teslim ve broker kesintisi. | 402 |
+| `cd backend && dotnet test` | Birim testleri (`BildiriKitabi.UnitTests`): okuma, stil çözümleme, temizlik, başlık, doğrulama, durum geçişleri, depolama, kuyruk yapılandırması, açılış migration'ının yeniden deneme kuralları (sahte saatle). Entegrasyon testleri (`BildiriKitabi.IntegrationTests`): örnek bildirilerle uçtan uca PDF, dizgi ve sızıntı tarayıcısı, yazı tipi yedekleri, migration ve kısıtlar, gerçek SQL Server hatalarının geçici/kalıcı ayrımı, API uçları ve yaşam döngüsü, RabbitMQ topolojisi, onay, DLQ, yeniden teslim ve broker kesintisi. | 414 |
 | `cd frontend && npm run test` | Bileşen ve birim testleri (Vitest, Testing Library, MSW): sayfalar, dosya seçimi, ipucu balonu, tablo sütun hizaları, başlık kaynağı uyarısı, hata eşleme, görüntüleyici, sayfa hesapları, kontrast. | 269 |
 | `cd frontend && npm run test:e2e` | Playwright, masaüstü ve mobil: gerçek API (kendi veritabanıyla, Release derlemesi) ve Vite geliştirme sunucusu otomatik başlatılır; mutlu yol, doğrulama, hata ve bekleme ekranları, liste ve silme, görüntüleyici (1920 px varsayılan açılış, yakınlaştırma ve yazılan yüzde, mobilde çift dokunma), düzen, axe ile erişilebilirlik taraması (ipucu balonu açıkken de). | 16 |
 | `cd frontend && npm run test:e2e:docker` | Aynı E2E testleri çalışan Docker kurulumuna karşı (varsayılan http://localhost:8080, `E2E_BASE_URL` ile değiştirilebilir); ayrıca nginx'in CSP'si altında CSP ihlali olmadığını doğrular. | 16 |
 
 Diğer kontroller: `npm run lint`, `npm run typecheck`, `npm run build`. İlk E2E çalıştırmasından önce tarayıcı bir kez kurulmalıdır: `npx playwright install chromium`.
+
+Örnek bildiriler: case ile gönderilen 10 .docx dosyası şirkete ait olduğu için depoda yoktur; testler ve E2E senaryoları onları `testdata/bildiriler/` klasöründe arar.
+
+- Dosyalar yoksa onlara dayanan backend testleri (114 test) "Örnek bildiriler bulunamadı: case ile gönderilen 10 .docx dosyasını testdata/bildiriler/ klasörüne kopyalayın." nedeniyle atlanır (skip); kalanlar normal çalışır.
+- `npm run test:e2e`, `npm run test:e2e:docker` ve `npm run screenshots` her senaryoda bu dosyaları yüklediği için dosyalar yoksa başlamadan aynı mesajla durur.
 
 Docker gerektirenler:
 

@@ -1,16 +1,11 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
-import { readFileSync, readdirSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
+import { listPaperFiles } from './papers';
 
-const papersDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '../../../testdata/bildiriler');
-
-/** The ten sample papers that came with the case, in file name order. */
-export const paperFiles: string[] = readdirSync(papersDirectory)
-  .filter((name) => name.endsWith('.docx'))
-  .sort()
-  .map((name) => join(papersDirectory, name));
+/** The ten sample papers that came with the case, in file name order (checked in playwright.config.ts). */
+export const paperFiles: string[] = listPaperFiles();
 
 export const isPhone = (page: Page): boolean => (page.viewportSize()?.width ?? 1280) < 1024;
 

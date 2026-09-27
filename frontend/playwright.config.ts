@@ -1,4 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import { listPaperFiles, missingPapersMessage } from './e2e/support/papers';
+
+// Every scenario uploads the sample papers; without them stop here with one message instead of failing each test.
+if (listPaperFiles().length === 0) {
+  console.error(missingPapersMessage);
+  process.exit(1);
+}
 
 const backendPort = process.env.E2E_BACKEND_PORT ?? '5081';
 const frontendPort = process.env.E2E_FRONTEND_PORT ?? '5174';

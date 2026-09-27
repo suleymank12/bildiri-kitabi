@@ -4,6 +4,9 @@
 # Local working notes
 CLAUDE.md
 
+# Sample papers sent with the case: they belong to the company and are copied here locally, never committed
+testdata/bildiriler/*.docx
+
 # Runtime data and generated output
 App_Data/
 artifacts/

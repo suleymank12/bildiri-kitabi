@@ -41,7 +41,7 @@ Gereksinimler: Git, Docker Desktop (veya Docker Engine + Compose v2), en az 2 GB
 
 4. http://localhost:8080 adresini açın.
 
-Denemek için `testdata/bildiriler/` klasöründeki 10 dosyayı yükleyin. Sağlık durumu: http://localhost:8080/health.
+Denemek için case ile gönderilen 10 .docx dosyasını yükleyin. Sağlık durumu: http://localhost:8080/health.
 
 Durdurmak için:
 
@@ -176,12 +176,12 @@ Tam kurallar, 13 satırın tamamı ve kitap adıyla ilgili kural: [docs/iletisim
 
 | Komut | Kapsam | Sayı |
 |---|---|---|
-| `cd backend && dotnet test` | Birim ve entegrasyon testleri (uçtan uca PDF, SQL Server, RabbitMQ, API) | 402 |
+| `cd backend && dotnet test` | Birim ve entegrasyon testleri (uçtan uca PDF, SQL Server, RabbitMQ, API) | 414 |
 | `cd frontend && npm run test` | Bileşen ve birim testleri (Vitest) | 269 |
 | `cd frontend && npm run test:e2e` | Playwright, masaüstü ve mobil, gerçek API ile | 16 |
 | `cd frontend && npm run test:e2e:docker` | Aynı E2E testleri Docker kurulumuna karşı | 16 |
 
-SQL Server ve RabbitMQ gerektiren entegrasyon testleri Testcontainers kullanır; Docker yoksa nedeni yazılarak atlanır. Ayrıntılar: [docs/testler.md](docs/testler.md).
+SQL Server ve RabbitMQ gerektiren entegrasyon testleri Testcontainers kullanır; Docker yoksa nedeni yazılarak atlanır. Örnek bildirilere dayanan testler için dosyaları `testdata/bildiriler/` klasörüne kopyalayın; dosyalar yoksa bu testler nedeni yazılarak atlanır. Ayrıntılar: [docs/testler.md](docs/testler.md).
 
 ## Kütüphaneler ve lisanslar
 

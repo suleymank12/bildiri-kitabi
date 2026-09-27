@@ -17,7 +17,7 @@ Etiket ve ayırıcıların da silinmesi bu projenin yorumudur. Yalnızca değer 
 
 ## Test verisinde önce ve sonra
 
-Aşağıdaki değerler örnek bildirilerdeki kurgusal verilerdir (`example.org` adresleri ve `0500 000 …` numaraları).
+Aşağıdaki değerler örnek bildirilerdeki kurgusal verilerdir (`example.org` adresleri ve `0500 000 …` numaraları). Örnek bildiriler şirkete ait olduğu için depoda yoktur; testler onları `testdata/bildiriler/` klasöründe arar, bulamazsa ilgili testler nedeni yazılarak atlanır.
 
 | Bildiri | Kaynaktaki satır | PDF'teki sonuç |
 |---|---|---|

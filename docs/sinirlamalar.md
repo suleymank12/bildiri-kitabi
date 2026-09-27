@@ -31,3 +31,4 @@ Case'in zorunlu maddelerinin tamamı karşılanmıştır (bkz. [Kabul kriterleri
 - **Tek örnek varsayımı:** dosya deposu yerel disk veya tek bir volume'dur, rate limiting sayaçları süreç içindedir; birden çok API örneği için paylaşılan depolama ve dağıtık sınırlama gerekir.
 - **SQL Server ARM:** SQL Server imajı yalnızca amd64'tür; Apple Silicon'da Rosetta öykünmesiyle çalışır ve daha yavaştır.
 - **Erişilebilir PDF:** üretilen PDF etiketli (tagged PDF) veya PDF/A uyumlu değildir.
+- **Örnek bildiriler depoda yok:** Case ile gönderilen örnek bildiriler şirkete ait olduğu ve üst verilerinde kişisel veri bulunduğu için depoya eklenmemiştir. Testler ve E2E senaryoları onları `testdata/bildiriler/` klasöründe arar.
