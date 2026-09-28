@@ -19,6 +19,7 @@ public static class ApiErrorCodes
     public const string PdfNotFound = "PDF_NOT_FOUND";
     public const string PaperOrderLocked = "PAPER_ORDER_LOCKED";
     public const string PaperOrderInvalid = "PAPER_ORDER_INVALID";
+    public const string EditConflict = "EDIT_CONFLICT";
     public const string RateLimited = "RATE_LIMITED";
     public const string InternalError = "INTERNAL_ERROR";
 }

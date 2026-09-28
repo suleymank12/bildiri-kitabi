@@ -89,8 +89,8 @@ public sealed class Book
 
     public IReadOnlyList<Paper> Papers => _papers;
 
-    /// <summary>True while the paper order may change and generation may start.</summary>
-    public bool IsEditable => Status is BookStatus.Uploaded or BookStatus.Failed;
+    /// <summary>True while the name and the paper order may change: in every state but <c>Queued</c> and <c>Processing</c>.</summary>
+    public bool IsEditable => Status is BookStatus.Uploaded or BookStatus.Failed or BookStatus.Completed;
 
     /// <summary>True while a worker owns the book or is about to.</summary>
     public bool IsBusy => Status is BookStatus.Queued or BookStatus.Processing;
@@ -114,6 +114,53 @@ public sealed class Book
         foreach (var paper in _papers)
         {
             paper.AssignStorageKey(StorageKeys.Source(Uid, paper.Uid));
+        }
+    }
+
+    /// <summary>
+    /// Renames the book; a completed book is reopened first (see <see cref="ReopenForEditing"/>).
+    /// </summary>
+    /// <returns>False, with nothing changed, when the name is the same.</returns>
+    public bool Rename(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        EnsureStatus(nameof(Rename), BookStatus.Uploaded, BookStatus.Failed, BookStatus.Completed);
+        if (string.Equals(name, Name, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        ReopenForEditing();
+        Name = name;
+        return true;
+    }
+
+    /// <summary>
+    /// The transition every edit (name or paper order) goes through, called before the change. A completed book goes
+    /// back to <c>Uploaded</c>: its PDF no longer matches, so the PDF fields, the run times and the page ranges and
+    /// removed counts of the papers are cleared; the caller deletes the stored PDF, and "generate" makes a new one.
+    /// An uploaded or failed book keeps its state. A queued or processing book cannot be edited.
+    /// </summary>
+    public void ReopenForEditing()
+    {
+        EnsureStatus(nameof(ReopenForEditing), BookStatus.Uploaded, BookStatus.Failed, BookStatus.Completed);
+        if (Status != BookStatus.Completed)
+        {
+            return;
+        }
+
+        Status = BookStatus.Uploaded;
+        Stage = null;
+        ProgressPercent = 0;
+        PdfStorageKey = null;
+        PdfSizeBytes = null;
+        PageCount = null;
+        QueuedAt = null;
+        ProcessingStartedAt = null;
+        ProcessingFinishedAt = null;
+        foreach (var paper in _papers)
+        {
+            paper.ClearGeneration();
         }
     }
 

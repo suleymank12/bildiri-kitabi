@@ -76,6 +76,7 @@ public static class DependencyInjection
         services.AddScoped<BookUploadValidator>();
         services.AddScoped<CreateBookService>();
         services.AddScoped<BookCommandService>();
+        services.AddScoped<BookEditService>();
         services.AddScoped<BookGenerationHandler>();
         services.AddScoped<QueueSweepService>();
         services.AddScoped<InterruptedGenerationRecovery>();

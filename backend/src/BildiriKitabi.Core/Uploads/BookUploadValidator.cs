@@ -34,19 +34,10 @@ public sealed class BookUploadValidator(
         ArgumentNullException.ThrowIfNull(files);
 
         var errors = new List<UploadError>();
-        var name = BookNameValidator.Validate(bookName);
+        var name = BookNameValidator.Validate(bookName, glyphCoverage);
         if (!name.IsValid)
         {
             errors.Add(new UploadError(name.ErrorCode!, name.ErrorMessage!, Field: "name"));
-        }
-        else if (UnsupportedCharacters.InBookName(glyphCoverage, name.Name) is { Count: > 0 } unsupported)
-        {
-            errors.Add(new UploadError(
-                UploadErrorCodes.BookNameUnsupportedCharacter,
-                unsupported.Count == 1
-                    ? $"Kitap adındaki {UnsupportedCharacters.Describe(unsupported)} karakteri PDF yazı tipinde bulunmuyor; lütfen kaldırın."
-                    : $"Kitap adındaki {UnsupportedCharacters.Describe(unsupported)} karakterleri PDF yazı tipinde bulunmuyor; lütfen kaldırın.",
-                Field: "name"));
         }
 
         if (files.Count != _books.RequiredPaperCount)

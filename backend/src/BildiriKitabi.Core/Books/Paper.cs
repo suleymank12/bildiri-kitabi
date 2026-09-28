@@ -90,5 +90,14 @@ public sealed class Paper
         RemovedPhoneCount = removedPhoneCount;
     }
 
+    /// <summary>Forgets the last generation when the book is reopened for editing.</summary>
+    internal void ClearGeneration()
+    {
+        StartPage = null;
+        EndPage = null;
+        RemovedEmailCount = 0;
+        RemovedPhoneCount = 0;
+    }
+
     internal void AssignStorageKey(string key) => StorageKey = key;
 }

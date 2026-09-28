@@ -1,18 +1,9 @@
-using System.Linq.Expressions;
 using BildiriKitabi.Core.Books;
 using BildiriKitabi.Core.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace BildiriKitabi.Core.Application;
-
-public enum ReorderOutcome
-{
-    Reordered,
-    NotFound,
-    Locked,
-    InvalidList,
-}
 
 public enum StartGenerationOutcome
 {
@@ -37,7 +28,7 @@ public enum RestoreBookOutcome
 
 /// <summary>
 /// State-changing commands on an existing book. Each one is a single conditional SQL statement, so two concurrent
-/// requests can never both succeed.
+/// requests can never both succeed. Editing the name and the paper order is in <see cref="BookEditService"/>.
 /// </summary>
 public sealed partial class BookCommandService(
     IAppDbContext db,
@@ -45,46 +36,6 @@ public sealed partial class BookCommandService(
     TimeProvider timeProvider,
     ILogger<BookCommandService> logger)
 {
-    /// <summary>
-    /// Sets the order of all papers of a book in one <c>UPDATE … SET SiraNo = CASE Uid …</c>. SQL Server checks the
-    /// unique (KitapId, SiraNo) index at the end of the statement, so swapping numbers needs no temporary values.
-    /// The papers are reached through <c>Books</c>, so a deleted book's papers are out of reach like the book.
-    /// </summary>
-    public async Task<ReorderOutcome> ReorderAsync(Guid bookUid, IReadOnlyList<Guid> paperUids, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(paperUids);
-
-        var book = await db.Books.AsNoTracking()
-            .Where(b => b.Uid == bookUid)
-            .Select(b => new { b.Id, b.Status, PaperUids = b.Papers.Select(p => p.Uid).ToList() })
-            .FirstOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
-        if (book is null)
-        {
-            return ReorderOutcome.NotFound;
-        }
-
-        if (book.Status is not (BookStatus.Uploaded or BookStatus.Failed))
-        {
-            return ReorderOutcome.Locked;
-        }
-
-        if (paperUids.Count != book.PaperUids.Count || paperUids.Distinct().Count() != paperUids.Count || !paperUids.All(book.PaperUids.Contains))
-        {
-            return ReorderOutcome.InvalidList;
-        }
-
-        var newOrder = OrderExpression(paperUids);
-        var updated = await db.Books
-            .Where(b => b.Id == book.Id && (b.Status == BookStatus.Uploaded || b.Status == BookStatus.Failed))
-            .SelectMany(b => b.Papers)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(p => p.Order, newOrder), cancellationToken)
-            .ConfigureAwait(false);
-
-        // Zero rows: generation started (or the book was deleted) between the read above and the update.
-        return updated == paperUids.Count ? ReorderOutcome.Reordered : ReorderOutcome.Locked;
-    }
-
     /// <summary>
     /// Queues generation with one conditional update (<c>Uploaded</c>/<c>Failed</c> → <c>Queued</c>), then enqueues
     /// the id. If enqueueing fails the book stays <c>Queued</c> and the queued-book sweeper enqueues it again later.
@@ -178,20 +129,6 @@ public sealed partial class BookCommandService(
 
         LogRestored(logger, bookUid);
         return RestoreBookOutcome.Restored;
-    }
-
-    /// <summary>Builds <c>p =&gt; p.Uid == uid1 ? 1 : p.Uid == uid2 ? 2 : … : p.Order</c>, translated to a SQL CASE.</summary>
-    private static Expression<Func<Paper, int>> OrderExpression(IReadOnlyList<Guid> paperUids)
-    {
-        var paper = Expression.Parameter(typeof(Paper), "p");
-        var uid = Expression.Property(paper, nameof(Paper.Uid));
-        Expression body = Expression.Property(paper, nameof(Paper.Order));
-        for (var i = paperUids.Count - 1; i >= 0; i--)
-        {
-            body = Expression.Condition(Expression.Equal(uid, Expression.Constant(paperUids[i])), Expression.Constant(i + 1), body);
-        }
-
-        return Expression.Lambda<Func<Paper, int>>(body, paper);
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookUid} queued for generation")]

@@ -1,6 +1,7 @@
 using BildiriKitabi.Core.Books;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace BildiriKitabi.Core.Persistence;
 
@@ -13,6 +14,8 @@ public interface IAppDbContext
     DbSet<Book> Books { get; }
 
     ChangeTracker ChangeTracker { get; }
+
+    DatabaseFacade Database { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

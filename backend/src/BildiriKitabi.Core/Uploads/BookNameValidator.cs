@@ -1,3 +1,5 @@
+using BildiriKitabi.Core.Fonts;
+
 namespace BildiriKitabi.Core.Uploads;
 
 public sealed record BookNameValidation(string Name, string? ErrorCode, string? ErrorMessage)
@@ -6,8 +8,8 @@ public sealed record BookNameValidation(string Name, string? ErrorCode, string? 
 }
 
 /// <summary>
-/// Checks the book name when the book is created. The name is printed as typed; contact details in it are allowed
-/// and the post-render leak scan treats them as permitted values.
+/// Checks the book name when the book is created or renamed. The name is printed as typed; contact details in it are
+/// allowed and the post-render leak scan treats them as permitted values.
 /// </summary>
 public static class BookNameValidator
 {
@@ -28,6 +30,24 @@ public static class BookNameValidator
         }
 
         return new BookNameValidation(trimmed, null, null);
+    }
+
+    /// <summary>The checks of <see cref="Validate(string?)"/>, then every character must be printable by the PDF fonts.</summary>
+    public static BookNameValidation Validate(string? name, IGlyphCoverage glyphCoverage)
+    {
+        ArgumentNullException.ThrowIfNull(glyphCoverage);
+        var result = Validate(name);
+        if (!result.IsValid || UnsupportedCharacters.InBookName(glyphCoverage, result.Name) is not { Count: > 0 } unsupported)
+        {
+            return result;
+        }
+
+        return Invalid(
+            result.Name,
+            UploadErrorCodes.BookNameUnsupportedCharacter,
+            unsupported.Count == 1
+                ? $"Kitap adındaki {UnsupportedCharacters.Describe(unsupported)} karakteri PDF yazı tipinde bulunmuyor; lütfen kaldırın."
+                : $"Kitap adındaki {UnsupportedCharacters.Describe(unsupported)} karakterleri PDF yazı tipinde bulunmuyor; lütfen kaldırın.");
     }
 
     private static BookNameValidation Invalid(string name, string code, string message) => new(name, code, message);

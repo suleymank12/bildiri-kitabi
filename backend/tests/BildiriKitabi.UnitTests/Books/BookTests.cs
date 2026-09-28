@@ -120,7 +120,77 @@ public sealed class BookTests
         { "Completed → Queued", b => { Complete(b); b.MarkQueued(Now); } },
         { "Completed → Failed", b => { Complete(b); b.MarkFailed("X", "y", Now); } },
         { "Paper added after queueing", b => { b.MarkQueued(Now); AddPaper(b, 9); } },
+        { "Queued → edited", b => { b.MarkQueued(Now); b.ReopenForEditing(); } },
+        { "Processing → edited", b => { b.MarkQueued(Now); b.MarkProcessing(Now); b.ReopenForEditing(); } },
+        { "Queued → renamed", b => { b.MarkQueued(Now); b.Rename("Başka Ad"); } },
+        { "Processing → renamed to the same name", b => { b.MarkQueued(Now); b.MarkProcessing(Now); b.Rename(b.Name); } },
     };
+
+    [Fact]
+    public void Editing_a_completed_book_reopens_it_as_uploaded_and_forgets_the_generated_pdf()
+    {
+        var book = NewBook();
+        Complete(book);
+        book.Papers[0].RecordGeneration(3, 4, 2, 1);
+        book.IsEditable.ShouldBeTrue();
+
+        book.ReopenForEditing();
+
+        book.Status.ShouldBe(BookStatus.Uploaded);
+        book.ProgressPercent.ShouldBe((byte)0);
+        book.Stage.ShouldBeNull();
+        book.PdfStorageKey.ShouldBeNull();
+        book.PdfSizeBytes.ShouldBeNull();
+        book.PageCount.ShouldBeNull();
+        book.QueuedAt.ShouldBeNull();
+        book.ProcessingStartedAt.ShouldBeNull();
+        book.ProcessingFinishedAt.ShouldBeNull();
+        book.Papers.ShouldAllBe(p => p.StartPage == null && p.EndPage == null && p.RemovedEmailCount == 0 && p.RemovedPhoneCount == 0);
+
+        // It is generated again like a new book.
+        book.MarkQueued(Now);
+        book.Status.ShouldBe(BookStatus.Queued);
+    }
+
+    [Fact]
+    public void Editing_an_uploaded_or_failed_book_keeps_its_state()
+    {
+        var uploaded = NewBook();
+        uploaded.ReopenForEditing();
+        uploaded.Status.ShouldBe(BookStatus.Uploaded);
+
+        var failed = Processing();
+        failed.MarkFailed("RENDER_FAILED", "PDF dizgisi oluşturulamadı.", Now);
+        failed.ReopenForEditing();
+        failed.Status.ShouldBe(BookStatus.Failed);
+        failed.ErrorCode.ShouldBe("RENDER_FAILED");
+    }
+
+    [Fact]
+    public void Renaming_reopens_a_completed_book_only_when_the_name_changes()
+    {
+        var book = NewBook();
+        Complete(book);
+
+        book.Rename(book.Name).ShouldBeFalse();
+        book.Status.ShouldBe(BookStatus.Completed);
+        book.PdfStorageKey.ShouldBe("k");
+
+        book.Rename("Düzeltilmiş Ad").ShouldBeTrue();
+        book.Name.ShouldBe("Düzeltilmiş Ad");
+        book.Status.ShouldBe(BookStatus.Uploaded);
+        book.PdfStorageKey.ShouldBeNull();
+    }
+
+    [Fact]
+    public void A_queued_or_processing_book_is_not_editable()
+    {
+        var book = NewBook();
+        book.MarkQueued(Now);
+        book.IsEditable.ShouldBeFalse();
+        book.MarkProcessing(Now);
+        book.IsEditable.ShouldBeFalse();
+    }
 
     [Theory]
     [MemberData(nameof(InvalidTransitions))]

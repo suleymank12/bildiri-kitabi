@@ -102,12 +102,14 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
         positions.ShouldBeInOrder();
         pdf.Page(3).BodyText.ShouldStartWith(completed.Papers[0].Title);
 
-        using var locked = await client.PutAsJsonAsync(
+        // A completed book can be reordered again; it goes back to Uploaded until it is generated once more.
+        using var reopened = await client.PutAsJsonAsync(
             new Uri($"/api/books/{book.Id}/paper-order", UriKind.Relative),
             new PaperOrderRequest(book.Papers.Select(p => p.Id).ToList()),
             ApiHost.Json,
             TestContext.Current.CancellationToken);
-        locked.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        reopened.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await reopened.Content.ReadFromJsonAsync<BookDetailDto>(ApiHost.Json, TestContext.Current.CancellationToken))!.Status.ShouldBe(BookStatus.Uploaded);
     }
 
     [Fact]

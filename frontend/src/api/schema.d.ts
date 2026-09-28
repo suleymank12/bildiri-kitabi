@@ -153,7 +153,60 @@ export interface paths {
         };
       };
     };
-    put?: never;
+    put: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          uid: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['RenameBookRequest'];
+          'application/*+json': components['schemas']['RenameBookRequest'];
+        };
+      };
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['BookDetailDto'];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/problem+json': components['schemas']['ProblemResponse'];
+          };
+        };
+        /** @description Not Found */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/problem+json': components['schemas']['ProblemResponse'];
+          };
+        };
+        /** @description Conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/problem+json': components['schemas']['ProblemResponse'];
+          };
+        };
+      };
+    };
     post?: never;
     delete: {
       parameters: {
@@ -570,6 +623,9 @@ export interface components {
       code: string;
       traceId?: null | string;
       errors?: null | components['schemas']['ApiError'][];
+    };
+    RenameBookRequest: {
+      name: null | string;
     };
     /** Format: binary */
     Stream: string;

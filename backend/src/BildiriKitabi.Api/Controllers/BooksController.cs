@@ -93,7 +93,45 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
         return book is null ? BookNotFound() : Ok(BookDetailDto.From(book));
     }
 
-    /// <summary>Sets the order of the papers; allowed before generation or after a failed one.</summary>
+    /// <summary>
+    /// Renames the book (same rules as on upload). A completed book goes back to <c>Uploaded</c> and its PDF is
+    /// deleted; generate it again. The same name changes nothing. Not allowed while the book is queued or generating.
+    /// </summary>
+    [HttpPut("{uid:guid}")]
+    [EnableRateLimiting(RateLimiting.EditPolicy)]
+    [Consumes("application/json")]
+    [ProducesResponseType<BookDetailDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemResponse>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemResponse>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemResponse>(StatusCodes.Status409Conflict, "application/problem+json")]
+    public async Task<IActionResult> Rename(
+        Guid uid,
+        [FromBody] RenameBookRequest request,
+        [FromServices] BookEditService edits,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(edits);
+
+        var result = await edits.RenameAsync(uid, request.Name, cancellationToken);
+        if (result is { Outcome: EditBookOutcome.InvalidName, Name: { } name })
+        {
+            return ApiProblem.Create(
+                HttpContext,
+                StatusCodes.Status400BadRequest,
+                name.ErrorCode!,
+                "Kitap adı geçersiz.",
+                name.ErrorMessage!,
+                [new ApiError(name.ErrorCode!, name.ErrorMessage!, Field: "name")]);
+        }
+
+        return await EditResultAsync(uid, result.Outcome, "Kitap adı değiştirilemez.", cancellationToken);
+    }
+
+    /// <summary>
+    /// Sets the order of the papers. A completed book goes back to <c>Uploaded</c> and its PDF is deleted; generate it
+    /// again. The same order changes nothing. Not allowed while the book is queued or generating.
+    /// </summary>
     [HttpPut("{uid:guid}/paper-order")]
     [EnableRateLimiting(RateLimiting.EditPolicy)]
     [Consumes("application/json")]
@@ -104,30 +142,34 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
     public async Task<IActionResult> SetPaperOrder(
         Guid uid,
         [FromBody] PaperOrderRequest request,
-        [FromServices] BookCommandService commands,
+        [FromServices] BookEditService edits,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(commands);
+        ArgumentNullException.ThrowIfNull(edits);
 
-        var outcome = await commands.ReorderAsync(uid, request.PaperIds, cancellationToken);
-        return outcome switch
+        var result = await edits.ReorderAsync(uid, request.PaperIds, cancellationToken);
+        if (result.Outcome == EditBookOutcome.InvalidList)
         {
-            ReorderOutcome.Reordered => await Get(uid, cancellationToken),
-            ReorderOutcome.NotFound => BookNotFound(),
-            ReorderOutcome.InvalidList => ApiProblem.Create(
+            return ApiProblem.Create(
                 HttpContext,
                 StatusCodes.Status400BadRequest,
                 ApiErrorCodes.PaperOrderInvalid,
                 "Sıralama geçersiz.",
-                "Liste kitabın tüm bildirilerini tam olarak birer kez içermelidir."),
-            _ => ApiProblem.Create(
+                "Liste kitabın tüm bildirilerini tam olarak birer kez içermelidir.");
+        }
+
+        if (result.Outcome == EditBookOutcome.Busy)
+        {
+            return ApiProblem.Create(
                 HttpContext,
                 StatusCodes.Status409Conflict,
                 ApiErrorCodes.PaperOrderLocked,
                 "Sıralama değiştirilemez.",
-                "Bildiri sırası yalnızca kitap oluşturulmadan önce veya başarısız bir denemeden sonra değiştirilebilir."),
-        };
+                "Kitap kuyrukta veya oluşturuluyor; bildiri sırası işlem bitince değiştirilebilir.");
+        }
+
+        return await EditResultAsync(uid, result.Outcome, "Sıralama değiştirilemez.", cancellationToken);
     }
 
     /// <summary>Starts generating the PDF in the background; poll <c>GET /api/books/{uid}</c> for progress.</summary>
@@ -255,6 +297,26 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
                 "Silinmiş kitap bulunamadı.",
                 "Geri alınacak kitap silinenler arasında bulunamadı; zaten geri alınmış olabilir.");
     }
+
+    /// <summary>The book after an edit, or the problem shared by both edit endpoints.</summary>
+    private async Task<IActionResult> EditResultAsync(Guid uid, EditBookOutcome outcome, string title, CancellationToken cancellationToken) =>
+        outcome switch
+        {
+            EditBookOutcome.Edited or EditBookOutcome.Unchanged => await Get(uid, cancellationToken),
+            EditBookOutcome.NotFound => BookNotFound(),
+            EditBookOutcome.Busy => ApiProblem.Create(
+                HttpContext,
+                StatusCodes.Status409Conflict,
+                ApiErrorCodes.GenerationAlreadyInProgress,
+                title,
+                "Kitap kuyrukta veya oluşturuluyor; işlem bitince tekrar deneyin."),
+            _ => ApiProblem.Create(
+                HttpContext,
+                StatusCodes.Status409Conflict,
+                ApiErrorCodes.EditConflict,
+                title,
+                "Kitap bu sırada başka bir istekle değiştirildi. Sayfayı yenileyip tekrar deneyin."),
+        };
 
     /// <summary>One page of <paramref name="books"/> (already ordered) with the paper count of each book.</summary>
     private static async Task<PagedResult<T>> PageAsync<T>(
