@@ -98,6 +98,33 @@ public sealed class TitleDetectorTests
         TitleDetector.Detect(document, "x.docx").Text.ShouldBe("Kentsel Tarımda Akıllı Sulama");
     }
 
+    [Fact]
+    public void A_typed_title_replaces_the_text_of_the_title_paragraph_and_keeps_its_formatting()
+    {
+        var title = Paragraph("Eski Başlık", ParagraphAlignment.Center, bold: true) with { Style = "Title", SpacingAfterPt = 12 };
+        var body = Paragraph("Özet metni.");
+        var document = Document(Paragraph(" "), title, body);
+
+        var replaced = TitleDetector.WithTitle(document, "Yeni Başlık");
+
+        var paragraphs = replaced.Blocks.OfType<Paragraph>().ToList();
+        paragraphs[1].Text.ShouldBe("Yeni Başlık");
+        paragraphs[1].Style.ShouldBe("Title");
+        paragraphs[1].Alignment.ShouldBe(ParagraphAlignment.Center);
+        paragraphs[1].SpacingAfterPt.ShouldBe(12);
+        paragraphs[1].Runs.ShouldHaveSingleItem().Bold.ShouldBeTrue();
+        paragraphs[2].ShouldBeSameAs(body);
+        TitleDetector.Detect(replaced, "x.docx").ShouldBe(new DetectedTitle("Yeni Başlık", TitleSource.TitleStyle));
+    }
+
+    [Fact]
+    public void A_document_without_a_title_paragraph_is_left_as_it_is()
+    {
+        var document = Document(Paragraph("Düz metin."));
+
+        TitleDetector.WithTitle(document, "Yeni Başlık").ShouldBeSameAs(document);
+    }
+
     private static SourceDocument Document(params Paragraph[] paragraphs) => new(paragraphs);
 
     private static Paragraph Paragraph(string text, ParagraphAlignment alignment = ParagraphAlignment.Left, bool bold = false) =>

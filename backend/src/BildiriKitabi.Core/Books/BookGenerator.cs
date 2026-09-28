@@ -6,7 +6,10 @@ using Microsoft.Extensions.Logging;
 
 namespace BildiriKitabi.Core.Books;
 
-public sealed record PaperSource(string FileName, Func<Stream> OpenRead);
+/// <summary>
+/// One paper to print: its stored title (detected at upload or typed by the user) and a way to open its file.
+/// </summary>
+public sealed record PaperSource(string FileName, string Title, TitleSource TitleSource, Func<Stream> OpenRead);
 
 public sealed record GeneratedPaper(
     string FileName,
@@ -20,7 +23,8 @@ public sealed record GeneratedPaper(
 public sealed record GeneratedBook(byte[] Pdf, int PageCount, IReadOnlyList<GeneratedPaper> Papers);
 
 /// <summary>
-/// Runs the whole pipeline for one book: read → sanitize → detect titles → render → verify.
+/// Runs the whole pipeline for one book: read → sanitize → render → verify. Titles are not detected here: the stored
+/// title of each paper (detected once, at upload, or typed by the user) is printed.
 /// Reported percentages follow completed work; nothing is simulated.
 /// </summary>
 public sealed partial class BookGenerator(
@@ -61,12 +65,15 @@ public sealed partial class BookGenerator(
         }
 
         progress?.Report(new GenerationProgress(GenerationStage.Composing, 40));
-        var titles = sanitized.Select((s, i) => TitleDetector.Detect(s.Document, papers[i].FileName)).ToList();
-        EnsurePrintable(bookName, sanitized, titles);
+        // A title the user typed also replaces the text of the title paragraph on the paper's first page.
+        var printed = sanitized
+            .Select((s, i) => papers[i].TitleSource == TitleSource.Manual ? TitleDetector.WithTitle(s.Document, papers[i].Title) : s.Document)
+            .ToList();
+        EnsurePrintable(bookName, printed, papers);
         var content = new BookContent(
             bookName,
             timeProvider.GetLocalNow(),
-            sanitized.Select((s, i) => new BookPaper(titles[i].Text, s.Document)).ToList());
+            printed.Select((document, i) => new BookPaper(papers[i].Title, document)).ToList());
 
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report(new GenerationProgress(GenerationStage.Rendering, 45));
@@ -93,8 +100,8 @@ public sealed partial class BookGenerator(
         var generated = papers
             .Select((paper, i) => new GeneratedPaper(
                 paper.FileName,
-                titles[i].Text,
-                titles[i].Source,
+                paper.Title,
+                paper.TitleSource,
                 rendered.PaperPages[i].Start,
                 rendered.PaperPages[i].End,
                 sanitized[i].RemovedEmailCount,
@@ -112,7 +119,7 @@ public sealed partial class BookGenerator(
     /// Stops with a clear message before rendering when a character is missing from every font of its chain;
     /// QuestPDF would otherwise fail with a generic layout error.
     /// </summary>
-    private void EnsurePrintable(string bookName, List<DocumentSanitizationResult> sanitized, List<DetectedTitle> titles)
+    private void EnsurePrintable(string bookName, List<SourceDocument> documents, IReadOnlyList<PaperSource> papers)
     {
         var inName = UnsupportedCharacters.InBookName(glyphCoverage, bookName);
         if (inName.Count > 0)
@@ -122,9 +129,9 @@ public sealed partial class BookGenerator(
                 $"Kitap adında PDF yazı tipinde bulunmayan {UnsupportedCharacters.Describe(inName)} {CharacterWord(inName)} var.");
         }
 
-        for (var i = 0; i < sanitized.Count; i++)
+        for (var i = 0; i < documents.Count; i++)
         {
-            var inPaper = UnsupportedCharacters.InPaper(glyphCoverage, sanitized[i].Document, titles[i].Text);
+            var inPaper = UnsupportedCharacters.InPaper(glyphCoverage, documents[i], papers[i].Title);
             if (inPaper.Count > 0)
             {
                 throw new BookGenerationException(

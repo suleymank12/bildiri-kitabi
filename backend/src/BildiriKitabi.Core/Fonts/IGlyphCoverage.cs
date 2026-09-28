@@ -49,6 +49,28 @@ public static class UnsupportedCharacters
         return found;
     }
 
+    /// <summary>
+    /// A paper title typed by the user: it may end up in any family and style (it takes over the formatting of the
+    /// title paragraph), so every combination is checked.
+    /// </summary>
+    public static IReadOnlyList<string> InPaperTitle(IGlyphCoverage coverage, string title)
+    {
+        ArgumentNullException.ThrowIfNull(coverage);
+        ArgumentNullException.ThrowIfNull(title);
+
+        var found = new List<string>();
+        foreach (var family in Enum.GetValues<FontFamilyKind>())
+        {
+            foreach (var bold in new[] { false, true })
+            {
+                Collect(coverage, title, family, bold, italic: false, found);
+                Collect(coverage, title, family, bold, italic: true, found);
+            }
+        }
+
+        return found;
+    }
+
     /// <summary>"'𝒜'" or "'𝒜', '😀'" — at most five characters, for user-facing messages.</summary>
     public static string Describe(IReadOnlyList<string> characters)
     {

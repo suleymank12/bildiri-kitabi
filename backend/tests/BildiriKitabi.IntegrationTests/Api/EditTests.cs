@@ -215,8 +215,19 @@ public sealed class EditTests(SqlServerFixture sql) : IAsyncDisposable
             await SoftDeleteTests.ShouldBeProblemAsync(reorder, HttpStatusCode.Conflict, "EDIT_CONFLICT");
         }
 
+        interceptor.Arm(book.Uid);
+        using (var retitle = await client.PutAsJsonAsync(
+            new Uri($"/api/books/{book.Uid}/papers/{book.Papers[0].Uid}/title", UriKind.Relative),
+            new PaperTitleRequest("Çakışan Başlık"),
+            ApiHost.Json,
+            TestContext.Current.CancellationToken))
+        {
+            await SoftDeleteTests.ShouldBeProblemAsync(retitle, HttpStatusCode.Conflict, "EDIT_CONFLICT");
+        }
+
         var unchanged = await api.GetBookAsync(book.Uid);
         unchanged.Name.ShouldBe(book.Name);
+        unchanged.Papers[0].Title.ShouldBe(book.Papers[0].Title);
         unchanged.Papers.Select(p => p.Uid).ShouldBe(book.Papers.Select(p => p.Uid));
 
         // Without an overlapping change the same edits go through.

@@ -22,6 +22,8 @@ namespace BildiriKitabi.Infrastructure.Docx;
 /// </summary>
 public sealed partial class OpenXmlDocxReader(ILogger<OpenXmlDocxReader> logger) : IDocxReader
 {
+    private const string WordMainContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml";
+
     public SourceDocument Read(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
@@ -36,7 +38,14 @@ public sealed partial class OpenXmlDocxReader(ILogger<OpenXmlDocxReader> logger)
 
         var mainPart = document.MainDocumentPart
             ?? throw new InvalidDocumentException("Belgenin ana içerik bölümü bulunamadı.");
-        var body = mainPart.Document?.Body
+
+        // A renamed .xlsx or .pptx is a valid package too; only a Word main part is a document.
+        if (!string.Equals(mainPart.ContentType, WordMainContentType, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDocumentException("Dosya bir Word belgesi (.docx) değil.");
+        }
+
+        var body = LoadBody(mainPart)
             ?? throw new InvalidDocumentException("Belgenin gövdesi bulunamadı.");
 
         var context = new ReadContext(mainPart, new StyleResolver(mainPart.StyleDefinitionsPart, mainPart.ThemePart));
@@ -44,6 +53,18 @@ public sealed partial class OpenXmlDocxReader(ILogger<OpenXmlDocxReader> logger)
         ReadBlocks(body.ChildElements, blocks, context);
         var footnotes = ReadFootnotes(context);
         return new SourceDocument(blocks, footnotes);
+    }
+
+    private static Body? LoadBody(MainDocumentPart mainPart)
+    {
+        try
+        {
+            return mainPart.Document?.Body;
+        }
+        catch (Exception ex) when (ex is InvalidDataException or System.Xml.XmlException)
+        {
+            throw new InvalidDocumentException("Belgenin ana içeriği okunamadı; geçerli bir Word (.docx) belgesi değil veya bozuk.", ex);
+        }
     }
 
     private static MemoryStream CopyToMemory(Stream stream)

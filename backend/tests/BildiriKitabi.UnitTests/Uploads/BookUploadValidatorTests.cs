@@ -8,6 +8,7 @@ using BildiriKitabi.Infrastructure.Pdf;
 using BildiriKitabi.Tests.Shared;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using S = DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -100,6 +101,18 @@ public sealed class BookUploadValidatorTests : IDisposable
         using var result = await Validate(BookName, files);
 
         ShouldHaveOnlyFileError(result, UploadErrorCodes.FileNotDocx, "03_Arsiv.docx");
+    }
+
+    [Fact]
+    public async Task An_excel_workbook_renamed_to_docx_is_rejected()
+    {
+        var files = ValidFiles(10);
+        files[5] = File("06_Tablo.docx", Workbook());
+
+        using var result = await Validate(BookName, files);
+
+        ShouldHaveOnlyFileError(result, UploadErrorCodes.FileNotDocx, "06_Tablo.docx");
+        result.Errors[0].Message.ShouldBe("06_Tablo.docx geçerli bir Word (.docx) belgesi değil.");
     }
 
     [Theory]
@@ -363,6 +376,22 @@ public sealed class BookUploadValidatorTests : IDisposable
     }
 
     /// <summary>A zip whose entries hold the given number of zero bytes (they compress to almost nothing).</summary>
+    /// <summary>A real .xlsx package (a ZIP like a .docx, with a spreadsheet as its main part).</summary>
+    private static byte[] Workbook()
+    {
+        using var stream = new MemoryStream();
+        using (var workbook = SpreadsheetDocument.Create(stream, SpreadsheetDocumentType.Workbook))
+        {
+            var workbookPart = workbook.AddWorkbookPart();
+            workbookPart.Workbook = new S.Workbook();
+            var sheetPart = workbookPart.AddNewPart<WorksheetPart>();
+            sheetPart.Worksheet = new S.Worksheet(new S.SheetData(new S.Row(new S.Cell { CellValue = new S.CellValue("Bildiri"), DataType = S.CellValues.String })));
+            workbookPart.Workbook.AppendChild(new S.Sheets(new S.Sheet { Id = workbookPart.GetIdOfPart(sheetPart), SheetId = 1, Name = "Sayfa1" }));
+        }
+
+        return stream.ToArray();
+    }
+
     private static byte[] Zip(params (string Name, long Size)[] entries)
     {
         using var stream = new MemoryStream();

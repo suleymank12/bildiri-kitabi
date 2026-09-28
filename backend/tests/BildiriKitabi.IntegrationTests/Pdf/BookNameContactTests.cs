@@ -42,7 +42,7 @@ public sealed class BookNameContactTests
 
         var error = Should.Throw<BookGenerationException>(() => generator.Generate(
             NameWithContacts,
-            [new PaperSource("01_Sizinti.docx", () => new MemoryStream(bytes))],
+            [SampleBookFixture.Source("01_Sizinti.docx", () => new MemoryStream(bytes))],
             cancellationToken: TestContext.Current.CancellationToken));
 
         error.Code.ShouldBe(BookErrorCodes.ContactLeakDetected);
@@ -62,7 +62,7 @@ public sealed class BookNameContactTests
     private static PaperSource SamplePaper()
     {
         var path = TestPaths.PaperFiles[0];
-        return new PaperSource(Path.GetFileName(path), () => File.OpenRead(path));
+        return SampleBookFixture.Source(Path.GetFileName(path), () => File.OpenRead(path));
     }
 
     /// <summary>Renders the papers exactly as read from the .docx, as if the sanitizer had been switched off.</summary>

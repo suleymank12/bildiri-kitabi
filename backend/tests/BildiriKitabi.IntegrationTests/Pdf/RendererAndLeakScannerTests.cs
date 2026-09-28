@@ -48,7 +48,7 @@ public sealed class RendererAndLeakScannerTests
         var path = TestPaths.PaperFiles[0];
 
         var error = Should.Throw<BookGenerationException>(() =>
-            generator.Generate("Sızıntı Denemesi", [new PaperSource(Path.GetFileName(path), () => File.OpenRead(path))]));
+            generator.Generate("Sızıntı Denemesi", [SampleBookFixture.Source(Path.GetFileName(path), () => File.OpenRead(path))]));
 
         error.Code.ShouldBe(BookErrorCodes.ContactLeakDetected);
     }

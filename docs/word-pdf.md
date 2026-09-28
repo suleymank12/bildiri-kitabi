@@ -17,6 +17,8 @@ Biçim katman katman hesaplanır: belge varsayılanları → paragraf stili (`ba
 
 Sırasıyla: (1) çözümlenen stil adı `Title` veya `heading 1` olan ilk boş olmayan paragraf; (2) ilk beş paragraf içinde ortalı ve tamamı kalın ilk paragraf; (3) dosya adı (uzantı ve baştaki `01_` gibi sıra öneki atılır, `_` boşluğa çevrilir). Başlık metni olduğu gibi kullanılır; büyük/küçük harf dönüştürmesi yapılmaz. Kaynağı kaydedilir; başlık yedek yöntemle (kalın ilk paragraf veya dosya adı) bulunduysa arayüz o bildirinin altında kontrol edilmesini isteyen bir uyarı gösterir. Belge özelliklerindeki (`docProps/core.xml`) başlık kullanılmaz: örnek dosyalarda küçük harfe çevrilmiş ve bozuk karakterler içerir.
 
+Başlık yalnızca yüklemede bir kez bulunur ve `Bildiriler.Baslik` kolonuna kaydedilir; kitap oluşturulurken yeniden tespit edilmez, kayıtlı başlık kullanılır. Kullanıcı başlığı değiştirebilir (`PUT /api/books/{uid}/papers/{paperUid}/title`; boş olamaz, en fazla 500 karakter, e-posta veya telefon içeremez, PDF yazı tipinde olmayan karakter içeremez). Bu durumda kaynak `Manual` olur ve yeni başlık İçindekiler'de, üst bilgide ve bildirinin ilk sayfasında görünür: ilk sayfada, yüklemede başlığın alındığı paragrafın metni (hizası, boşlukları ve ilk parçasının biçimi korunarak) yeni başlıkla değiştirilir. Başlık dosya adından geldiyse belgede değiştirilecek paragraf yoktur; yeni başlık İçindekiler'de ve üst bilgide görünür.
+
 ## Kitap düzeni ve sayfa numaraları
 
 - A4 sayfa, 2,5 cm kenar boşluğu; gövde yazı tipi kaynaktaki puntoyla Liberation Serif, serif olmayan yazı tipleri Liberation Sans'a eşlenir. Heceleme kapalıdır.

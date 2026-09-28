@@ -1,4 +1,6 @@
 using BildiriKitabi.Core.Books;
+using BildiriKitabi.Core.Sanitization;
+using BildiriKitabi.Core.Titles;
 using BildiriKitabi.Infrastructure.Docx;
 using BildiriKitabi.Infrastructure.Pdf;
 using BildiriKitabi.Tests.Shared;
@@ -27,7 +29,7 @@ public sealed class SampleBookFixture
         _paperFiles = TestPaths.PaperFiles;
         _book = CreateGenerator().Generate(
             BookName,
-            _paperFiles.Select(path => new PaperSource(Path.GetFileName(path), () => File.OpenRead(path))).ToList());
+            _paperFiles.Select(path => Source(Path.GetFileName(path), () => File.OpenRead(path))).ToList());
 
         var artifacts = Path.Combine(TestPaths.RepositoryRoot, "artifacts");
         Directory.CreateDirectory(artifacts);
@@ -50,6 +52,16 @@ public sealed class SampleBookFixture
             TestPaths.EnsurePapersAvailable();
             return _book!;
         }
+    }
+
+    /// <summary>A paper as the upload stores it: its title is detected once, from the sanitized document.</summary>
+    public static PaperSource Source(string fileName, Func<Stream> openRead)
+    {
+        ArgumentNullException.ThrowIfNull(openRead);
+        using var stream = openRead();
+        var document = ContactInfoSanitizer.Sanitize(new OpenXmlDocxReader(NullLogger<OpenXmlDocxReader>.Instance).Read(stream)).Document;
+        var title = TitleDetector.Detect(document, fileName);
+        return new PaperSource(fileName, title.Text, title.Source, openRead);
     }
 
     public static BookGenerator CreateGenerator() =>

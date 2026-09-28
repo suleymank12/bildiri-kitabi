@@ -25,12 +25,16 @@ public enum EditBookOutcome
     Conflict,
     InvalidName,
     InvalidList,
+
+    /// <summary>The book exists but has no paper with that uid.</summary>
+    PaperNotFound,
+    InvalidTitle,
 }
 
-public sealed record EditBookResult(EditBookOutcome Outcome, BookNameValidation? Name = null);
+public sealed record EditBookResult(EditBookOutcome Outcome, BookNameValidation? Name = null, PaperTitleValidation? Title = null);
 
 /// <summary>
-/// Renames a book and reorders its papers, also after it was generated: a completed book is reopened through
+/// Renames a book, reorders its papers and changes paper titles, also after it was generated: a completed book is reopened through
 /// <see cref="Book.ReopenForEditing"/> and its PDF is deleted once the change is saved. The book row is always written
 /// with a row version check (<c>SatirVersiyonu</c>), so of two edits that overlap only the first one succeeds.
 /// </summary>
@@ -77,6 +81,58 @@ public sealed partial class BookEditService(
 
         await DeleteObsoletePdfAsync(book, pdf).ConfigureAwait(false);
         LogRenamed(logger, bookUid);
+        return new EditBookResult(EditBookOutcome.Edited);
+    }
+
+    /// <summary>
+    /// Replaces a paper title with one the user typed (<see cref="PaperTitleValidator"/>); the paper becomes
+    /// <see cref="Titles.TitleSource.Manual"/>. The same title changes nothing.
+    /// </summary>
+    public async Task<EditBookResult> UpdatePaperTitleAsync(Guid bookUid, Guid paperUid, string? title, CancellationToken cancellationToken)
+    {
+        var book = await db.Books.Include(b => b.Papers).FirstOrDefaultAsync(b => b.Uid == bookUid, cancellationToken).ConfigureAwait(false);
+        if (book is null)
+        {
+            return new EditBookResult(EditBookOutcome.NotFound);
+        }
+
+        var paper = book.Papers.FirstOrDefault(p => p.Uid == paperUid);
+        if (paper is null)
+        {
+            return new EditBookResult(EditBookOutcome.PaperNotFound);
+        }
+
+        var validation = PaperTitleValidator.Validate(title, glyphCoverage);
+        if (!validation.IsValid)
+        {
+            return new EditBookResult(EditBookOutcome.InvalidTitle, Title: validation);
+        }
+
+        if (!book.IsEditable)
+        {
+            return new EditBookResult(EditBookOutcome.Busy);
+        }
+
+        var pdf = book.PdfStorageKey;
+        if (!book.UpdatePaperTitle(paper, validation.Title))
+        {
+            return new EditBookResult(EditBookOutcome.Unchanged);
+        }
+
+        // Only the paper row changes for an uploaded book; the book row is written too so the row version check
+        // catches an overlapping edit.
+        db.Books.Entry(book).Property(b => b.Name).IsModified = true;
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new EditBookResult(EditBookOutcome.Conflict);
+        }
+
+        await DeleteObsoletePdfAsync(book, pdf).ConfigureAwait(false);
+        LogPaperRetitled(logger, bookUid, paperUid);
         return new EditBookResult(EditBookOutcome.Edited);
     }
 
@@ -179,6 +235,9 @@ public sealed partial class BookEditService(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookUid} renamed")]
     private static partial void LogRenamed(ILogger logger, Guid bookUid);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Title of paper {PaperUid} of book {BookUid} changed")]
+    private static partial void LogPaperRetitled(ILogger logger, Guid bookUid, Guid paperUid);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Papers of book {BookUid} reordered")]
     private static partial void LogReordered(ILogger logger, Guid bookUid);

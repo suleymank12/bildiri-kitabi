@@ -199,7 +199,7 @@ public sealed partial class BookEndToEndTests(SampleBookFixture fixture) : IClas
 
         var book = SampleBookFixture.CreateGenerator().Generate(
             "Metadata Denemesi",
-            [new PaperSource("01_Deneme.docx", () => new MemoryStream(bytes))],
+            [SampleBookFixture.Source("01_Deneme.docx", () => new MemoryStream(bytes))],
             cancellationToken: TestContext.Current.CancellationToken);
         var pdf = new BookPdf(book.Pdf);
 

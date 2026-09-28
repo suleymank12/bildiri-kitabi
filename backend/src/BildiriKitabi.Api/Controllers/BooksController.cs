@@ -298,7 +298,54 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
                 "Geri alınacak kitap silinenler arasında bulunamadı; zaten geri alınmış olabilir.");
     }
 
-    /// <summary>The book after an edit, or the problem shared by both edit endpoints.</summary>
+    /// <summary>
+    /// Replaces the detected title of a paper. The title is trimmed, line breaks become spaces; it must not be empty,
+    /// longer than 500 characters, contain contact details or characters the PDF fonts lack. A completed book goes
+    /// back to <c>Uploaded</c> and its PDF is deleted. The same title changes nothing.
+    /// </summary>
+    [HttpPut("{uid:guid}/papers/{paperUid:guid}/title")]
+    [EnableRateLimiting(RateLimiting.EditPolicy)]
+    [Consumes("application/json")]
+    [ProducesResponseType<BookDetailDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemResponse>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType<ProblemResponse>(StatusCodes.Status404NotFound, "application/problem+json")]
+    [ProducesResponseType<ProblemResponse>(StatusCodes.Status409Conflict, "application/problem+json")]
+    public async Task<IActionResult> SetPaperTitle(
+        Guid uid,
+        Guid paperUid,
+        [FromBody] PaperTitleRequest request,
+        [FromServices] BookEditService edits,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(edits);
+
+        var result = await edits.UpdatePaperTitleAsync(uid, paperUid, request.Title, cancellationToken);
+        if (result is { Outcome: EditBookOutcome.InvalidTitle, Title: { } title })
+        {
+            return ApiProblem.Create(
+                HttpContext,
+                StatusCodes.Status400BadRequest,
+                title.ErrorCode!,
+                "Bildiri başlığı geçersiz.",
+                title.ErrorMessage!,
+                [new ApiError(title.ErrorCode!, title.ErrorMessage!, Field: "title")]);
+        }
+
+        if (result.Outcome == EditBookOutcome.PaperNotFound)
+        {
+            return ApiProblem.Create(
+                HttpContext,
+                StatusCodes.Status404NotFound,
+                ApiErrorCodes.PaperNotFound,
+                "Bildiri bulunamadı.",
+                "İstenen bildiri bu kitapta bulunamadı.");
+        }
+
+        return await EditResultAsync(uid, result.Outcome, "Bildiri başlığı değiştirilemez.", cancellationToken);
+    }
+
+    /// <summary>The book after an edit, or the problem shared by the edit endpoints.</summary>
     private async Task<IActionResult> EditResultAsync(Guid uid, EditBookOutcome outcome, string title, CancellationToken cancellationToken) =>
         outcome switch
         {

@@ -124,6 +124,7 @@ public sealed class BookTests
         { "Processing → edited", b => { b.MarkQueued(Now); b.MarkProcessing(Now); b.ReopenForEditing(); } },
         { "Queued → renamed", b => { b.MarkQueued(Now); b.Rename("Başka Ad"); } },
         { "Processing → renamed to the same name", b => { b.MarkQueued(Now); b.MarkProcessing(Now); b.Rename(b.Name); } },
+        { "Queued → paper retitled", b => { b.MarkQueued(Now); b.UpdatePaperTitle(b.Papers[0], "Başka Başlık"); } },
     };
 
     [Fact]
@@ -180,6 +181,33 @@ public sealed class BookTests
         book.Name.ShouldBe("Düzeltilmiş Ad");
         book.Status.ShouldBe(BookStatus.Uploaded);
         book.PdfStorageKey.ShouldBeNull();
+    }
+
+    [Fact]
+    public void A_typed_paper_title_becomes_manual_and_reopens_a_completed_book()
+    {
+        var book = NewBook();
+        Complete(book);
+        var paper = book.Papers[1];
+
+        book.UpdatePaperTitle(paper, paper.Title).ShouldBeFalse();
+        book.Status.ShouldBe(BookStatus.Completed);
+        paper.TitleSource.ShouldBe(TitleSource.TitleStyle);
+
+        book.UpdatePaperTitle(paper, "Düzeltilmiş Başlık").ShouldBeTrue();
+        paper.Title.ShouldBe("Düzeltilmiş Başlık");
+        paper.TitleSource.ShouldBe(TitleSource.Manual);
+        book.Status.ShouldBe(BookStatus.Uploaded);
+        book.PdfStorageKey.ShouldBeNull();
+        book.Papers[0].TitleSource.ShouldBe(TitleSource.TitleStyle);
+    }
+
+    [Fact]
+    public void A_paper_of_another_book_cannot_be_retitled()
+    {
+        var other = NewBook().Papers[0];
+
+        Should.Throw<ArgumentException>(() => NewBook().UpdatePaperTitle(other, "Başka Başlık"));
     }
 
     [Fact]

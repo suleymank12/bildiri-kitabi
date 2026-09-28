@@ -90,6 +90,13 @@ public sealed class Paper
         RemovedPhoneCount = removedPhoneCount;
     }
 
+    /// <summary>Replaces the detected title with one the user typed (already validated).</summary>
+    internal void SetManualTitle(string title)
+    {
+        Title = title;
+        TitleSource = TitleSource.Manual;
+    }
+
     /// <summary>Forgets the last generation when the book is reopened for editing.</summary>
     internal void ClearGeneration()
     {

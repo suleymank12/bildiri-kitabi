@@ -148,6 +148,9 @@ public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSi
 /// <summary>Body of <c>PUT /api/books/{uid}</c>: the new book name, 3–150 characters.</summary>
 public sealed record RenameBookRequest(string? Name);
 
+/// <summary>Body of <c>PUT /api/books/{uid}/papers/{paperUid}/title</c>: the new paper title.</summary>
+public sealed record PaperTitleRequest(string? Title);
+
 /// <summary>The paper uids (<see cref="Paper.Uid"/>) in the new order.</summary>
 public sealed record PaperOrderRequest(IReadOnlyList<Guid> PaperUids);
 

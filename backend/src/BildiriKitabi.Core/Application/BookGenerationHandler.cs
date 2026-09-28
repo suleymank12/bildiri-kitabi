@@ -111,7 +111,7 @@ public sealed partial class BookGenerationHandler(
                 streams.Add(await storage.OpenReadAsync(paper.StorageKey, timeoutToken).ConfigureAwait(false));
             }
 
-            var sources = papers.Select((paper, i) => new PaperSource(paper.OriginalFileName, () => streams[i])).ToList();
+            var sources = papers.Select((paper, i) => new PaperSource(paper.OriginalFileName, paper.Title, paper.TitleSource, () => streams[i])).ToList();
             var progress = Channel.CreateUnbounded<GenerationProgress>(new UnboundedChannelOptions { SingleReader = true });
             var progressWriter = WriteProgressAsync(book, progress.Reader, stoppingToken);
 

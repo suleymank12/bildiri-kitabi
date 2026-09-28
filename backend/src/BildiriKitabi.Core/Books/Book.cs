@@ -136,7 +136,32 @@ public sealed class Book
     }
 
     /// <summary>
-    /// The transition every edit (name or paper order) goes through, called before the change. A completed book goes
+    /// Sets a paper title the user typed (see <see cref="PaperTitleValidator"/>); a completed book is reopened first.
+    /// The paper becomes <see cref="TitleSource.Manual"/>.
+    /// </summary>
+    /// <returns>False, with nothing changed, when the title is the same.</returns>
+    public bool UpdatePaperTitle(Paper paper, string title)
+    {
+        ArgumentNullException.ThrowIfNull(paper);
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        EnsureStatus(nameof(UpdatePaperTitle), BookStatus.Uploaded, BookStatus.Failed, BookStatus.Completed);
+        if (!_papers.Contains(paper))
+        {
+            throw new ArgumentException("The paper belongs to another book.", nameof(paper));
+        }
+
+        if (string.Equals(title, paper.Title, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        ReopenForEditing();
+        paper.SetManualTitle(title);
+        return true;
+    }
+
+    /// <summary>
+    /// The transition every edit (name, paper order or paper title) goes through, called before the change. A completed book goes
     /// back to <c>Uploaded</c>: its PDF no longer matches, so the PDF fields, the run times and the page ranges and
     /// removed counts of the papers are cleared; the caller deletes the stored PDF, and "generate" makes a new one.
     /// An uploaded or failed book keeps its state. A queued or processing book cannot be edited.

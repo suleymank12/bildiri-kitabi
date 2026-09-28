@@ -79,7 +79,7 @@ public sealed class FontFallbackTests
 
         var book = SampleBookFixture.CreateGenerator().Generate(
             "Sembol Denemesi ∀x ∈ A",
-            [new PaperSource("01_Sembol.docx", () => new MemoryStream(bytes))],
+            [SampleBookFixture.Source("01_Sembol.docx", () => new MemoryStream(bytes))],
             cancellationToken: TestContext.Current.CancellationToken);
 
         var text = new BookPdf(book.Pdf).AllText;
@@ -95,10 +95,10 @@ public sealed class FontFallbackTests
     [Fact]
     public void A_paper_with_a_character_missing_from_every_font_fails_with_its_position_and_the_character()
     {
-        var papers = TestPaths.PaperFiles.Take(2).Select(path => new PaperSource(Path.GetFileName(path), () => File.OpenRead(path))).ToList();
+        var papers = TestPaths.PaperFiles.Take(2).Select(path => SampleBookFixture.Source(Path.GetFileName(path), () => File.OpenRead(path))).ToList();
         using var docx = TestDocx.Create(TestDocx.Paragraph("SEMBOLLÜ BİLDİRİ", "<w:b/>") + TestDocx.Paragraph("Küme 𝒜 ve 中 tanımı."));
         var bytes = docx.ToArray();
-        papers.Add(new PaperSource("03_Sembol.docx", () => new MemoryStream(bytes)));
+        papers.Add(SampleBookFixture.Source("03_Sembol.docx", () => new MemoryStream(bytes)));
 
         var error = Should.Throw<BookGenerationException>(() => SampleBookFixture.CreateGenerator().Generate(
             "Sembol Denemesi",
