@@ -87,7 +87,7 @@ Kısıtlar: `IlerlemeYuzdesi BETWEEN 0 AND 100`; `Durum` yalnızca tanımlı de�
 | `DosyaBoyutuBayt` | `bigint` | |
 | `Sha256` | `binary(32)` | Mükerrer dosya tespiti |
 | `Baslik` | `nvarchar(500)` | Tespit edilen başlık, olduğu gibi |
-| `BaslikKaynagi` | `nvarchar(20)` | `TitleStyle`, `FirstBoldParagraph`, `FileName` |
+| `BaslikKaynagi` | `nvarchar(20)` | `TitleStyle`, `FirstBoldParagraph`, `FileName`; kullanıcı başlığı değiştirdiyse `Manual` |
 | `BaslangicSayfasi`, `BitisSayfasi` | `int` NULL | Üretimden sonra dolar; kitap düzenlemeyle yeniden açılınca boşalır |
 | `SilinenEpostaSayisi`, `SilinenTelefonSayisi` | `int` | Varsayılan 0; yeniden açılınca 0'a döner |
 | `YuklenmeZamani` | `datetime2` | |
@@ -105,14 +105,14 @@ stateDiagram-v2
     Processing --> Failed: hata, zaman aşımı veya ikinci kez yarıda kalma
     Processing --> Queued: süreç yarıda kaldı (açılışta veya süpürücüde kurtarma, bir kez)
     Failed --> Queued: Tekrar dene
-    Completed --> Uploaded: ad veya sıra değişti (ReopenForEditing, PDF silinir)
-    Uploaded --> Uploaded: ad veya sıra değişti
-    Failed --> Failed: ad veya sıra değişti
+    Completed --> Uploaded: ad, sıra veya başlık değişti (ReopenForEditing, PDF silinir)
+    Uploaded --> Uploaded: ad, sıra veya başlık değişti
+    Failed --> Failed: ad, sıra veya başlık değişti
 ```
 
 Başarısız üretimde kayıt `Durum = 'Failed'` olur; `HataKodu` ve `HataMesaji` doldurulur (veritabanı kısıtı mesajsız başarısızlığa izin vermez).
 
-**Düzenleme:** kitabın adı (`PUT /api/books/{uid}`) ve bildiri sırası (`PUT /api/books/{uid}/paper-order`) `Uploaded`, `Failed` ve `Completed` durumlarında değiştirilebilir. Geçiş `Book.ReopenForEditing` metodundadır. Oluşmuş (`Completed`) kitap `Uploaded` durumuna döner. PDF depodan silinir; `PdfDepolamaAnahtari`, `PdfBoyutuBayt`, `SayfaSayisi`, işlem zamanları ile bildirilerin sayfa aralıkları ve silinen sayıları temizlenir. Kitap "Kitabı Oluştur" ile yeniden üretilir. `Uploaded` ve `Failed` kitap durumunu korur. Aynı ad veya aynı sıra gönderilirse hiçbir şey yazılmaz. `Queued` ve `Processing` kitap düzenlenemez (`409`). Kitap satırı her düzenlemede `SatirVersiyonu` denetimiyle yazılır; aynı kitabı aynı anda değiştiren iki istekten biri `409 EDIT_CONFLICT` alır.
+**Düzenleme:** kitabın adı (`PUT /api/books/{uid}`), bildiri sırası (`PUT /api/books/{uid}/paper-order`) ve bir bildirinin başlığı (`PUT /api/books/{uid}/papers/{paperUid}/title`, `Book.UpdatePaperTitle`; kaynak `Manual` olur) `Uploaded`, `Failed` ve `Completed` durumlarında değiştirilebilir. Geçiş `Book.ReopenForEditing` metodundadır. Oluşmuş (`Completed`) kitap `Uploaded` durumuna döner. PDF depodan silinir; `PdfDepolamaAnahtari`, `PdfBoyutuBayt`, `SayfaSayisi`, işlem zamanları ile bildirilerin sayfa aralıkları ve silinen sayıları temizlenir. Kitap "Kitabı Oluştur" ile yeniden üretilir. `Uploaded` ve `Failed` kitap durumunu korur. Aynı ad, aynı sıra veya aynı başlık gönderilirse hiçbir şey yazılmaz. `Queued` ve `Processing` kitap düzenlenemez (`409`). Kitap satırı her düzenlemede `SatirVersiyonu` denetimiyle yazılır; aynı kitabı aynı anda değiştiren iki istekten biri `409 EDIT_CONFLICT` alır.
 
 **Silme ve geri alma:** silme durum değiştirmez. Kitap `AktifMi = 0` ve `SilinmeZamani = şimdi` olur (kuyrukta veya işlenirken silinemez). Silinmiş kitap Kitaplarım'da görünmez, API'nin normal uçları `404` döner ve arka plan işleri ona dokunmaz. Geri alındığında (`AktifMi = 1`, `SilinmeZamani = NULL`) silindiği durumla, PDF'i dahil, geri gelir.
 

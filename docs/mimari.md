@@ -51,7 +51,7 @@ Docker'da açılış sırası: `mssql` sağlık kontrolü yalnızca bağlantı k
 
 ## Kuyruk ve arka plan işleme
 
-Kuyruk `IBookGenerationQueue` arayüzünün arkasındadır; mesaj yalnızca kitap kimliğini (`{"bookId": "<Uid>", "version": 1}`; değer API'deki `id` gibi kitabın `Uid`'sidir, sayısal `Id` değil) taşır. Durumun tek doğru kaynağı veritabanıdır. İşleyici, süpürücü ve açılış kurtarması kitapları global sorgu filtresinden geçen sorgularla bulduğundan silinmiş (pasif) kitaplara dokunmaz.
+Kuyruk `IBookGenerationQueue` arayüzünün arkasındadır; mesaj yalnızca kitap kimliğini (`{"bookUid": "<Uid>", "version": 2}`; sayısal `Id` değil) taşır. Başka biçimdeki mesaj geçersiz sayılır ve ölü mektup kuyruğuna gider. Durumun tek doğru kaynağı veritabanıdır. İşleyici, süpürücü ve açılış kurtarması kitapları global sorgu filtresinden geçen sorgularla bulduğundan silinmiş (pasif) kitaplara dokunmaz.
 
 - **Yayın:** "Kitabı Oluştur" kitabı `Queued` yapıp kaydeder, sonra mesajı yayımlar. RabbitMQ sağlayıcısı kalıcı (persistent) JSON mesajı dayanıklı `bildiri-kitabi.uretim` kuyruğuna publisher confirms ile gönderir; çağrı ancak broker onayladıktan sonra döner.
 - **Tüketim:** API sürecindeki `BookGenerationWorker`, en fazla `Generation:MaxConcurrency` (varsayılan 2) işi aynı anda, her birini kendi DI kapsamında çalıştırır; RabbitMQ'da prefetch bu sayıya eşittir. İş başına zaman sınırı `Generation:TimeoutSeconds` (varsayılan 120 sn) aşılırsa kitap `GENERATION_TIMEOUT` koduyla `Failed` olur.
@@ -73,7 +73,7 @@ MassTransit yerine doğrudan `RabbitMQ.Client` kullanıldı: tek kuyruk ve tek m
 - Anahtarlar sistem tarafından, dış kimliklerden üretilir: `books/{kitapUid}/sources/{bildiriUid}.docx` ve `books/{kitapUid}/output/book.pdf`. Sayısal `Id` anahtara girmez. Kullanıcının dosya adı hiçbir zaman yol olarak kullanılmaz; yalnızca `OrijinalDosyaAdi` kolonunda gösterim için tutulur.
 - Yazım atomiktir: içerik aynı klasörde geçici bir dosyaya yazılır, sonra hedefin yerine taşınır. Yarım kalan yazım önceki dosyayı bozmaz.
 - Yol aşımı (path traversal) savunması: her anahtar kök klasöre göre çözülür ve kökün dışına çıkan anahtar reddedilir.
-- Kitap silindiğinde kaydı pasife alınır (`AktifMi = 0`); `books/{kitapUid}/` klasörü yerinde kalır, böylece geri alınan kitabın PDF'i yeniden üretmeden açılır. Oluşmuş bir kitabın adı veya sırası değişince yalnızca eski `output/book.pdf` silinir.
+- Kitap silindiğinde kaydı pasife alınır (`AktifMi = 0`); `books/{kitapUid}/` klasörü yerinde kalır, böylece geri alınan kitabın PDF'i yeniden üretmeden açılır. Oluşmuş bir kitabın adı, sırası veya bir başlığı değişince yalnızca eski `output/book.pdf` silinir.
 
 <a id="api"></a>
 
@@ -87,22 +87,25 @@ MassTransit yerine doğrudan `RabbitMQ.Client` kullanıldı: tek kuyruk ve tek m
 | `GET` | `/api/books/{uid}` | Durum, aşama, yüzde, bildiriler, başlıklar, sayfa aralıkları, silinen sayılar, hata. | `200`; `404` |
 | `PUT` | `/api/books/{uid}` | Gövde `{ "name": "…" }`: kitap adını değiştirir (yüklemedekiyle aynı doğrulama). Oluşmuş kitap `Uploaded` olur ve PDF'i silinir; aynı ad hiçbir şeyi değiştirmez. | `200`; `400`; `404`; `409`; `429` |
 | `PUT` | `/api/books/{uid}/paper-order` | Bildiri sırasını değiştirir (`Uploaded`, `Failed` veya `Completed`; oluşmuş kitap `Uploaded` olur ve PDF'i silinir). Aynı sıra hiçbir şeyi değiştirmez. | `200`; `400`; `404`; `409`; `429` |
+| `PUT` | `/api/books/{uid}/papers/{paperUid}/title` | Gövde `{ "title": "…" }`: bildiri başlığını değiştirir, kaynak `Manual` olur. Başlık kırpılır, satır sonları boşluk olur; boş, 500 karakterden uzun, e-posta/telefon içeren veya PDF yazı tipinde olmayan karakterli başlık reddedilir. Oluşmuş kitap `Uploaded` olur ve PDF'i silinir; aynı başlık hiçbir şeyi değiştirmez. | `200`; `400`; `404`; `409`; `429` |
 | `POST` | `/api/books/{uid}/generate` | Üretimi kuyruğa alır (yalnızca `Uploaded` veya `Failed`); çift istekte biri kazanır. | `202`; `404`; `409`; `429` |
 | `GET` | `/api/books/{uid}/pdf` | Üretilen PDF; aralık istekleri (`206`), `ETag`/`304`. `?download=true` indirme olarak verir (`Content-Disposition`, ASCII ve RFC 5987 `filename*`). | `200`/`206`/`304`; `404`; `409` |
 | `DELETE` | `/api/books/{uid}` | Kitabı pasife alır (`AktifMi = 0`); kayıt, bildiriler ve dosyalar kalır. Kuyrukta veya işlenirken silinemez; zaten silinmişse `404`. | `204`; `404`; `409`; `429` |
 | `POST` | `/api/books/{uid}/restore` | Silinmiş kitabı geri alır (`AktifMi = 1`, `SilinmeZamani = NULL`). Kitap yoksa veya aktifse `404`. | `204`; `404`; `429` |
 | `GET` | `/health` | Veritabanı ve (seçiliyse) RabbitMQ sağlık raporu, JSON. | `200`; `503` |
 
-`{uid}` kitabın dış kimliğidir; yanıtlardaki `id` alanları (kitap ve bildiri) da `Uid` değerleridir. Sayısal veritabanı kimliği hiçbir yanıtta yer almaz; sayı içeren bir adres kitap adresi olarak eşleşmez (`404`).
+`{uid}` kitabın, `{paperUid}` bildirinin dış kimliğidir; yanıtlardaki kimlik alanlarının adı da `uid`'dir (kitap ve bildiri `uid`, sıra isteğinde `paperUids`). Sayısal veritabanı kimliği hiçbir yanıtta yer almaz; sayı içeren bir adres kitap adresi olarak eşleşmez (`404`).
 
-Hata biçimi: tüm hatalar `application/problem+json` (RFC 9457) olarak döner. `detail` kullanıcıya gösterilebilecek Türkçe mesajdır, `code` makine okunur koddur (ör. `PAPER_COUNT_INVALID`, `FILE_DUPLICATE`, `GENERATION_ALREADY_IN_PROGRESS`, `BOOK_NOT_COMPLETED`). Yükleme ve ad değiştirme hataları ayrıca bir `errors` listesi taşır. İstemciye yığın izi (stack trace) verilmez. Düzenleme ve silme uçlarının kodları:
+Hata biçimi: tüm hatalar `application/problem+json` (RFC 9457) olarak döner. `detail` kullanıcıya gösterilebilecek Türkçe mesajdır, `code` makine okunur koddur (ör. `PAPER_COUNT_INVALID`, `FILE_DUPLICATE`, `GENERATION_ALREADY_IN_PROGRESS`, `BOOK_NOT_COMPLETED`). Yükleme, ad ve başlık değiştirme hataları ayrıca bir `errors` listesi taşır. İstemciye yığın izi (stack trace) verilmez. Düzenleme ve silme uçlarının kodları:
 
 | Kod | Durum | Anlamı |
 |---|---|---|
 | `BOOK_NOT_FOUND` | `404` | Kitap yok veya silinmiş (silinmiş kitabın tüm normal uçları) |
 | `DELETED_BOOK_NOT_FOUND` | `404` | Geri alınacak kitap silinenler arasında yok (hiç yok veya zaten aktif) |
 | `BOOK_NAME_INVALID`, `BOOK_NAME_UNSUPPORTED_CHARACTER` | `400` | Ad değiştirmede yüklemedekiyle aynı ad doğrulaması (`field: "name"`) |
-| `GENERATION_ALREADY_IN_PROGRESS` | `409` | Kitap kuyrukta veya işleniyor: silinemez, adı değiştirilemez |
+| `GENERATION_ALREADY_IN_PROGRESS` | `409` | Kitap kuyrukta veya işleniyor: silinemez, adı veya başlıkları değiştirilemez |
+| `PAPER_NOT_FOUND` | `404` | Bildiri bu kitaba ait değil |
+| `PAPER_TITLE_INVALID`, `PAPER_TITLE_CONTACT_INFO`, `PAPER_TITLE_UNSUPPORTED_CHARACTER` | `400` | Başlık boş/çok uzun, iletişim bilgisi içeriyor veya yazı tipinde olmayan karakter var (`field: "title"`) |
 | `PAPER_ORDER_LOCKED` | `409` | Kitap kuyrukta veya işleniyor: sırası değiştirilemez |
 | `EDIT_CONFLICT` | `409` | Aynı kitap bu sırada başka bir istekle değiştirildi (`SatirVersiyonu` denetimi) |
 
@@ -114,7 +117,7 @@ Rate limiting: istemci IP'si başına dakikalık sabit pencere; yükleme için 1
 
 - **Global sorgu filtresi:** `BookConfiguration` içinde `Book` için adlı bir EF Core global sorgu filtresi (`ActiveBooks`: `AktifMi = 1`) tanımlıdır. Silinmiş kitabı dışarıda tutan tek kontrol budur; kodun başka hiçbir yerinde `AktifMi` için elle `Where` yazılmaz. Filtreyi bilinçli olarak yalnızca iki yer atlar: silinenler listesi (`GET /api/books/deleted`) ve geri alma (`POST /api/books/{uid}/restore`). İkisi de `BookQueryFilters.Deleted()` yardımcısını kullanır (`IgnoreQueryFilters(["ActiveBooks"])` + `AktifMi = 0`). Bildirilerin kendi kümesi yoktur (`IAppDbContext.Books` tek giriş noktası); sıra güncellemesi de bildirilere kitap üzerinden (`Books … SelectMany(b => b.Papers)`) ulaşır, bu yüzden filtre bildirileri de kapsar.
 - **Silme:** `DELETE` tek bir koşullu `UPDATE` ile `AktifMi = 0`, `SilinmeZamani = şimdi` yazar; `Queued` veya `Processing` kitap koşula uymadığı için silinemez (`409`). Kalıcı silme ucu yoktur.
-- **Düzenleme:** `BookEditService` kitabı okur, durum geçişini `Book.ReopenForEditing` (ad için `Book.Rename`) ile yapar ve kitap satırını `SatirVersiyonu` denetimiyle yazar. Sıra değişikliğinde kitap satırı ve bildirilerin tek `UPDATE … CASE` ifadesi aynı transaction'dadır. Kitap satırı sıra değişikliğinde durum değişmese de yazılır; bu sayede çakışan iki düzenlemeden ikincisi `409 EDIT_CONFLICT` alır. Oluşmuş kitabın eski PDF'i değişiklik kaydedildikten sonra depodan silinir.
+- **Düzenleme:** `BookEditService` kitabı okur, durum geçişini `Book.ReopenForEditing` (ad için `Book.Rename`, başlık için `Book.UpdatePaperTitle`) ile yapar ve kitap satırını `SatirVersiyonu` denetimiyle yazar. Sıra değişikliğinde kitap satırı ve bildirilerin tek `UPDATE … CASE` ifadesi aynı transaction'dadır. Kitap satırı sıra değişikliğinde durum değişmese de yazılır; bu sayede çakışan iki düzenlemeden ikincisi `409 EDIT_CONFLICT` alır. Oluşmuş kitabın eski PDF'i değişiklik kaydedildikten sonra depodan silinir.
 
 Development ortamında OpenAPI belgesi `/openapi/v1.json`, etkileşimli referans `/scalar` adresindedir; Production'da (Docker) kapalıdır.
 
