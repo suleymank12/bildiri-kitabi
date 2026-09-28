@@ -9,6 +9,7 @@ import { usePageTitle } from '../../app/usePageTitle';
 import { Alert, Badge, Button, Card, EmptyState, Skeleton, Tooltip } from '../../components/ui';
 import { formatDateTime, formatInteger } from '../../lib/format';
 import { REQUIRED_PAPER_COUNT } from '../../lib/limits';
+import { SM_QUERY, useMediaQuery } from '../../lib/useMediaQuery';
 import { isBusy, statusLabel, statusTone } from '../../lib/status';
 import { LIBRARY_TABLE_COLUMNS, NUMERIC_COLUMN } from '../../lib/tableColumns';
 import { NewBookDialog } from '../new-book/NewBookDialog';
@@ -24,6 +25,7 @@ export function LibraryPage() {
   const list = useBookList(page);
   const [pendingDelete, setPendingDelete] = useState<BookSummary>();
   const [creating, setCreating] = useState(false);
+  const wide = useMediaQuery(SM_QUERY);
 
   const data = list.data;
 
@@ -63,22 +65,11 @@ export function LibraryPage() {
         <ListSkeleton />
       ) : data && data.items.length === 0 && page === 1 ? (
         <Card>
-          <EmptyState
-            icon={<BookOpenIcon size={36} />}
-            title="Henüz kitap oluşturmadınız."
-            action={
-              <Button
-                variant="primary"
-                icon={<PlusIcon size={18} aria-hidden="true" />}
-                onClick={() => {
-                  setCreating(true);
-                }}
-              >
-                Yeni kitap
-              </Button>
-            }
-          >
-            {REQUIRED_PAPER_COUNT} bildiri dosyasını yükleyerek ilk kitabınızı oluşturun.
+          <EmptyState icon={<BookOpenIcon size={36} />} title="Henüz kitap oluşturmadınız.">
+            {/* The page has one "Yeni kitap" button: right of the heading, below it on phones. */}
+            {wide ? 'Sağ üstteki' : 'Yukarıdaki'}{' '}
+            <strong className="font-semibold text-ink">Yeni kitap</strong> düğmesiyle {REQUIRED_PAPER_COUNT}{' '}
+            bildiri dosyasını yükleyerek ilk kitabınızı oluşturun.
           </EmptyState>
         </Card>
       ) : data ? (

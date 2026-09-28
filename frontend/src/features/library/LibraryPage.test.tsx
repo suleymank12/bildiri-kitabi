@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import type { BookSummary } from '../../api/types';
 import { LIBRARY_TABLE_COLUMNS, NUMERIC_COLUMN } from '../../lib/tableColumns';
+import { setViewportWidth } from '../../test/media';
 import { bookSummary } from '../../test/fixtures';
 import { renderPage } from '../../test/render';
 import { server } from '../../test/server';
@@ -12,12 +13,31 @@ function listOf(items: BookSummary[]) {
 }
 
 describe('LibraryPage', () => {
-  it('shows the empty state with a link to a new book', async () => {
+  it('shows the empty state pointing to the one "Yeni kitap" button next to the heading', async () => {
     server.use(http.get('/api/books', () => HttpResponse.json(listOf([]))));
     renderPage(<LibraryPage />, { path: '/', route: '/' });
 
-    expect(await screen.findByRole('heading', { name: 'Henüz kitap oluşturmadınız.' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Yeni kitap' }).length).toBeGreaterThan(0);
+    const heading = await screen.findByRole('heading', { name: 'Henüz kitap oluşturmadınız.' });
+    expect(screen.getAllByRole('button', { name: 'Yeni kitap' })).toHaveLength(1);
+    const text = heading.nextElementSibling!;
+    expect(text).toHaveTextContent(
+      'Sağ üstteki Yeni kitap düğmesiyle 10 bildiri dosyasını yükleyerek ilk kitabınızı oluşturun.',
+    );
+    // Bold text, not a second link or button.
+    expect(within(text as HTMLElement).getByText('Yeni kitap').tagName).toBe('STRONG');
+    expect(within(text as HTMLElement).queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('says "Yukarıdaki" on phones, where the button sits below the heading', async () => {
+    setViewportWidth(390);
+    server.use(http.get('/api/books', () => HttpResponse.json(listOf([]))));
+    renderPage(<LibraryPage />, { path: '/', route: '/' });
+
+    const heading = await screen.findByRole('heading', { name: 'Henüz kitap oluşturmadınız.' });
+    expect(heading.nextElementSibling).toHaveTextContent(
+      /^Yukarıdaki Yeni kitap düğmesiyle 10 bildiri dosyasını/,
+    );
+    expect(screen.getAllByRole('button', { name: 'Yeni kitap' })).toHaveLength(1);
   });
 
   it('lists books with status, counts and date', async () => {

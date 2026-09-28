@@ -40,8 +40,7 @@ export async function generateThroughApi(request: APIRequestContext, uid: string
 export async function openNewBookDialog(page: Page): Promise<Locator> {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Kitaplarım' })).toBeVisible();
-  // An empty list has a second "Yeni kitap" button in its empty state; both open the same modal.
-  await page.getByRole('button', { name: 'Yeni kitap' }).first().click();
+  await page.getByRole('button', { name: 'Yeni kitap' }).click();
   const dialog = page.getByRole('dialog', { name: 'Yeni kitap' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel('Kitap adı')).toBeFocused();
