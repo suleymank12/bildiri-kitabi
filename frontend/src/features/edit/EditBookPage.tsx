@@ -209,12 +209,10 @@ function EditView({ book }: { book: BookDetail }) {
   return (
     <div className="flex flex-col gap-6 pb-4">
       <div className="flex flex-col gap-3">
-        <Link
-          to={paths.book(book.uid)}
-          className="inline-flex min-h-11 w-fit items-center gap-1.5 text-sm font-medium text-accent hover:underline"
-        >
+        {/* People come here from Kitaplarım; the book's own page is linked at the bottom ("Kitabı görüntüle"). */}
+        <Link to={paths.library} className={buttonClasses('secondary', 'sm', 'w-fit')}>
           <ArrowLeftIcon size={16} aria-hidden="true" />
-          Kitap sayfasına dön
+          Kitaplarım’a dön
         </Link>
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl sm:text-4xl">Kitabı düzenle</h1>

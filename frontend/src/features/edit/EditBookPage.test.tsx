@@ -41,6 +41,15 @@ const completed = () =>
   });
 
 describe('EditBookPage', () => {
+  it('goes back to Kitaplarım with a secondary button', async () => {
+    renderEdit(bookDetail());
+
+    const back = await screen.findByRole('link', { name: 'Kitaplarım’a dön' });
+    expect(back).toHaveAttribute('href', '/');
+    expect(back.className).toContain('border-ink-subtle');
+    expect(back.querySelector('svg')).not.toBeNull();
+  });
+
   it('renames the book and shows validation errors under the field', async () => {
     let body: unknown;
     server.use(
