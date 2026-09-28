@@ -1,4 +1,4 @@
-import { BookOpenIcon, CaretLeftIcon, CaretRightIcon, TrashIcon } from '@phosphor-icons/react';
+import { BookOpenIcon, CaretLeftIcon, CaretRightIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { errorMessage } from '../../api/errors';
@@ -7,10 +7,11 @@ import type { BookSummary } from '../../api/types';
 import { useAnnounce } from '../../app/Announcer';
 import { paths } from '../../app/paths';
 import { usePageTitle } from '../../app/usePageTitle';
-import { Alert, Badge, Button, Card, Dialog, EmptyState, Skeleton, buttonClasses } from '../../components/ui';
+import { Alert, Badge, Button, Card, Dialog, EmptyState, Skeleton } from '../../components/ui';
 import { formatDateTime, formatInteger } from '../../lib/format';
 import { isBusy, statusLabel, statusTone } from '../../lib/status';
 import { LIBRARY_TABLE_COLUMNS, NUMERIC_COLUMN } from '../../lib/tableColumns';
+import { NewBookDialog } from '../new-book/NewBookDialog';
 
 const DELETE_BLOCKED_REASON = 'Kitap hazırlanırken silinemez.';
 
@@ -22,6 +23,7 @@ export function LibraryPage() {
   const list = useBookList(page);
   const deleteBook = useDeleteBook();
   const [pendingDelete, setPendingDelete] = useState<BookSummary>();
+  const [creating, setCreating] = useState(false);
 
   const data = list.data;
   const pageCount = data ? Math.max(1, Math.ceil(data.totalCount / LIST_PAGE_SIZE)) : 1;
@@ -51,9 +53,15 @@ export function LibraryPage() {
           <h1 className="text-3xl sm:text-4xl">Kitaplarım</h1>
           <p className="text-ink-muted">Oluşturduğunuz kitaplar, en yenisi üstte.</p>
         </div>
-        <Link to={paths.newBook} className={buttonClasses('primary')}>
+        <Button
+          variant="primary"
+          icon={<PlusIcon size={18} aria-hidden="true" />}
+          onClick={() => {
+            setCreating(true);
+          }}
+        >
           Yeni kitap
-        </Link>
+        </Button>
       </div>
 
       {list.isError && (
@@ -83,9 +91,15 @@ export function LibraryPage() {
             icon={<BookOpenIcon size={36} />}
             title="Henüz kitap oluşturmadınız."
             action={
-              <Link to={paths.newBook} className={buttonClasses('primary')}>
+              <Button
+                variant="primary"
+                icon={<PlusIcon size={18} aria-hidden="true" />}
+                onClick={() => {
+                  setCreating(true);
+                }}
+              >
                 Yeni kitap
-              </Link>
+              </Button>
             }
           >
             On bildiri dosyasını yükleyerek ilk kitabınızı oluşturun.
@@ -148,6 +162,13 @@ export function LibraryPage() {
           </Button>
         </nav>
       )}
+
+      <NewBookDialog
+        open={creating}
+        onClose={() => {
+          setCreating(false);
+        }}
+      />
 
       <Dialog
         open={pendingDelete !== undefined}

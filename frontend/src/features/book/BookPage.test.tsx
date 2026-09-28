@@ -279,7 +279,7 @@ describe('BookPage — failure', () => {
     renderPage(<BookPage />, { path: '/kitaplar/:uid', route: '/kitaplar/olmayan' });
 
     expect(await screen.findByRole('heading', { name: 'Kitap bulunamadı' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Yeni kitap' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Kitaplarım' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Kitaplarım' })).toBeInTheDocument();
   });
 });

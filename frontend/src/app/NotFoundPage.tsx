@@ -4,7 +4,7 @@ import { EmptyState, buttonClasses } from '../components/ui';
 import { paths } from './paths';
 import { usePageTitle } from './usePageTitle';
 
-/** "Nothing here" with the two ways back into the app; shared by unknown URLs and unknown book ids. */
+/** "Nothing here" with the ways back into the app; shared by unknown URLs and unknown (or deleted) book uids. */
 export function NotFoundState({ title, children }: { title: string; children: ReactNode }) {
   return (
     <EmptyState
@@ -12,10 +12,7 @@ export function NotFoundState({ title, children }: { title: string; children: Re
       title={title}
       action={
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Link to={paths.newBook} className={buttonClasses('primary')}>
-            Yeni kitap
-          </Link>
-          <Link to={paths.library} className={buttonClasses('secondary')}>
+          <Link to={paths.library} className={buttonClasses('primary')}>
             Kitaplarım
           </Link>
         </div>

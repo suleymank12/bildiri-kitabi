@@ -7,8 +7,7 @@ describe('NotFoundPage', () => {
     renderPage(<NotFoundPage />, { path: '*', route: '/olmayan-sayfa' });
 
     expect(screen.getByRole('heading', { name: 'Sayfa bulunamadı' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Yeni kitap' })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: 'Kitaplarım' })).toHaveAttribute('href', '/kitaplar');
+    expect(screen.getByRole('link', { name: 'Kitaplarım' })).toHaveAttribute('href', '/');
     expect(document.title).toBe('Sayfa bulunamadı — Bildiri Kitabı');
   });
 });

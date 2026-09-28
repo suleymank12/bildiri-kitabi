@@ -1,5 +1,6 @@
 export const paths = {
-  newBook: '/',
-  library: '/kitaplar',
+  library: '/',
+  deleted: '/silinenler',
   book: (uid: string) => `/kitaplar/${uid}`,
+  editBook: (uid: string) => `/kitaplar/${uid}/duzenle`,
 };

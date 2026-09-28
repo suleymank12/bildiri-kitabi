@@ -1,7 +1,8 @@
-import { BooksIcon, FilePlusIcon } from '@phosphor-icons/react';
+import { BooksIcon } from '@phosphor-icons/react';
 import { useRef, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { AnnouncerProvider } from './Announcer';
+import { paths } from './paths';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useRouteFocus } from './useRouteFocus';
 
@@ -58,8 +59,7 @@ export function Layout() {
               <span className="text-xs text-ink-muted">Bildirilerden e-kitap</span>
             </Link>
             <nav aria-label="Ana menü" className="flex items-center gap-1">
-              <NavItem to="/" end icon={<FilePlusIcon size={20} />} label="Yeni kitap" short="Yeni" />
-              <NavItem to="/kitaplar" icon={<BooksIcon size={20} />} label="Kitaplarım" short="Kitaplar" />
+              <NavItem to={paths.library} end icon={<BooksIcon size={20} />} label="Kitaplarım" short="Kitaplar" />
             </nav>
           </div>
         </header>

@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { basicIssue, compareFileNames, fileIssues, sha256, type FileIssue } from '../../lib/files';
+import { basicIssue, checkFileContent, compareFileNames, fileIssues, type FileIssue } from '../../lib/files';
 
 export interface SelectedFile {
   id: string;
   file: File;
-  /** SHA-256 once computed; files with a size or extension problem are not hashed. */
+  /** SHA-256 once computed; files with a size or extension problem are not read. */
   hash?: string | undefined;
+  /** False when the content is not a ZIP package; undefined until read. */
+  zip?: boolean | undefined;
   issue?: FileIssue | undefined;
-  /** True while the content hash is being computed. */
+  /** True while the content is being read (hash and ZIP signature). */
   checking: boolean;
 }
 
@@ -15,14 +17,15 @@ interface Entry {
   id: string;
   file: File;
   hash?: string | undefined;
+  zip?: boolean | undefined;
   hashing: boolean;
 }
 
 let nextId = 0;
 
 /**
- * The list of chosen files, in book order. New files go to the end; each valid file is hashed so a second copy
- * of the same content is caught before the upload.
+ * The list of chosen files, in book order. New files go to the end; each valid file is read once: its hash catches
+ * a second copy of the same content and its first bytes catch a file that is not a Word (ZIP) package.
  */
 export function useFileSelection() {
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -44,13 +47,15 @@ export function useFileSelection() {
     setEntries((current) => [...current, ...added]);
 
     for (const entry of added.filter((e) => e.hashing)) {
-      void sha256(entry.file)
+      void checkFileContent(entry.file)
         .catch(() => undefined)
-        .then((hash) => {
+        .then((content) => {
           if (mounted.current) {
             setEntries((current) =>
               current.map((e) =>
-                e.id === entry.id ? { ...e, hash: hash ?? `unreadable-${entry.id}`, hashing: false } : e,
+                e.id === entry.id
+                  ? { ...e, hash: content?.hash ?? `unreadable-${entry.id}`, zip: content?.zip, hashing: false }
+                  : e,
               ),
             );
           }
@@ -68,12 +73,13 @@ export function useFileSelection() {
 
   const files = useMemo<SelectedFile[]>(() => {
     const issues = fileIssues(
-      entries.map((entry) => ({ name: entry.file.name, size: entry.file.size, hash: entry.hash })),
+      entries.map((entry) => ({ name: entry.file.name, size: entry.file.size, hash: entry.hash, zip: entry.zip })),
     );
     return entries.map((entry, index) => ({
       id: entry.id,
       file: entry.file,
       hash: entry.hash,
+      zip: entry.zip,
       issue: issues[index],
       checking: entry.hashing,
     }));

@@ -11,13 +11,19 @@ export const BOOK_NAME_MAX = 150;
 export const DOCX_ACCEPT = '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
 export type FileIssue =
-  { kind: 'extension' } | { kind: 'empty' } | { kind: 'tooLarge' } | { kind: 'duplicate'; of: string };
+  | { kind: 'extension' }
+  | { kind: 'empty' }
+  | { kind: 'tooLarge' }
+  | { kind: 'notDocx' }
+  | { kind: 'duplicate'; of: string };
 
 export interface CheckedFile {
   name: string;
   size: number;
   /** SHA-256 of the content (hex); undefined until computed or when the file is not hashed. */
   hash?: string | undefined;
+  /** False when the content does not start like a ZIP package (every .docx is one); undefined until read. */
+  zip?: boolean | undefined;
 }
 
 export type SelectionProblem =
@@ -51,6 +57,10 @@ export function fileIssues(files: readonly CheckedFile[]): (FileIssue | undefine
     const basic = basicIssue(file);
     if (basic) {
       return basic;
+    }
+
+    if (file.zip === false) {
+      return { kind: 'notDocx' };
     }
 
     if (file.hash === undefined) {
@@ -99,6 +109,8 @@ export function describeIssue(issue: FileIssue): string {
       return 'Dosya boş.';
     case 'tooLarge':
       return 'Dosya 10 MB sınırını aşıyor.';
+    case 'notDocx':
+      return 'Geçerli bir Word (.docx) dosyası değil.';
     case 'duplicate':
       return `${issue.of} ile aynı içeriğe sahip.`;
   }
@@ -134,10 +146,27 @@ export function bookNameError(name: string): string | undefined {
   return undefined;
 }
 
-/** SHA-256 of a file's content as lower-case hex (Web Crypto). */
-export async function sha256(file: Blob): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+/** The local file header signature every ZIP package, and so every .docx, starts with ("PK"). */
+const ZIP_SIGNATURE = [0x50, 0x4b, 0x03, 0x04] as const;
+
+export interface FileContentCheck {
+  /** SHA-256 of the content as lower-case hex (Web Crypto). */
+  hash: string;
+  /** True when the first four bytes are the ZIP signature. */
+  zip: boolean;
+}
+
+/**
+ * Reads the file once for both content checks: its hash (duplicates) and its first bytes (a renamed text or PDF
+ * file is caught at once). A ZIP that is not a Word document still passes; the server rejects it.
+ */
+export async function checkFileContent(file: Blob): Promise<FileContentCheck> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return {
+    hash: Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''),
+    zip: ZIP_SIGNATURE.every((byte, i) => bytes[i] === byte),
+  };
 }
 
 const fileNameCollator = new Intl.Collator('tr', { numeric: true, sensitivity: 'base' });

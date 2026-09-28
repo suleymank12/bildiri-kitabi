@@ -54,9 +54,12 @@ export function bookSummary(overrides: Partial<BookSummary> = {}): BookSummary {
   };
 }
 
-/** A small file with its own content (distinct hashes unless the same seed is used). */
+/** The ZIP signature every real .docx starts with. */
+const ZIP_SIGNATURE = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+
+/** A small "Word" file with its own content (distinct hashes unless the same seed is used). */
 export function docx(name: string, seed: string = name): File {
-  return new File([`içerik ${seed}`], name, {
+  return new File([ZIP_SIGNATURE, `içerik ${seed}`], name, {
     type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   });
 }

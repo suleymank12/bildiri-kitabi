@@ -10,7 +10,7 @@ import {
   fileIssues,
   isSelectionReady,
   selectionProblems,
-  sha256,
+  checkFileContent,
   type CheckedFile,
 } from './files';
 
@@ -113,15 +113,38 @@ describe('bookNameError', () => {
   });
 });
 
-describe('sha256', () => {
-  it('hashes the content, not the name', async () => {
-    const a = await sha256(new File(['aynı içerik'], 'a.docx'));
-    const b = await sha256(new File(['aynı içerik'], 'b.docx'));
-    const c = await sha256(new File(['başka içerik'], 'a.docx'));
+describe('checkFileContent', () => {
+  const zip = (text: string) => new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...new TextEncoder().encode(text)]);
 
-    expect(a).toMatch(/^[0-9a-f]{64}$/);
-    expect(a).toBe(b);
-    expect(a).not.toBe(c);
+  it('hashes the content, not the name', async () => {
+    const a = await checkFileContent(new File([zip('aynı içerik')], 'a.docx'));
+    const b = await checkFileContent(new File([zip('aynı içerik')], 'b.docx'));
+    const c = await checkFileContent(new File([zip('başka içerik')], 'a.docx'));
+
+    expect(a.hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(a.hash).toBe(b.hash);
+    expect(a.hash).not.toBe(c.hash);
+  });
+
+  it('recognises a ZIP package by its first four bytes', async () => {
+    expect((await checkFileContent(new File([zip('word/document.xml')], 'a.docx'))).zip).toBe(true);
+    expect((await checkFileContent(new File(['düz metin'], 'not.docx'))).zip).toBe(false);
+    expect((await checkFileContent(new File(['%PDF-1.7'], 'makale.docx'))).zip).toBe(false);
+    expect((await checkFileContent(new File(['PK'], 'kisa.docx'))).zip).toBe(false);
+  });
+});
+
+describe('notDocx', () => {
+  it('marks a file whose content is not a ZIP, before any duplicate check', () => {
+    expect(
+      fileIssues([
+        { name: 'a.docx', size: 10, hash: 'x', zip: false },
+        { name: 'b.docx', size: 10, hash: 'x', zip: false },
+        { name: 'c.docx', size: 10, hash: 'y', zip: true },
+      ]),
+    ).toEqual([{ kind: 'notDocx' }, { kind: 'notDocx' }, undefined]);
+    expect(describeIssue({ kind: 'notDocx' })).toBe('Geçerli bir Word (.docx) dosyası değil.');
+    expect(isSelectionReady(Array.from({ length: 10 }, (_, i) => ({ name: `${i}.docx`, size: 1, hash: `h${i}`, zip: i !== 3 })))).toBe(false);
   });
 });
 

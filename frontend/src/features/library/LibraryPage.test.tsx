@@ -14,15 +14,15 @@ function listOf(items: BookSummary[]) {
 describe('LibraryPage', () => {
   it('shows the empty state with a link to a new book', async () => {
     server.use(http.get('/api/books', () => HttpResponse.json(listOf([]))));
-    renderPage(<LibraryPage />, { path: '/kitaplar', route: '/kitaplar' });
+    renderPage(<LibraryPage />, { path: '/', route: '/' });
 
     expect(await screen.findByRole('heading', { name: 'Henüz kitap oluşturmadınız.' })).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Yeni kitap' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Yeni kitap' }).length).toBeGreaterThan(0);
   });
 
   it('lists books with status, counts and date', async () => {
     server.use(http.get('/api/books', () => HttpResponse.json(listOf([bookSummary()]))));
-    renderPage(<LibraryPage />, { path: '/kitaplar', route: '/kitaplar' });
+    renderPage(<LibraryPage />, { path: '/', route: '/' });
 
     const row = (await screen.findByRole('link', { name: 'Örnek Bilim Kongresi 2026' })).closest('li')!;
     expect(within(row).getByText('Hazır')).toBeInTheDocument();
@@ -31,7 +31,7 @@ describe('LibraryPage', () => {
 
   it('lays out the heading and the rows with the same columns and the same alignment per column', async () => {
     server.use(http.get('/api/books', () => HttpResponse.json(listOf([bookSummary()]))));
-    const { container } = renderPage(<LibraryPage />, { path: '/kitaplar', route: '/kitaplar' });
+    const { container } = renderPage(<LibraryPage />, { path: '/', route: '/' });
 
     const row = (await screen.findByRole('link', { name: 'Örnek Bilim Kongresi 2026' })).closest('li')!;
     const heading = container.querySelector('section > [aria-hidden="true"]')!;
@@ -70,7 +70,7 @@ describe('LibraryPage', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    const { user } = renderPage(<LibraryPage />, { path: '/kitaplar', route: '/kitaplar' });
+    const { user } = renderPage(<LibraryPage />, { path: '/', route: '/' });
 
     await user.click(await screen.findByRole('button', { name: 'Örnek Bilim Kongresi 2026 kitabını sil' }));
 
@@ -94,7 +94,7 @@ describe('LibraryPage', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    const { user } = renderPage(<LibraryPage />, { path: '/kitaplar', route: '/kitaplar' });
+    const { user } = renderPage(<LibraryPage />, { path: '/', route: '/' });
 
     await user.click(await screen.findByRole('button', { name: 'Örnek Bilim Kongresi 2026 kitabını sil' }));
     await user.click(screen.getByRole('button', { name: 'Vazgeç' }));
@@ -119,7 +119,7 @@ describe('LibraryPage', () => {
         ),
       ),
     );
-    const { user } = renderPage(<LibraryPage />, { path: '/kitaplar', route: '/kitaplar' });
+    const { user } = renderPage(<LibraryPage />, { path: '/', route: '/' });
 
     const button = await screen.findByRole('button', { name: 'Örnek Bilim Kongresi 2026 kitabını sil' });
 
