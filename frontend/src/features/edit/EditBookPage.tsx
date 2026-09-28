@@ -35,7 +35,7 @@ export const COMPLETED_NOTICE =
   'Bu kitap oluşturuldu. Adı, sırayı veya bir başlığı değiştirirseniz mevcut PDF silinir ve kitabı yeniden oluşturmanız gerekir.';
 export const CONFLICT_MESSAGE =
   'Kitap bu sırada başka bir işlemle değişti. Güncel hali yüklendi, lütfen tekrar deneyin.';
-export const BUSY_MESSAGE = 'Kitap oluşturulurken düzenlenemez.';
+const BUSY_MESSAGE = 'Kitap oluşturulurken düzenlenemez.';
 
 export function EditBookPage() {
   const { uid = '' } = useParams();

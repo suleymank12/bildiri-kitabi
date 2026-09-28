@@ -105,26 +105,26 @@ public sealed class ApiHost : WebApplicationFactory<Program>
         return (await response.Content.ReadFromJsonAsync<BookDetailDto>(Json, TestContext.Current.CancellationToken))!;
     }
 
-    public async Task<BookDetailDto> GetBookAsync(Guid id)
+    public async Task<BookDetailDto> GetBookAsync(Guid uid)
     {
         using var client = Client();
-        return (await client.GetFromJsonAsync<BookDetailDto>(new Uri($"/api/books/{id}", UriKind.Relative), Json, TestContext.Current.CancellationToken))!;
+        return (await client.GetFromJsonAsync<BookDetailDto>(new Uri($"/api/books/{uid}", UriKind.Relative), Json, TestContext.Current.CancellationToken))!;
     }
 
-    public async Task<HttpStatusCode> GenerateAsync(Guid id)
+    public async Task<HttpStatusCode> GenerateAsync(Guid uid)
     {
         using var client = Client();
-        using var response = await client.PostAsync(new Uri($"/api/books/{id}/generate", UriKind.Relative), null, TestContext.Current.CancellationToken);
+        using var response = await client.PostAsync(new Uri($"/api/books/{uid}/generate", UriKind.Relative), null, TestContext.Current.CancellationToken);
         return response.StatusCode;
     }
 
     /// <summary>Polls the book until it reaches one of the final states or the time limit passes.</summary>
-    public async Task<BookDetailDto> WaitForFinalStatusAsync(Guid id, int timeoutSeconds = 90)
+    public async Task<BookDetailDto> WaitForFinalStatusAsync(Guid uid, int timeoutSeconds = 90)
     {
         var deadline = DateTime.UtcNow.AddSeconds(timeoutSeconds);
         while (true)
         {
-            var book = await GetBookAsync(id);
+            var book = await GetBookAsync(uid);
             if (book.Status is BookStatus.Completed or BookStatus.Failed)
             {
                 return book;

@@ -93,11 +93,11 @@ public sealed class Book
 
     public IReadOnlyList<Paper> Papers => _papers;
 
-    /// <summary>True while the name and the paper order may change: in every state but <c>Queued</c> and <c>Processing</c>.</summary>
+    /// <summary>
+    /// True while the name, the paper order and the paper titles may change: in every state but <c>Queued</c> and
+    /// <c>Processing</c>, when a worker owns the book or is about to.
+    /// </summary>
     public bool IsEditable => Status is BookStatus.Uploaded or BookStatus.Failed or BookStatus.Completed;
-
-    /// <summary>True while a worker owns the book or is about to.</summary>
-    public bool IsBusy => Status is BookStatus.Queued or BookStatus.Processing;
 
     public Paper AddPaper(string fileName, long sizeBytes, byte[] sha256, string title, TitleSource titleSource, DateTime uploadedAtUtc)
     {

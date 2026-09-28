@@ -3,7 +3,7 @@ import { useDeleteBook } from '../../api/hooks';
 import { useAnnounce } from '../../app/Announcer';
 import { Button, Dialog } from '../../components/ui';
 
-export const DELETE_EXPLANATION = 'Kitap Silinenler’e taşınacak. Oradan geri alabilirsiniz.';
+const DELETE_EXPLANATION = 'Kitap Silinenler’e taşınacak. Oradan geri alabilirsiniz.';
 
 export interface DeleteBookDialogProps {
   /** The book to delete; the dialog is open while it is set. */

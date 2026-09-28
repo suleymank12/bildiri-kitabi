@@ -13,7 +13,7 @@ public interface IFileStorage
 
     Task DeleteAsync(string key, CancellationToken cancellationToken = default);
 
-    /// <summary>Deletes every file whose key starts with the prefix (for example <c>books/{id}/</c>).</summary>
+    /// <summary>Deletes every file whose key starts with the prefix (for example <c>books/{uid}/</c>).</summary>
     Task DeletePrefixAsync(string prefix, CancellationToken cancellationToken = default);
 
     Task<bool> ExistsAsync(string key, CancellationToken cancellationToken = default);

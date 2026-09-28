@@ -37,8 +37,3 @@ export function spreadIndexOfPage(page: number, pageCount: number, mode: ViewMod
 
   return page < 1 ? 0 : spreads.length - 1;
 }
-
-/** In double mode, even pages sit on the left and odd pages on the right. */
-export function sideOfPage(page: number): 'left' | 'right' {
-  return page % 2 === 0 ? 'left' : 'right';
-}

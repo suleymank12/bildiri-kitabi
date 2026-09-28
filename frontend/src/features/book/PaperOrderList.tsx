@@ -15,7 +15,7 @@ export interface PaperMove {
 
 export interface PaperOrderListProps {
   papers: readonly Paper[];
-  /** Called with the full new order of paper ids and the paper that moved. */
+  /** Called with the full new order of paper uids and the paper that moved. */
   onReorder: (paperUids: string[], move: PaperMove) => void;
   locked: boolean;
   /** Makes every title editable in place (see {@link PaperTitleEditor}); without it titles are plain text. */

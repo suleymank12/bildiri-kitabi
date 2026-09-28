@@ -69,8 +69,3 @@ export function titleSourceWarning(source: TitleSource): string | undefined {
 export function isBusy(status: BookStatus): boolean {
   return status === 'Queued' || status === 'Processing';
 }
-
-/** True while the name, the order and the titles may change: in every state but queued and being generated. */
-export function isEditable(status: BookStatus): boolean {
-  return !isBusy(status);
-}

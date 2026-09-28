@@ -1,4 +1,4 @@
-import { buildSpreads, sideOfPage, spreadIndexOfPage } from './spreads';
+import { buildSpreads, spreadIndexOfPage } from './spreads';
 
 describe('buildSpreads', () => {
   it('puts the cover alone, then facing pages, and the last even page alone for 22 pages', () => {
@@ -48,11 +48,5 @@ describe('spreadIndexOfPage', () => {
     expect(spreadIndexOfPage(0, 22, 'double')).toBe(0);
     expect(spreadIndexOfPage(99, 22, 'double')).toBe(11);
     expect(spreadIndexOfPage(3, 0, 'double')).toBe(0);
-  });
-});
-
-describe('sideOfPage', () => {
-  it('places papers, which start on odd pages, on the right', () => {
-    expect([1, 2, 3, 21, 22].map(sideOfPage)).toEqual(['right', 'left', 'right', 'right', 'left']);
   });
 });

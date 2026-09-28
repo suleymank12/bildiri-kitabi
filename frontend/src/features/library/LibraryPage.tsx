@@ -15,8 +15,8 @@ import { NewBookDialog } from '../new-book/NewBookDialog';
 import { DeleteBookDialog } from './DeleteBookDialog';
 import { Pagination, usePageParam } from './Pagination';
 
-export const EDIT_BLOCKED_REASON = 'Kitap oluşturulurken düzenlenemez.';
-export const DELETE_BLOCKED_REASON = 'Kitap oluşturulurken silinemez.';
+const EDIT_BLOCKED_REASON = 'Kitap oluşturulurken düzenlenemez.';
+const DELETE_BLOCKED_REASON = 'Kitap oluşturulurken silinemez.';
 
 export function LibraryPage() {
   usePageTitle('Kitaplarım');

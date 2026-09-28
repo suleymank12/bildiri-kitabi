@@ -35,17 +35,17 @@ public sealed class QueueSweepServiceTests(SqlServerFixture sql)
         var queue = new RecordingQueue();
 
         (await Sweep(db, queue, clock)).ShouldBe(1);
-        queue.Ids.ShouldBe([stale]);
+        queue.Uids.ShouldBe([stale]);
 
         // 31 s later the fresh book has waited 61 s; the stale one was re-enqueued at the first sweep and waits again.
         clock.Advance(TimeSpan.FromSeconds(31));
         (await Sweep(db, queue, clock)).ShouldBe(1);
-        queue.Ids.ShouldBe([stale, fresh]);
+        queue.Uids.ShouldBe([stale, fresh]);
 
         clock.Advance(TimeSpan.FromSeconds(60));
         (await Sweep(db, queue, clock)).ShouldBe(2);
-        queue.Ids.ShouldNotContain(processing);
-        queue.Ids.ShouldNotContain(uploaded);
+        queue.Uids.ShouldNotContain(processing);
+        queue.Uids.ShouldNotContain(uploaded);
     }
 
     [Fact]
@@ -54,15 +54,15 @@ public sealed class QueueSweepServiceTests(SqlServerFixture sql)
         sql.EnsureAvailable();
         var clock = new FakeTimeProvider(Start);
         await using var db = await NewDatabaseAsync();
-        var id = await AddAsync(db, b => b.MarkQueued(Start.UtcDateTime.AddMinutes(-5)));
+        var uid = await AddAsync(db, b => b.MarkQueued(Start.UtcDateTime.AddMinutes(-5)));
 
         (await Sweep(db, new RecordingQueue { Fail = true }, clock)).ShouldBe(0);
 
-        var queuedAt = await db.Books.AsNoTracking().Where(b => b.Uid == id).Select(b => b.QueuedAt).SingleAsync(TestContext.Current.CancellationToken);
+        var queuedAt = await db.Books.AsNoTracking().Where(b => b.Uid == uid).Select(b => b.QueuedAt).SingleAsync(TestContext.Current.CancellationToken);
         queuedAt.ShouldBe(Start.UtcDateTime.AddMinutes(-5));
         var queue = new RecordingQueue();
         (await Sweep(db, queue, clock)).ShouldBe(1);
-        queue.Ids.ShouldBe([id]);
+        queue.Uids.ShouldBe([uid]);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public sealed class QueueSweepServiceTests(SqlServerFixture sql)
         var queue = new RecordingQueue();
 
         (await Sweep(db, queue, clock)).ShouldBe(1);
-        queue.Ids.ShouldBe([stuck]);
+        queue.Uids.ShouldBe([stuck]);
         (await LoadAsync(db, running)).Status.ShouldBe(BookStatus.Processing);
         var requeued = await LoadAsync(db, stuck);
         requeued.Status.ShouldBe(BookStatus.Queued);
@@ -100,7 +100,7 @@ public sealed class QueueSweepServiceTests(SqlServerFixture sql)
 
         // The other book has now run for 359 s: its first recovery queues it again, the second one fails the book.
         (await Sweep(db, queue, clock)).ShouldBe(1);
-        queue.Ids.ShouldBe([stuck, running]);
+        queue.Uids.ShouldBe([stuck, running]);
         (await LoadAsync(db, running)).Status.ShouldBe(BookStatus.Queued);
         var failed = await LoadAsync(db, stuck);
         failed.Status.ShouldBe(BookStatus.Failed);
@@ -108,10 +108,10 @@ public sealed class QueueSweepServiceTests(SqlServerFixture sql)
         failed.ErrorMessage.ShouldBe(InterruptedGenerationRecovery.InterruptedMessage);
     }
 
-    private static async Task<Book> LoadAsync(AppDbContext db, Guid id)
+    private static async Task<Book> LoadAsync(AppDbContext db, Guid uid)
     {
         db.ChangeTracker.Clear();
-        return await db.Books.AsNoTracking().SingleAsync(b => b.Uid == id, TestContext.Current.CancellationToken);
+        return await db.Books.AsNoTracking().SingleAsync(b => b.Uid == uid, TestContext.Current.CancellationToken);
     }
 
     private static Task<int> Sweep(AppDbContext db, RecordingQueue queue, TimeProvider clock)
@@ -154,7 +154,7 @@ public sealed class QueueSweepServiceTests(SqlServerFixture sql)
 
     private sealed class RecordingQueue : IBookGenerationQueue
     {
-        public List<Guid> Ids { get; } = [];
+        public List<Guid> Uids { get; } = [];
 
         public bool Fail { get; init; }
 
@@ -165,7 +165,7 @@ public sealed class QueueSweepServiceTests(SqlServerFixture sql)
                 throw new InvalidOperationException("Kuyruk kullanılamıyor.");
             }
 
-            Ids.Add(bookUid);
+            Uids.Add(bookUid);
             return ValueTask.CompletedTask;
         }
 

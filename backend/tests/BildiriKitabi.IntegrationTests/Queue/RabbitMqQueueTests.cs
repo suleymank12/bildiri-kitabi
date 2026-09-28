@@ -63,9 +63,9 @@ public sealed class RabbitMqQueueTests(RabbitMqFixture rabbit) : IAsyncDisposabl
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var stopping = new CancellationTokenSource();
         var consuming = queue.ConsumeAsync(
-            async (id, _) =>
+            async (uid, _) =>
             {
-                started.TrySetResult(id);
+                started.TrySetResult(uid);
                 await release.Task;
             },
             2,
@@ -149,9 +149,9 @@ public sealed class RabbitMqQueueTests(RabbitMqFixture rabbit) : IAsyncDisposabl
         var handled = new TaskCompletionSource<Guid>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var stoppingSecond = new CancellationTokenSource();
         var second = queue.ConsumeAsync(
-            (id, _) =>
+            (uid, _) =>
             {
-                handled.TrySetResult(id);
+                handled.TrySetResult(uid);
                 return Task.CompletedTask;
             },
             1,

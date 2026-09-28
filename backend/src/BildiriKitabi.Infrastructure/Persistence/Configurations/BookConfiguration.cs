@@ -60,7 +60,6 @@ internal sealed class BookConfiguration : IEntityTypeConfiguration<Book>
         builder.Navigation(b => b.Papers).HasField("_papers").UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.Ignore(b => b.IsEditable);
-        builder.Ignore(b => b.IsBusy);
 
         builder.HasIndex(b => b.Status).HasDatabaseName("IX_Kitaplar_Durum");
         builder.HasIndex(b => b.CreatedAt).IsDescending().HasDatabaseName("IX_Kitaplar_OlusturulmaZamani");

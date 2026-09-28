@@ -37,7 +37,7 @@ public sealed class RabbitMqApiTests(SqlServerFixture sql, RabbitMqFixture rabbi
         pdf.AsSpan(0, 5).SequenceEqual("%PDF-"u8).ShouldBeTrue();
         var before = await StoredResultAsync(api, book.Uid);
 
-        // At-least-once delivery: the same book id arrives again.
+        // At-least-once delivery: the same book uid arrives again.
         var connection = await rabbit.RawConnectionAsync();
         _disposables.Add(connection);
         var channel = await connection.CreateChannelAsync(cancellationToken: TestContext.Current.CancellationToken);
@@ -128,11 +128,11 @@ public sealed class RabbitMqApiTests(SqlServerFixture sql, RabbitMqFixture rabbi
         return host;
     }
 
-    private static async Task<(int Pages, DateTime FinishedAt)> StoredResultAsync(ApiHost api, Guid id) =>
+    private static async Task<(int Pages, DateTime FinishedAt)> StoredResultAsync(ApiHost api, Guid uid) =>
         (await api.QueryAsync(
             "SELECT SayfaSayisi, IslemBitisZamani FROM Kitaplar WHERE Uid = @id",
             r => (r.GetInt32(0), r.GetDateTime(1)),
-            ("@id", id))).Single();
+            ("@id", uid))).Single();
 
     private static async Task<(HttpStatusCode Status, Dictionary<string, string> Checks)> HealthAsync(ApiHost api)
     {

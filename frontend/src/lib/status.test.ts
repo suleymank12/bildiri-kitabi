@@ -1,5 +1,5 @@
 import type { BookStatus, GenerationStage, TitleSource } from '../api/types';
-import { isBusy, isEditable, stageLabel, statusLabel, statusTone, titleSourceWarning } from './status';
+import { isBusy, stageLabel, statusLabel, statusTone, titleSourceWarning } from './status';
 
 describe('status labels', () => {
   it.each<[BookStatus, string, string]>([
@@ -33,13 +33,10 @@ describe('status labels', () => {
     expect(titleSourceWarning(source)).toBe(warning);
   });
 
-  it('knows which states are busy and which can be edited', () => {
+  it('knows which states are busy', () => {
     expect((['Uploaded', 'Queued', 'Processing', 'Completed', 'Failed'] as const).filter(isBusy)).toEqual([
       'Queued',
       'Processing',
     ]);
-    expect((['Uploaded', 'Queued', 'Processing', 'Completed', 'Failed'] as const).filter(isEditable)).toEqual(
-      ['Uploaded', 'Completed', 'Failed'],
-    );
   });
 });

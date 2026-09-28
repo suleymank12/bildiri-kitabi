@@ -16,7 +16,7 @@ export interface PaperTitleEditorProps {
 }
 
 /** The same rules as the server, so an obvious mistake is shown before a request. */
-export function paperTitleError(title: string): string | undefined {
+function paperTitleError(title: string): string | undefined {
   const trimmed = title.replace(/\r\n|[\r\n]/g, ' ').trim();
   if (trimmed.length === 0) {
     return 'Bildiri başlığı boş olamaz.';

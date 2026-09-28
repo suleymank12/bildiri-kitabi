@@ -34,7 +34,7 @@ export interface CheckedFile {
 export type SelectionProblem =
   { kind: 'count'; selected: number } | { kind: 'totalTooLarge'; totalBytes: number };
 
-export function hasDocxExtension(name: string): boolean {
+function hasDocxExtension(name: string): boolean {
   return name.toLocaleLowerCase('en-US').endsWith('.docx');
 }
 

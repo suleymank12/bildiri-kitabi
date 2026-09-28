@@ -42,7 +42,7 @@ public sealed class Paper
     /// <summary>Database identity (<c>Bildiriler.Id</c>, <c>int IDENTITY</c>); never leaves the application.</summary>
     public int Id { get; private set; }
 
-    /// <summary>External identity (<c>Bildiriler.Uid</c>): the paper id in API bodies and in its storage key.</summary>
+    /// <summary>External identity (<c>Bildiriler.Uid</c>): the paper's <c>uid</c> in API bodies and in its storage key.</summary>
     public Guid Uid { get; private set; }
 
     /// <summary>Database identity of the book (<c>Bildiriler.KitapId</c> → <c>Kitaplar.Id</c>).</summary>

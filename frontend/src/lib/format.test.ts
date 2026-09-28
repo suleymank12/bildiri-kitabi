@@ -1,4 +1,4 @@
-import { formatBytes, formatDate, formatDuration, possessiveSuffix, withPossessive } from './format';
+import { formatBytes, formatDuration, possessiveSuffix } from './format';
 
 describe('formatBytes', () => {
   it.each([
@@ -11,13 +11,7 @@ describe('formatBytes', () => {
   });
 });
 
-describe('formatDate', () => {
-  it('uses Turkish month names', () => {
-    expect(formatDate(new Date(2026, 8, 29))).toBe('29 Eylül 2026');
-  });
-});
-
-describe('withPossessive', () => {
+describe('possessiveSuffix', () => {
   it.each([
     [0, "0'ı"],
     [1, "1'i"],
@@ -36,8 +30,7 @@ describe('withPossessive', () => {
     [40, "40'ı"],
     [100, "100'ü"],
   ])('%d → %s', (value, expected) => {
-    expect(withPossessive(value)).toBe(expected);
-    expect(possessiveSuffix(value)).toBe(expected.slice(expected.indexOf("'")));
+    expect(`${String(value)}${possessiveSuffix(value)}`).toBe(expected);
   });
 });
 

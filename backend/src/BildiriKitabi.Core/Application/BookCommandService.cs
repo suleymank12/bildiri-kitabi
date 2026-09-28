@@ -28,7 +28,7 @@ public enum RestoreBookOutcome
 
 /// <summary>
 /// State-changing commands on an existing book. Each one is a single conditional SQL statement, so two concurrent
-/// requests can never both succeed. Editing the name and the paper order is in <see cref="BookEditService"/>.
+/// requests can never both succeed. Editing the name, the paper order and the paper titles is in <see cref="BookEditService"/>.
 /// </summary>
 public sealed partial class BookCommandService(
     IAppDbContext db,
@@ -38,7 +38,7 @@ public sealed partial class BookCommandService(
 {
     /// <summary>
     /// Queues generation with one conditional update (<c>Uploaded</c>/<c>Failed</c> → <c>Queued</c>), then enqueues
-    /// the id. If enqueueing fails the book stays <c>Queued</c> and the queued-book sweeper enqueues it again later.
+    /// the uid. If enqueueing fails the book stays <c>Queued</c> and the queued-book sweeper enqueues it again later.
     /// </summary>
     public async Task<StartGenerationOutcome> StartGenerationAsync(Guid bookUid, CancellationToken cancellationToken)
     {
