@@ -130,6 +130,7 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
         open
         size="lg"
         title="Yeni kitap"
+        closeDisabled={uploading}
         onClose={requestClose}
         footerExtra={
           uploading && (

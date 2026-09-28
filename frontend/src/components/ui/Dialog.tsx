@@ -1,4 +1,6 @@
+import { XIcon } from '@phosphor-icons/react';
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { Button } from './Button';
 
 export interface DialogProps {
   open: boolean;
@@ -12,10 +14,12 @@ export interface DialogProps {
   placement?: 'center' | 'bottom';
   /**
    * `sm`: a short question; the body text describes the dialog and the first button gets the focus.
-   * `lg`: a form of up to ~720 px (full screen below md); its body scrolls, the first field gets the focus and a
-   * click outside the dialog counts as a close request.
+   * `lg`: a form of up to 880 px, as tall as its content (full screen below md). Only its body scrolls, the page
+   * behind does not; the first field gets the focus; an "X" button and a click outside the dialog ask to close it.
    */
   size?: 'sm' | 'lg';
+  /** `lg` only: turns the "X" button off, for example while an upload runs. */
+  closeDisabled?: boolean;
   /** `lg` only: content above the buttons that stays in place while the body scrolls (a progress bar). */
   footerExtra?: ReactNode;
 }
@@ -36,6 +40,7 @@ export function Dialog({
   actions,
   placement = 'center',
   size = 'sm',
+  closeDisabled = false,
   footerExtra,
 }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -72,7 +77,12 @@ export function Dialog({
 
     dialog.addEventListener('keydown', trapFocus);
     dialog.showModal();
-    const initial = size === 'lg' ? `[data-dialog-body] ${focusableSelector}` : `footer ${focusableSelector}`;
+    // The first focusable element of the body (lg) or of the buttons (sm); every part of the list gets the prefix.
+    const scope = size === 'lg' ? '[data-dialog-body]' : 'footer';
+    const initial = focusableSelector
+      .split(', ')
+      .map((part) => `${scope} ${part}`)
+      .join(', ');
     dialog.querySelector<HTMLElement>(initial)?.focus();
     return () => {
       dialog.removeEventListener('keydown', trapFocus);
@@ -99,8 +109,15 @@ export function Dialog({
       }
     };
     dialog.addEventListener('click', onBackdrop);
+
+    // The page behind stays where it is while the dialog is open (a scroll that reaches the end of the dialog body
+    // would otherwise carry on into the page).
+    const root = document.documentElement;
+    const previousOverflow = root.style.overflow;
+    root.style.overflow = 'hidden';
     return () => {
       dialog.removeEventListener('click', onBackdrop);
+      root.style.overflow = previousOverflow;
     };
   }, [open, size]);
 
@@ -113,7 +130,8 @@ export function Dialog({
     placement === 'bottom'
       ? 'mx-0 mt-auto mb-0 max-h-[85dvh] w-full max-w-none overflow-y-auto rounded-b-none '
       : large
-        ? 'm-0 h-dvh max-h-none w-full max-w-none rounded-none md:m-auto md:h-auto md:max-h-[calc(100dvh-4rem)] md:w-[calc(100%-4rem)] md:max-w-[720px] md:rounded-(--radius) '
+        ? // h-fit: with the dialog's inset 0, a plain "auto" height would stretch it to the bottom of the screen.
+          'm-0 h-dvh max-h-none w-full max-w-none overflow-hidden rounded-none md:m-auto md:h-fit md:max-h-[calc(100dvh-4rem)] md:w-[calc(100%-4rem)] md:max-w-[880px] md:rounded-(--radius) '
         : 'm-auto w-[calc(100%-2rem)] max-w-md ';
 
   return (
@@ -133,10 +151,18 @@ export function Dialog({
     >
       {large ? (
         <>
-          <div className="border-b border-line px-5 py-4 sm:px-6">
+          <div className="flex items-center justify-between gap-3 border-b border-line py-2 pr-2 pl-5 sm:pl-6">
             <h2 id={titleId} className="text-2xl">
               {title}
             </h2>
+            <Button
+              variant="ghost"
+              className="w-11 shrink-0 px-0"
+              icon={<XIcon size={20} aria-hidden="true" />}
+              aria-label="Kapat"
+              disabled={closeDisabled}
+              onClick={onClose}
+            />
           </div>
           <div data-dialog-body="" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
             {children}

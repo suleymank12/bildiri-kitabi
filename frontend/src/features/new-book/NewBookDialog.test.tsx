@@ -81,6 +81,35 @@ describe('NewBookDialog', () => {
     expect(screen.getByRole('button', { name: 'Yeni kitap' })).toHaveFocus();
   });
 
+  it('has an "X" button that follows the rules of "Vazgeç"', async () => {
+    const { user } = await openDialog();
+    const close = () => within(dialog()).getByRole('button', { name: 'Kapat' });
+
+    // Nothing entered: closes at once.
+    await user.click(close());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Yeni kitap' })).toHaveFocus();
+
+    // A typed name: asks first.
+    await user.click(screen.getByRole('button', { name: 'Yeni kitap' }));
+    await user.type(screen.getByLabelText('Kitap adı'), 'Yarım Kalan Kitap');
+    await user.click(close());
+    expect(question()).toHaveAccessibleDescription(DISCARD_QUESTION);
+    await user.click(within(question()!).getByRole('button', { name: 'Evet' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('keeps the page behind from scrolling while it is open', async () => {
+    document.documentElement.style.overflow = 'auto';
+    const { user } = await openDialog();
+    expect(document.documentElement.style.overflow).toBe('hidden');
+
+    await user.click(within(dialog()).getByRole('button', { name: 'Kapat' }));
+
+    expect(document.documentElement.style.overflow).toBe('auto');
+    document.documentElement.style.overflow = '';
+  });
+
   it('closes at once on Esc or an outside click while nothing was entered', async () => {
     const { user } = await openDialog();
     pressEscape(dialog());
@@ -137,6 +166,7 @@ describe('NewBookDialog', () => {
     expect(await screen.findByRole('progressbar', { name: 'Yükleme ilerlemesi' })).toBeInTheDocument();
     expect(within(dialog()).getByRole('progressbar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Vazgeç' })).toBeDisabled();
+    expect(within(dialog()).getByRole('button', { name: 'Kapat' })).toBeDisabled();
     pressEscape(dialog());
     await user.click(dialog());
     expect(dialog()).toBeInTheDocument();
