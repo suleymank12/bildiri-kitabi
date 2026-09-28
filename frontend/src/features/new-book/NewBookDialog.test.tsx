@@ -519,6 +519,120 @@ describe('NewBookDialog', () => {
     expect(files.map((file) => file.name)).toEqual(names(10));
   });
 
+  describe('server errors on file rows', () => {
+    const notDocx = (name: string) => ({
+      code: 'FILE_NOT_DOCX',
+      message: `${name} geçerli bir Word (.docx) belgesi değil.`,
+      field: null,
+      fileName: name,
+    });
+
+    /** Ten files sent; the server rejects the 3rd, 5th and 7th, and optionally the name and the whole upload. */
+    async function rejectedUpload({ withName = false, withGeneral = false } = {}) {
+      upload.mockRejectedValue(
+        new ApiError(400, {
+          type: null,
+          title: 'Yükleme doğrulanamadı.',
+          status: 400,
+          detail: 'Yüklemede sorunlar bulundu.',
+          code: 'VALIDATION_FAILED',
+          traceId: 't',
+          errors: [
+            notDocx('03_Bildiri.docx'),
+            notDocx('05_Bildiri.docx'),
+            notDocx('07_Bildiri.docx'),
+            ...(withName
+              ? [{ code: 'BOOK_NAME_INVALID', message: 'Ad geçersiz.', field: 'name', fileName: null }]
+              : []),
+            ...(withGeneral
+              ? [{ code: 'TOTAL_SIZE_TOO_LARGE', message: 'Toplam fazla.', field: null, fileName: null }]
+              : []),
+          ],
+        }),
+      );
+      const view = await setup();
+      await view.user.type(screen.getByLabelText('Kitap adı'), 'Örnek Bilim Kongresi 2026');
+      await view.user.upload(
+        view.input,
+        names(10).map((name) => docx(name)),
+      );
+      await waitUntilChecked();
+      await view.user.click(view.submit());
+      expect(await screen.findAllByText('Reddedildi')).toHaveLength(3);
+      return view;
+    }
+
+    const rejectedFiles = (rows: HTMLElement[]) =>
+      rows
+        .filter((row) => within(row).queryByText('Reddedildi'))
+        .map((row) => within(row).getByText(/\.docx$/).textContent);
+
+    it('keeps the other rejected rows when one of them is removed', async () => {
+      const { user, rows, submit } = await rejectedUpload();
+      expect(submit()).toBeDisabled();
+
+      await user.click(screen.getByRole('button', { name: '05_Bildiri.docx dosyasını kaldır' }));
+
+      expect(rejectedFiles(rows())).toEqual(['03_Bildiri.docx', '07_Bildiri.docx']);
+      expect(within(rows()[2]!).getByText('Geçerli bir Word (.docx) belgesi değil.')).toBeInTheDocument();
+      // Still rejected rows: the same upload cannot be sent again.
+      expect(submit()).toBeDisabled();
+    });
+
+    it('keeps the rejected rows when a file is added or the list is sorted; a general message goes', async () => {
+      const { user, input, rows } = await rejectedUpload({ withGeneral: true });
+      expect(screen.getByRole('alert')).toHaveTextContent('Dosyaların toplam boyutu 60 MB sınırını aşıyor.');
+
+      await user.click(screen.getByRole('button', { name: '05_Bildiri.docx dosyasını kaldır' }));
+      await user.upload(input, [docx('00_Yeni.docx')]);
+      await waitUntilChecked();
+      expect(rejectedFiles(rows())).toEqual(['03_Bildiri.docx', '07_Bildiri.docx']);
+      expect(screen.queryByText('Dosyaların toplam boyutu 60 MB sınırını aşıyor.')).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Ada göre sırala' }));
+      expect(rows().map((row) => within(row).getByText(/\.docx$/).textContent)[0]).toBe('00_Yeni.docx');
+      expect(rejectedFiles(rows())).toEqual(['03_Bildiri.docx', '07_Bildiri.docx']);
+    });
+
+    it('does not pass a message on to a new file with the same name', async () => {
+      const { user, input, rows } = await rejectedUpload();
+
+      await user.click(screen.getByRole('button', { name: '03_Bildiri.docx dosyasını kaldır' }));
+      await user.upload(input, [docx('03_Bildiri.docx', 'düzeltilmiş içerik')]);
+      await waitUntilChecked();
+
+      const again = rows().find((row) => within(row).queryByText('03_Bildiri.docx'))!;
+      expect(within(again).getByText('Uygun')).toBeInTheDocument();
+      expect(rejectedFiles(rows())).toEqual(['05_Bildiri.docx', '07_Bildiri.docx']);
+    });
+
+    it('clears only the name message when the name changes', async () => {
+      const { user, rows } = await rejectedUpload({ withName: true });
+      const field = screen.getByLabelText('Kitap adı');
+      expect(field).toHaveAccessibleDescription(expect.stringContaining('Kitap adı 3–150 karakter olmalı'));
+
+      await user.type(field, ' 2');
+
+      expect(field).not.toHaveAccessibleDescription(
+        expect.stringContaining('Kitap adı 3–150 karakter olmalı'),
+      );
+      expect(rejectedFiles(rows())).toEqual(['03_Bildiri.docx', '05_Bildiri.docx', '07_Bildiri.docx']);
+    });
+
+    it('allows the upload again once every rejected file is removed and ten files are chosen', async () => {
+      const { user, input, submit } = await rejectedUpload();
+
+      for (const name of ['03_Bildiri.docx', '05_Bildiri.docx', '07_Bildiri.docx']) {
+        await user.click(screen.getByRole('button', { name: `${name} dosyasını kaldır` }));
+      }
+      await user.upload(input, [docx('A.docx'), docx('B.docx'), docx('C.docx')]);
+      await waitUntilChecked();
+
+      expect(screen.queryByText('Reddedildi')).not.toBeInTheDocument();
+      expect(submit()).toBeEnabled();
+    });
+  });
+
   it('shows server errors inside the modal, on the file row and under the name field', async () => {
     upload.mockRejectedValue(
       new ApiError(400, {

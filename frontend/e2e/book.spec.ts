@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import { basename } from 'node:path';
 import {
   animationsFinished,
   createThroughApi,
@@ -13,6 +14,7 @@ import {
   openNewBookDialog,
   paperFiles,
 } from './support/app';
+import { emptyWordDocument, excelWorkbook, powerPointPresentation } from './support/packages';
 
 // Books created here stay in the database of a long-running setup (npm run test:e2e:docker); a per-run token
 // keeps their names unique across runs.
@@ -167,6 +169,42 @@ test('sunucu hatası: kitap adındaki emoji modaldaki ad alanında gösterilir',
   );
   await expect(page).toHaveURL(/\/$/);
   await expect(dialog).toBeVisible();
+});
+
+test('sunucunun reddettiği dosyalardan biri kaldırılınca diğerleri reddedilmiş kalır', async ({ page }) => {
+  const dialog = await openNewBookDialog(page);
+  await dialog.getByLabel('Kitap adı').fill('Reddedilen Dosyalar Denemesi');
+  const docxType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  // Seven sample papers and three ZIP packages that pass the browser's check but not the server's.
+  await dialog
+    .getByLabel('Bildiri dosyaları')
+    .setInputFiles([
+      ...paperFiles
+        .slice(0, 7)
+        .map((path) => ({ name: basename(path), mimeType: docxType, buffer: readFileSync(path) })),
+      { name: '08_Tablo.docx', mimeType: docxType, buffer: excelWorkbook() },
+      { name: '09_Sunum.docx', mimeType: docxType, buffer: powerPointPresentation() },
+      { name: '10_Bos.docx', mimeType: docxType, buffer: emptyWordDocument() },
+    ]);
+  const submit = dialog.getByRole('button', { name: 'Yükle ve devam et' });
+  await expect(submit).toBeEnabled();
+  await submit.click();
+
+  const rows = dialog.getByRole('list', { name: 'Seçilen dosyalar' }).getByRole('listitem');
+  const row = (name: string) => rows.filter({ hasText: name });
+  for (const name of ['08_Tablo.docx', '09_Sunum.docx', '10_Bos.docx']) {
+    await expect(row(name).getByText('Reddedildi')).toBeVisible();
+  }
+  await expect(submit).toBeDisabled();
+
+  await dialog.getByRole('button', { name: '09_Sunum.docx dosyasını kaldır' }).click();
+
+  await expect(row('09_Sunum.docx')).toHaveCount(0);
+  await expect(row('08_Tablo.docx').getByText('Reddedildi')).toBeVisible();
+  await expect(row('08_Tablo.docx').getByText('Geçerli bir Word (.docx) belgesi değil.')).toBeVisible();
+  await expect(row('10_Bos.docx').getByText('Reddedildi')).toBeVisible();
+  await expect(rows.getByText('Reddedildi')).toHaveCount(2);
+  await expect(submit).toBeDisabled();
 });
 
 test('üretim hatası: hata ekranı, tekrar dene ve sırayı düzenle', async ({ page, request }) => {

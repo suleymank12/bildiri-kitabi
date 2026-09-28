@@ -3,7 +3,10 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** The sample papers sent with the case; they belong to the company and are not in git. */
-export const papersDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '../../../testdata/bildiriler');
+export const papersDirectory = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../testdata/bildiriler',
+);
 
 export const missingPapersMessage =
   'Örnek bildiriler bulunamadı: case ile gönderilen 10 .docx dosyasını testdata/bildiriler/ klasörüne kopyalayın.';

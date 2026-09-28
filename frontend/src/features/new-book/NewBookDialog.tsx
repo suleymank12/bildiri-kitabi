@@ -19,7 +19,31 @@ import { FileDropZone } from './FileDropZone';
 import { SelectedFileList } from './SelectedFileList';
 import { useFileSelection } from './useFileSelection';
 
-const noServerErrors: UploadErrors = { files: new Map(), general: [] };
+/**
+ * The server's answer to the last upload. File errors belong to the chosen file itself (its selection id, not its
+ * name), so removing one file or adding another leaves the other rows' messages alone, and a new file with the same
+ * name does not inherit an old message.
+ */
+interface ServerErrors {
+  name?: string | undefined;
+  files: ReadonlyMap<string, string>;
+  general: readonly string[];
+}
+
+const noServerErrors: ServerErrors = { files: new Map(), general: [] };
+
+/** Puts the file errors of an upload on the files that were sent (the server names them by file name). */
+function toServerErrors(errors: UploadErrors, sent: readonly { id: string; name: string }[]): ServerErrors {
+  const files = new Map<string, string>();
+  for (const file of sent) {
+    const message = errors.files.get(file.name);
+    if (message !== undefined) {
+      files.set(file.id, message);
+    }
+  }
+
+  return { name: errors.name, files, general: errors.general };
+}
 
 /** How long the "sorted" confirmation stays on screen. */
 const SORT_NOTICE_MS = 2500;
@@ -59,7 +83,7 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
   // does not count: the focus is also moved by code (opening and closing dialogs), not only by the user.
   const [nameTouched, setNameTouched] = useState(false);
   const nameEdited = useRef(false);
-  const [serverErrors, setServerErrors] = useState<UploadErrors>(noServerErrors);
+  const [serverErrors, setServerErrors] = useState<ServerErrors>(noServerErrors);
   const [sortNotice, setSortNotice] = useState(false);
   const [confirmingClose, setConfirmingClose] = useState(false);
   // The status panel replaces the form from "Yükle ve devam et" until the result has been shown long enough.
@@ -99,8 +123,11 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
   const totalProblem = selectionProblems(files.map((f) => ({ name: f.file.name, size: f.file.size }))).find(
     (problem) => problem.kind === 'totalTooLarge',
   );
+  // A file the server rejected must be removed before the same upload is tried again.
+  const rejected = files.some((f) => serverErrors.files.has(f.id));
   const ready =
     nameError === undefined &&
+    !rejected &&
     isSelectionReady(files.map((f) => ({ name: f.file.name, size: f.file.size, hash: f.hash, zip: f.zip })));
   const uploading = createBook.isPending || showingStatus;
   const sortedByName = isSortedByName(files.map((f) => f.file.name));
@@ -126,6 +153,22 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
     }
   }
 
+  /** The selection changed: messages about the whole upload may no longer hold; those of other files still do. */
+  function selectionChanged(removedId?: string) {
+    setServerErrors((current) => {
+      if (current.general.length === 0 && (removedId === undefined || !current.files.has(removedId))) {
+        return current;
+      }
+
+      const files = new Map(current.files);
+      if (removedId !== undefined) {
+        files.delete(removedId);
+      }
+
+      return { ...current, files, general: [] };
+    });
+  }
+
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setNameTouched(true);
@@ -134,6 +177,7 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
     }
 
     clearServerErrors();
+    const sent = files.map((f) => ({ id: f.id, name: f.file.name }));
     setStatusHeight(visibleFormHeight(form.current));
     setShowingStatus(true);
     statusShownAt.current = now();
@@ -150,7 +194,7 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
         onError: (error) => {
           afterMinimumStatusTime(() => {
             // The form comes back as it was, with the server's messages on its fields and rows.
-            setServerErrors(mapUploadErrors(error));
+            setServerErrors(toServerErrors(mapUploadErrors(error), sent));
             setShowingStatus(false);
             announce('Yükleme tamamlanamadı.');
           });
@@ -271,7 +315,7 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
             <FileDropZone
               disabled={uploading}
               onFiles={(added) => {
-                clearServerErrors();
+                selectionChanged();
                 selection.add(added);
               }}
             />
@@ -298,7 +342,6 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
                         softDisabled={sortedByName}
                         {...tooltip}
                         onClick={() => {
-                          clearServerErrors();
                           selection.sortByName();
                           setSortNotice(true);
                         }}
@@ -313,7 +356,7 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
                   serverErrors={serverErrors.files}
                   disabled={uploading}
                   onRemove={(id) => {
-                    clearServerErrors();
+                    selectionChanged(id);
                     selection.remove(id);
                   }}
                 />

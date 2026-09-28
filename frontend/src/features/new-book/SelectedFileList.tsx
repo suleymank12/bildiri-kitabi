@@ -8,7 +8,7 @@ import type { SelectedFile } from './useFileSelection';
 
 export interface SelectedFileListProps {
   files: readonly SelectedFile[];
-  /** Messages from the server, by file name. */
+  /** Messages from the server, by the file's selection id ({@link SelectedFile.id}). */
   serverErrors: ReadonlyMap<string, string>;
   onRemove: (id: string) => void;
   disabled?: boolean;
@@ -49,7 +49,7 @@ export function SelectedFileList({ files, serverErrors, onRemove, disabled = fal
       </div>
       <ol aria-label="Seçilen dosyalar" className="flex flex-col gap-2 md:gap-0">
         {files.map((file, index) => {
-          const status = rowStatus(file, serverErrors.get(file.file.name));
+          const status = rowStatus(file, serverErrors.get(file.id));
           const messageId = `${file.id}-message`;
           return (
             <li
