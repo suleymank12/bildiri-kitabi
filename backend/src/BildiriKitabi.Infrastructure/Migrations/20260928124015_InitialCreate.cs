@@ -27,6 +27,7 @@ namespace BildiriKitabi.Infrastructure.Migrations
                     SayfaSayisi = table.Column<int>(type: "int", nullable: true),
                     OlusturulmaZamani = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "sysutcdatetime()"),
                     IslemBaslangicZamani = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    KuyrugaAlinmaZamani = table.Column<DateTime>(type: "datetime2", nullable: true),
                     IslemBitisZamani = table.Column<DateTime>(type: "datetime2", nullable: true),
                     SatirVersiyonu = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false)
                 },
@@ -46,6 +47,7 @@ namespace BildiriKitabi.Infrastructure.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     KitapId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     SiraNo = table.Column<int>(type: "int", nullable: false),
+                    YuklemeSirasi = table.Column<int>(type: "int", nullable: false),
                     OrijinalDosyaAdi = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
                     DepolamaAnahtari = table.Column<string>(type: "nvarchar(260)", maxLength: 260, nullable: false),
                     DosyaBoyutuBayt = table.Column<long>(type: "bigint", nullable: false),
@@ -62,6 +64,7 @@ namespace BildiriKitabi.Infrastructure.Migrations
                 {
                     table.PrimaryKey("PK_Bildiriler", x => x.Id);
                     table.CheckConstraint("CK_Bildiriler_SiraNo", "[SiraNo] >= 1");
+                    table.CheckConstraint("CK_Bildiriler_YuklemeSirasi", "[YuklemeSirasi] >= 1");
                     table.ForeignKey(
                         name: "FK_Bildiriler_Kitaplar_KitapId",
                         column: x => x.KitapId,

@@ -11,7 +11,7 @@ GO
 BEGIN TRANSACTION;
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925190632_InitialCreate'
+    WHERE [MigrationId] = N'20260928124015_InitialCreate'
 )
 BEGIN
     CREATE TABLE [Kitaplar] (
@@ -27,6 +27,7 @@ BEGIN
         [SayfaSayisi] int NULL,
         [OlusturulmaZamani] datetime2 NOT NULL DEFAULT (sysutcdatetime()),
         [IslemBaslangicZamani] datetime2 NULL,
+        [KuyrugaAlinmaZamani] datetime2 NULL,
         [IslemBitisZamani] datetime2 NULL,
         [SatirVersiyonu] rowversion NOT NULL,
         CONSTRAINT [PK_Kitaplar] PRIMARY KEY ([Id]),
@@ -39,13 +40,14 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925190632_InitialCreate'
+    WHERE [MigrationId] = N'20260928124015_InitialCreate'
 )
 BEGIN
     CREATE TABLE [Bildiriler] (
         [Id] uniqueidentifier NOT NULL,
         [KitapId] uniqueidentifier NOT NULL,
         [SiraNo] int NOT NULL,
+        [YuklemeSirasi] int NOT NULL,
         [OrijinalDosyaAdi] nvarchar(255) NOT NULL,
         [DepolamaAnahtari] nvarchar(260) NOT NULL,
         [DosyaBoyutuBayt] bigint NOT NULL,
@@ -59,13 +61,14 @@ BEGIN
         [YuklenmeZamani] datetime2 NOT NULL,
         CONSTRAINT [PK_Bildiriler] PRIMARY KEY ([Id]),
         CONSTRAINT [CK_Bildiriler_SiraNo] CHECK ([SiraNo] >= 1),
+        CONSTRAINT [CK_Bildiriler_YuklemeSirasi] CHECK ([YuklemeSirasi] >= 1),
         CONSTRAINT [FK_Bildiriler_Kitaplar_KitapId] FOREIGN KEY ([KitapId]) REFERENCES [Kitaplar] ([Id]) ON DELETE CASCADE
     );
 END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925190632_InitialCreate'
+    WHERE [MigrationId] = N'20260928124015_InitialCreate'
 )
 BEGIN
     CREATE UNIQUE INDEX [UX_Bildiriler_KitapId_Sha256] ON [Bildiriler] ([KitapId], [Sha256]);
@@ -73,7 +76,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925190632_InitialCreate'
+    WHERE [MigrationId] = N'20260928124015_InitialCreate'
 )
 BEGIN
     CREATE UNIQUE INDEX [UX_Bildiriler_KitapId_SiraNo] ON [Bildiriler] ([KitapId], [SiraNo]);
@@ -81,7 +84,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925190632_InitialCreate'
+    WHERE [MigrationId] = N'20260928124015_InitialCreate'
 )
 BEGIN
     CREATE INDEX [IX_Kitaplar_Durum] ON [Kitaplar] ([Durum]);
@@ -89,7 +92,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925190632_InitialCreate'
+    WHERE [MigrationId] = N'20260928124015_InitialCreate'
 )
 BEGIN
     CREATE INDEX [IX_Kitaplar_OlusturulmaZamani] ON [Kitaplar] ([OlusturulmaZamani] DESC);
@@ -97,69 +100,11 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925190632_InitialCreate'
+    WHERE [MigrationId] = N'20260928124015_InitialCreate'
 )
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260925190632_InitialCreate', N'10.0.12');
-END;
-
-COMMIT;
-GO
-
-BEGIN TRANSACTION;
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925195659_AddPaperUploadOrder'
-)
-BEGIN
-    ALTER TABLE [Bildiriler] ADD [YuklemeSirasi] int NOT NULL DEFAULT 0;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925195659_AddPaperUploadOrder'
-)
-BEGIN
-    EXEC(N'UPDATE [Bildiriler] SET [YuklemeSirasi] = [SiraNo]');
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925195659_AddPaperUploadOrder'
-)
-BEGIN
-    EXEC(N'ALTER TABLE [Bildiriler] ADD CONSTRAINT [CK_Bildiriler_YuklemeSirasi] CHECK ([YuklemeSirasi] >= 1)');
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925195659_AddPaperUploadOrder'
-)
-BEGIN
-    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260925195659_AddPaperUploadOrder', N'10.0.12');
-END;
-
-COMMIT;
-GO
-
-BEGIN TRANSACTION;
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925214755_AddBookQueuedAt'
-)
-BEGIN
-    ALTER TABLE [Kitaplar] ADD [KuyrugaAlinmaZamani] datetime2 NULL;
-END;
-
-IF NOT EXISTS (
-    SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260925214755_AddBookQueuedAt'
-)
-BEGIN
-    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260925214755_AddBookQueuedAt', N'10.0.12');
+    VALUES (N'20260928124015_InitialCreate', N'10.0.12');
 END;
 
 COMMIT;
