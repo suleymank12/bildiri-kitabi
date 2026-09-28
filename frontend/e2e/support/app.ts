@@ -36,6 +36,18 @@ export async function generateThroughApi(request: APIRequestContext, uid: string
     .toBe('Completed');
 }
 
+/** Opens Kitaplarım and its "Yeni kitap" modal; returns the modal. */
+export async function openNewBookDialog(page: Page): Promise<Locator> {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Kitaplarım' })).toBeVisible();
+  // An empty list has a second "Yeni kitap" button in its empty state; both open the same modal.
+  await page.getByRole('button', { name: 'Yeni kitap' }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Yeni kitap' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel('Kitap adı')).toBeFocused();
+  return dialog;
+}
+
 /** No serious or critical WCAG 2.1 A/AA violations on the current screen. */
 export async function expectAccessible(page: Page, screen: string): Promise<void> {
   const results = await new AxeBuilder({ page })

@@ -10,6 +10,7 @@ import {
   holdUploadResponse,
   isPhone,
   openFromContents,
+  openNewBookDialog,
   paperFiles,
 } from './support/app';
 
@@ -25,13 +26,12 @@ test('mutlu yol: yükleme, sıralama, oluşturma, görüntüleyicide gezinme ve 
     if (message.text().includes('Content Security Policy')) cspViolations.push(message.text());
   });
 
-  await page.goto('/');
-  await expectAccessible(page, 'Adım 1');
-
-  // Step 1.
-  await page.getByLabel('Kitap adı').fill('Örnek Bilim Kongresi 2026');
-  await page.getByLabel('Bildiri dosyaları').setInputFiles(paperFiles);
-  const submit = page.getByRole('button', { name: 'Yükle ve devam et' });
+  // Step 1, in the "Yeni kitap" modal over Kitaplarım.
+  const dialog = await openNewBookDialog(page);
+  await expectAccessible(page, 'Yeni kitap modalı');
+  await dialog.getByLabel('Kitap adı').fill('Örnek Bilim Kongresi 2026');
+  await dialog.getByLabel('Bildiri dosyaları').setInputFiles(paperFiles);
+  const submit = dialog.getByRole('button', { name: 'Yükle ve devam et' });
   await expect(submit).toBeEnabled();
 
   // The papers arrive in name order: "Ada göre sırala" explains that in a tooltip (hover, or a tap on phones).
@@ -46,7 +46,7 @@ test('mutlu yol: yükleme, sıralama, oluşturma, görüntüleyicide gezinme ve 
   await expect(tooltip).toHaveText('Dosyalar zaten ada göre sıralı');
   // The tooltip fades in; contrast is measured once it is fully opaque.
   await animationsFinished(tooltip);
-  await expectAccessible(page, 'Adım 1, ipucu açık');
+  await expectAccessible(page, 'Yeni kitap modalı, ipucu açık');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('tooltip')).toBeHidden();
 
@@ -54,9 +54,14 @@ test('mutlu yol: yükleme, sıralama, oluşturma, görüntüleyicide gezinme ve 
   const upload = await holdUploadResponse(page);
   await submit.scrollIntoViewIfNeeded();
   await submit.click();
-  await expect(page.getByText('Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…')).toBeVisible();
+  await expect(dialog.getByText('Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…')).toBeVisible();
+  // While the upload runs the modal cannot be closed.
+  await expect(dialog.getByRole('button', { name: 'Vazgeç' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
   await upload.release();
   await page.waitForURL(/\/kitaplar\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   // The new page starts at the top with the focus on its heading.
   await expect(page.getByRole('heading', { level: 1, name: 'Örnek Bilim Kongresi 2026' })).toBeFocused();
@@ -101,10 +106,10 @@ test('mutlu yol: yükleme, sıralama, oluşturma, görüntüleyicide gezinme ve 
 });
 
 test('istemci doğrulaması: eksik dosya, yanlış tür ve mükerrer dosya', async ({ page }) => {
-  await page.goto('/');
-  await page.getByLabel('Kitap adı').fill('Doğrulama Denemesi');
-  const input = page.getByLabel('Bildiri dosyaları');
-  const submit = page.getByRole('button', { name: 'Yükle ve devam et' });
+  const dialog = await openNewBookDialog(page);
+  await dialog.getByLabel('Kitap adı').fill('Doğrulama Denemesi');
+  const input = dialog.getByLabel('Bildiri dosyaları');
+  const submit = dialog.getByRole('button', { name: 'Yükle ve devam et' });
 
   await input.setInputFiles(paperFiles.slice(0, 9));
   await expect(page.getByText(/10 dosyadan 9'u seçildi/)).toBeVisible();
@@ -124,18 +129,44 @@ test('istemci doğrulaması: eksik dosya, yanlış tür ve mükerrer dosya', asy
   await input.setInputFiles(paperFiles[0] ?? '');
   await expect(page.getByText('01_Akilli_Sulama.docx ile aynı içeriğe sahip.')).toBeVisible();
   await expect(submit).toBeDisabled();
+
+  // A filled-in modal asks before it forgets everything.
+  await dialog.getByRole('button', { name: 'Vazgeç' }).click();
+  const question = page.getByRole('dialog', { name: 'Yeni kitap kapatılsın mı?' });
+  await expect(question).toContainText('Seçtiğiniz dosyalar ve yazdığınız ad silinecek. Kapatılsın mı?');
+  await expectAccessible(page, 'Kapatma onayı');
+  await question.getByRole('button', { name: 'Hayır' }).click();
+  await expect(dialog.getByLabel('Kitap adı')).toHaveValue('Doğrulama Denemesi');
+  await dialog.getByRole('button', { name: 'Vazgeç' }).click();
+  await question.getByRole('button', { name: 'Evet' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('sunucu hatası: kitap adındaki emoji ad alanında gösterilir', async ({ page }) => {
-  await page.goto('/');
-  await page.getByLabel('Kitap adı').fill('Kongre 2026 😀');
-  await page.getByLabel('Bildiri dosyaları').setInputFiles(paperFiles);
-  await page.getByRole('button', { name: 'Yükle ve devam et' }).click();
+test('adı .docx yapılmış metin dosyası seçilir seçilmez hatalı', async ({ page }) => {
+  const dialog = await openNewBookDialog(page);
 
-  await expect(page.getByLabel('Kitap adı')).toHaveAccessibleDescription(
+  await dialog.getByLabel('Bildiri dosyaları').setInputFiles({
+    name: '03_Metin.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    buffer: Buffer.from('Bu bir Word belgesi değil, düz metin.'),
+  });
+
+  const row = dialog.getByRole('list', { name: 'Seçilen dosyalar' }).getByRole('listitem');
+  await expect(row.getByText('Hatalı')).toBeVisible();
+  await expect(row.getByText('Geçerli bir Word (.docx) dosyası değil.')).toBeVisible();
+});
+
+test('sunucu hatası: kitap adındaki emoji modaldaki ad alanında gösterilir', async ({ page }) => {
+  const dialog = await openNewBookDialog(page);
+  await dialog.getByLabel('Kitap adı').fill('Kongre 2026 😀');
+  await dialog.getByLabel('Bildiri dosyaları').setInputFiles(paperFiles);
+  await dialog.getByRole('button', { name: 'Yükle ve devam et' }).click();
+
+  await expect(dialog.getByLabel('Kitap adı')).toHaveAccessibleDescription(
     /Kitap adındaki '😀' karakteri PDF yazı tipinde bulunmuyor; lütfen kaldırın\./,
   );
   await expect(page).toHaveURL(/\/$/);
+  await expect(dialog).toBeVisible();
 });
 
 test('üretim hatası: hata ekranı, tekrar dene ve sırayı düzenle', async ({ page, request }) => {
@@ -190,12 +221,12 @@ test('bekleme ekranı erişilebilir', async ({ page, request }) => {
   await expectAccessible(page, 'Bekleme ekranı');
 });
 
-test('Kitaplarım: kitap listede görünür ve onayla silinir', async ({ page, request }, testInfo) => {
+test('sil, Silinenler, geri al: kitap PDF’iyle Kitaplarım’a döner', async ({ page, request }, testInfo) => {
   const name = `Silinecek Kitap ${testInfo.project.name} ${run}`;
   const uid = await createThroughApi(request, name);
   await generateThroughApi(request, uid);
 
-  await page.goto('/kitaplar');
+  await page.goto('/');
   const row = page.getByRole('listitem').filter({ has: page.getByRole('link', { name }) });
   await expect(row).toBeVisible();
   await expect(row.getByText('Hazır')).toBeVisible();
@@ -204,9 +235,75 @@ test('Kitaplarım: kitap listede görünür ve onayla silinir', async ({ page, r
   await row.getByRole('button', { name: `${name} kitabını sil` }).click();
   const dialog = page.getByRole('dialog', { name: 'Kitabı sil' });
   await expect(dialog).toContainText(name);
+  await expect(dialog).toContainText('Kitap Silinenler’e taşınacak. Oradan geri alabilirsiniz.');
   await dialog.getByRole('button', { name: 'Sil' }).click();
-
   await expect(page.getByRole('link', { name })).toHaveCount(0);
+
+  await page
+    .getByRole('navigation', { name: 'Ana menü' })
+    .getByRole('link', { name: /Silinenler/ })
+    .click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Silinenler' })).toBeVisible();
+  const deletedRow = page
+    .getByRole('list', { name: 'Silinen kitaplar' })
+    .getByRole('listitem')
+    .filter({ hasText: name });
+  await expect(deletedRow).toBeVisible();
+  // A deleted book cannot be opened: its name is not a link.
+  await expect(page.getByRole('link', { name })).toHaveCount(0);
+  await expectAccessible(page, 'Silinenler');
+
+  await deletedRow.getByRole('button', { name: `${name} kitabını geri al` }).click();
+  await expect(deletedRow).toHaveCount(0);
+
+  await page
+    .getByRole('navigation', { name: 'Ana menü' })
+    .getByRole('link', { name: /Kitaplar/ })
+    .click();
+  await page.getByRole('link', { name }).click();
+  await expect(page.locator('.react-pdf__Page canvas').first()).toBeVisible();
+});
+
+test('oluşmuş kitapta başlık düzenleme, onay ve yeniden oluşturma', async ({ page, request }, testInfo) => {
+  const name = `Başlık Düzenleme ${testInfo.project.name} ${run}`;
+  const newTitle = `SULAMADA SENSÖR VERİSİ ${testInfo.project.name.toLocaleUpperCase('tr-TR')}`;
+  const uid = await createThroughApi(request, name);
+  await generateThroughApi(request, uid);
+
+  await page.goto('/');
+  await page.getByRole('button', { name: `${name} kitabını düzenle` }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Kitabı düzenle' })).toBeVisible();
+  await expect(
+    page.getByText('Bu kitap oluşturuldu. Adı, sırayı veya bir başlığı değiştirirseniz'),
+  ).toBeVisible();
+  await expectAccessible(page, 'Düzenle sayfası');
+
+  await page.getByRole('button', { name: '01_Akilli_Sulama.docx başlığını düzenle' }).click();
+  const box = page.getByRole('textbox', { name: '01_Akilli_Sulama.docx başlığı' });
+  await expect(box).toBeFocused();
+  await box.fill(newTitle);
+  await expectAccessible(page, 'Düzenle sayfası, başlık düzenlenirken');
+  await box.press('Enter');
+
+  const confirm = page.getByRole('dialog', { name: 'PDF silinsin mi?' });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole('button', { name: 'Devam et' }).click();
+  await expect(page.getByText(newTitle)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Kitabı görüntüle' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Kitabı Oluştur' }).click();
+  await page.waitForURL(new RegExp(`/kitaplar/${uid}$`));
+  await expect(page.getByRole('button', { name: 'Temizlenen iletişim bilgileri' })).toBeVisible({
+    timeout: 60_000,
+  });
+
+  // The viewer's table of contents and the PDF's own (page 2) print the new title, not the old one.
+  await openFromContents(page, new RegExp(newTitle));
+  await expect.poll(() => currentPage(page)).toBe(3);
+  await page.goto(`/kitaplar/${uid}?sayfa=2`);
+  const contents = page.locator('[data-page-slot="2"] .textLayer');
+  await expect(contents).toContainText('SULAMADA SENSÖR');
+  await expect(contents).not.toContainText('KENTSEL TARIMDA AKILLI');
 });
 
 test('görüntüleyici: varsayılan açılış, ortalanmış kapak, yakınlaştırma ve çift dokunma', async ({
@@ -329,16 +426,26 @@ test('düzen: yatay kaydırma yok ve dokunma hedefleri en az 44 px', async ({ pa
   await generateThroughApi(request, finished);
 
   const screens: [string, string][] = [
-    ['/', 'Yeni kitap'],
-    ['/kitaplar', 'Kitaplarım'],
+    ['/', 'Kitaplarım'],
+    ['/#yeni', 'Yeni kitap'],
     [`/kitaplar/${uid}`, `Düzen Denemesi Uzun Bir Kitap Adı ile Satır Kırılımı Kontrolü ${suffix}`],
     [`/kitaplar/${finished}`, `Düzen Denemesi Hazır Kitap ${suffix}`],
+    [`/kitaplar/${finished}/duzenle`, 'Kitabı düzenle'],
+    ['/silinenler', 'Silinenler'],
     ['/olmayan-sayfa', 'Sayfa bulunamadı'],
   ];
   for (const [path, heading] of screens) {
-    await page.goto(path);
-    await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
-    if (path === '/kitaplar') {
+    if (path === '/#yeni') {
+      // The modal with ten files chosen: its body scrolls, the page behind does not overflow.
+      const dialog = await openNewBookDialog(page);
+      await dialog.getByLabel('Bildiri dosyaları').setInputFiles(paperFiles);
+      await expect(dialog.getByText("10 dosyadan 10'u seçildi")).toBeVisible();
+    } else {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+    }
+
+    if (path === '/') {
       await expect(page.getByRole('link', { name: `Düzen Denemesi Hazır Kitap ${suffix}` })).toBeVisible();
     } else if (path.endsWith(finished)) {
       await expect(page.locator('.react-pdf__Page canvas').first()).toBeVisible();
