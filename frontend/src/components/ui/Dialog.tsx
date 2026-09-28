@@ -161,7 +161,9 @@ export function Dialog({
               onClick={onClose}
             />
           </div>
-          <div data-dialog-body="" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          {/* relative: absolutely positioned content (visually hidden text, the file input) must scroll with the
+              body; with the <dialog> as its containing block it would stretch the dialog and scroll it too. */}
+          <div data-dialog-body="" className="relative min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
             {children}
           </div>
           <footer className="flex flex-col-reverse gap-2 border-t border-line px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
