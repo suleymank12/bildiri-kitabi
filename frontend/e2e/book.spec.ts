@@ -416,69 +416,152 @@ test('görüntüleyici: varsayılan açılış, ortalanmış kapak, yakınlaşt�
   }
 });
 
-test('düzen: yatay kaydırma yok ve dokunma hedefleri en az 44 px', async ({ page, request }, testInfo) => {
+test('yeni kitap modalı: içeriğe göre boyut, tek kaydırma, arka sayfa kaymaz', async ({ page }) => {
+  const dialog = await openNewBookDialog(page);
+  const box = () =>
+    dialog.evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      viewport: window.innerHeight,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+      pageLocked: getComputedStyle(document.documentElement).overflow === 'hidden',
+    }));
+
+  if (!isPhone(page)) {
+    // Short content: the modal ends well above the bottom of the screen.
+    const empty = await box();
+    expect(empty.height).toBeLessThan(empty.viewport - 64);
+  }
+
+  // A long list: only the body scrolls, never the <dialog> itself.
+  await dialog.getByLabel('Bildiri dosyaları').setInputFiles(paperFiles);
+  await expect(dialog.getByText("10 dosyadan 10'u seçildi")).toBeVisible();
+  const full = await box();
+  expect(full.scrollHeight).toBeLessThanOrEqual(full.clientHeight);
+  expect(full.pageLocked).toBe(true);
+  const body = dialog.locator('[data-dialog-body]');
+  expect(await body.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+
+  // "X" asks first once something was chosen; afterwards the page scrolls again.
+  await dialog.getByRole('button', { name: 'Kapat' }).click();
+  await page
+    .getByRole('dialog', { name: 'Yeni kitap kapatılsın mı?' })
+    .getByRole('button', { name: 'Evet' })
+    .click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).overflow)).not.toBe('hidden');
+});
+
+test('düzen: dar ekranlarda yatay taşma yok ve dokunma hedefleri en az 44 px', async ({
+  page,
+  request,
+}, testInfo) => {
   const suffix = `${testInfo.project.name} ${run}`;
-  const uid = await createThroughApi(
-    request,
-    `Düzen Denemesi Uzun Bir Kitap Adı ile Satır Kırılımı Kontrolü ${suffix}`,
-  );
+  const longName = `Düzen Denemesi Uzun Bir Kitap Adı ile Satır Kırılımı Kontrolü ${suffix}`;
+  const uid = await createThroughApi(request, longName);
   const finished = await createThroughApi(request, `Düzen Denemesi Hazır Kitap ${suffix}`);
   await generateThroughApi(request, finished);
+  const busy = await createThroughApi(request, `Düzen Denemesi Hazırlanan Kitap ${suffix}`);
+  const deletedName = `Düzen Denemesi Silinen Kitap ${suffix}`;
+  const deleted = await createThroughApi(request, deletedName);
+  expect((await request.delete(`/api/books/${deleted}`)).status()).toBe(204);
 
-  const screens: [string, string][] = [
-    ['/', 'Kitaplarım'],
-    ['/#yeni', 'Yeni kitap'],
-    [`/kitaplar/${uid}`, `Düzen Denemesi Uzun Bir Kitap Adı ile Satır Kırılımı Kontrolü ${suffix}`],
-    [`/kitaplar/${finished}`, `Düzen Denemesi Hazır Kitap ${suffix}`],
-    [`/kitaplar/${finished}/duzenle`, 'Kitabı düzenle'],
-    ['/silinenler', 'Silinenler'],
-    ['/olmayan-sayfa', 'Sayfa bulunamadı'],
-  ];
-  for (const [path, heading] of screens) {
-    if (path === '/#yeni') {
-      // The modal with ten files chosen: its body scrolls, the page behind does not overflow.
-      const dialog = await openNewBookDialog(page);
-      await dialog.getByLabel('Bildiri dosyaları').setInputFiles(paperFiles);
-      await expect(dialog.getByText("10 dosyadan 10'u seçildi")).toBeVisible();
-    } else {
-      await page.goto(path);
-      await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
-    }
-
-    if (path === '/') {
-      await expect(page.getByRole('link', { name: `Düzen Denemesi Hazır Kitap ${suffix}` })).toBeVisible();
-    } else if (path.endsWith(finished)) {
-      await expect(page.locator('.react-pdf__Page canvas').first()).toBeVisible();
-    }
-
-    const layout = await page.evaluate(() => {
-      const width = document.documentElement.clientWidth;
-      const small = Array.from(
-        document.querySelectorAll<HTMLElement>('button, a[href], input, [role="menuitem"]'),
-      )
-        .filter((element) => {
-          const box = element.getBoundingClientRect();
-          const style = getComputedStyle(element);
-          const hidden =
-            box.width === 0 ||
-            style.visibility === 'hidden' ||
-            element.closest('.sr-only, [aria-hidden="true"], .annotationLayer');
-          return !hidden && (box.height < 44 || box.width < 44);
-        })
-        .map(
-          (element) =>
-            `${element.tagName} "${(element.getAttribute('aria-label') ?? element.textContent).trim().slice(0, 30)}"`,
-        );
-      const main = document.querySelector('main')?.getBoundingClientRect().bottom ?? 0;
-      return {
-        overflow: document.documentElement.scrollWidth - width,
-        belowMain: document.documentElement.scrollHeight - (main + window.scrollY),
-        small,
-      };
+  // The generation screen: the book is shown as being generated.
+  await page.route(`**/api/books/${busy}`, async (route) => {
+    const response = await route.fetch();
+    const book = (await response.json()) as Record<string, unknown>;
+    await route.fulfill({
+      response,
+      json: {
+        ...book,
+        status: 'Processing',
+        stage: 'Rendering',
+        progressPercent: 45,
+        processingStartedAt: new Date().toISOString(),
+      },
     });
+  });
 
-    expect(layout.overflow, `${path}: yatay taşma`).toBeLessThanOrEqual(0);
-    expect(layout.belowMain, `${path}: içeriğin altında boşluk`).toBeLessThanOrEqual(1);
-    expect(layout.small, `${path}: 44 px'ten küçük dokunma hedefleri`).toEqual([]);
+  const screens: { path: string; heading: string; ready?: () => Promise<void> }[] = [
+    {
+      path: '/',
+      heading: 'Kitaplarım',
+      ready: () => expect(page.getByRole('link', { name: longName })).toBeVisible(),
+    },
+    { path: '#yeni', heading: 'Yeni kitap' },
+    {
+      path: '/silinenler',
+      heading: 'Silinenler',
+      ready: () => expect(page.getByText(deletedName)).toBeVisible(),
+    },
+    { path: `/kitaplar/${uid}`, heading: longName },
+    {
+      path: `/kitaplar/${busy}`,
+      heading: `Düzen Denemesi Hazırlanan Kitap ${suffix}`,
+      ready: () => expect(page.getByRole('list', { name: 'Aşamalar' })).toBeVisible(),
+    },
+    {
+      path: `/kitaplar/${finished}`,
+      heading: `Düzen Denemesi Hazır Kitap ${suffix}`,
+      ready: () => expect(page.locator('.react-pdf__Page canvas').first()).toBeVisible(),
+    },
+    { path: `/kitaplar/${finished}/duzenle`, heading: 'Kitabı düzenle' },
+    { path: '/olmayan-sayfa', heading: 'Sayfa bulunamadı' },
+  ];
+
+  // Phones at their narrowest and at a common width; the desktop project at its own width.
+  const widths = isPhone(page) ? [320, 390] : [page.viewportSize()?.width ?? 1280];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const screen of screens) {
+      const where = `${String(width)} px ${screen.path}`;
+      if (screen.path === '#yeni') {
+        // The modal with ten files chosen.
+        const dialog = await openNewBookDialog(page);
+        await dialog.getByLabel('Bildiri dosyaları').setInputFiles(paperFiles);
+        await expect(dialog.getByText("10 dosyadan 10'u seçildi")).toBeVisible();
+      } else {
+        await page.goto(screen.path);
+        await expect(page.getByRole('heading', { level: 1, name: screen.heading })).toBeVisible();
+      }
+
+      await screen.ready?.();
+
+      const layout = await page.evaluate(() => {
+        const small = Array.from(
+          document.querySelectorAll<HTMLElement>('button, a[href], input, [role="menuitem"]'),
+        )
+          .filter((element) => {
+            const box = element.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            const hidden =
+              box.width === 0 ||
+              style.visibility === 'hidden' ||
+              element.closest('.sr-only, [aria-hidden="true"], .annotationLayer, [hidden]');
+            return !hidden && (box.height < 44 || box.width < 44);
+          })
+          .map(
+            (element) =>
+              `${element.tagName} "${(element.getAttribute('aria-label') ?? element.textContent).trim().slice(0, 30)}"`,
+          );
+        const main = document.querySelector('main')?.getBoundingClientRect().bottom ?? 0;
+        return {
+          innerWidth: window.innerWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+          belowMain: document.documentElement.scrollHeight - (main + window.scrollY),
+          dialogOpen: document.querySelector('dialog[open]') !== null,
+          small,
+        };
+      });
+
+      // A phone browser widens its layout viewport to fit content that is too wide (and shrinks the page), so
+      // scrollWidth alone would still equal innerWidth: the viewport must keep the width the screen has.
+      expect(layout.innerWidth, `${where}: görünüm alanı genişledi`).toBe(width);
+      expect(layout.scrollWidth, `${where}: yatay taşma`).toBeLessThanOrEqual(layout.innerWidth);
+      if (!layout.dialogOpen) {
+        expect(layout.belowMain, `${where}: içeriğin altında boşluk`).toBeLessThanOrEqual(1);
+      }
+      expect(layout.small, `${where}: 44 px'ten küçük dokunma hedefleri`).toEqual([]);
+    }
   }
 });
