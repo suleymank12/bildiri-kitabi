@@ -107,7 +107,9 @@ export function PaperOrderList({ papers, onReorder, locked, onTitleSave }: Paper
                     onSave={(title) => onTitleSave(paper, title)}
                   />
                 ) : (
-                  <span className="font-serif text-[0.9375rem] leading-snug text-ink-muted">{paper.title}</span>
+                  <span className="font-serif text-[0.9375rem] leading-snug text-ink-muted">
+                    {paper.title}
+                  </span>
                 )}
                 {warning && (
                   <p className="flex items-start gap-1.5 text-sm leading-snug text-warning">

@@ -59,7 +59,13 @@ export function Layout() {
               <span className="text-xs text-ink-muted">Bildirilerden e-kitap</span>
             </Link>
             <nav aria-label="Ana menü" className="flex items-center gap-1">
-              <NavItem to={paths.library} end icon={<BooksIcon size={20} />} label="Kitaplarım" short="Kitaplar" />
+              <NavItem
+                to={paths.library}
+                end
+                icon={<BooksIcon size={20} />}
+                label="Kitaplarım"
+                short="Kitaplar"
+              />
             </nav>
           </div>
         </header>

@@ -27,9 +27,12 @@ export async function generateThroughApi(request: APIRequestContext, uid: string
   const response = await request.post(`/api/books/${uid}/generate`);
   expect(response.status()).toBe(202);
   await expect
-    .poll(async () => ((await (await request.get(`/api/books/${uid}`)).json()) as { status: string }).status, {
-      timeout: 60_000,
-    })
+    .poll(
+      async () => ((await (await request.get(`/api/books/${uid}`)).json()) as { status: string }).status,
+      {
+        timeout: 60_000,
+      },
+    )
     .toBe('Completed');
 }
 

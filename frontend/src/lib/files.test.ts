@@ -144,7 +144,11 @@ describe('notDocx', () => {
       ]),
     ).toEqual([{ kind: 'notDocx' }, { kind: 'notDocx' }, undefined]);
     expect(describeIssue({ kind: 'notDocx' })).toBe('Geçerli bir Word (.docx) dosyası değil.');
-    expect(isSelectionReady(Array.from({ length: 10 }, (_, i) => ({ name: `${i}.docx`, size: 1, hash: `h${i}`, zip: i !== 3 })))).toBe(false);
+    expect(
+      isSelectionReady(
+        Array.from({ length: 10 }, (_, i) => ({ name: `${i}.docx`, size: 1, hash: `h${i}`, zip: i !== 3 })),
+      ),
+    ).toBe(false);
   });
 });
 

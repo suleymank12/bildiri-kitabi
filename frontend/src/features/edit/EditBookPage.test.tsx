@@ -48,9 +48,19 @@ describe('EditBookPage', () => {
         body = await request.json();
         const name = (body as { name: string }).name;
         return name.includes('😀')
-          ? problem(400, 'BOOK_NAME_UNSUPPORTED_CHARACTER', "Kitap adındaki '😀' karakteri PDF yazı tipinde bulunmuyor; lütfen kaldırın.", [
-              { code: 'BOOK_NAME_UNSUPPORTED_CHARACTER', message: "Kitap adındaki '😀' karakteri PDF yazı tipinde bulunmuyor; lütfen kaldırın.", field: 'name', fileName: null },
-            ])
+          ? problem(
+              400,
+              'BOOK_NAME_UNSUPPORTED_CHARACTER',
+              "Kitap adındaki '😀' karakteri PDF yazı tipinde bulunmuyor; lütfen kaldırın.",
+              [
+                {
+                  code: 'BOOK_NAME_UNSUPPORTED_CHARACTER',
+                  message: "Kitap adındaki '😀' karakteri PDF yazı tipinde bulunmuyor; lütfen kaldırın.",
+                  field: 'name',
+                  fileName: null,
+                },
+              ],
+            )
           : HttpResponse.json(bookDetail({ name }));
       }),
     );
@@ -67,7 +77,9 @@ describe('EditBookPage', () => {
     await user.clear(field);
     await user.type(field, 'Kongre 😀');
     await user.click(screen.getByRole('button', { name: 'Adı kaydet' }));
-    expect(await screen.findByText("Kitap adındaki '😀' karakteri PDF yazı tipinde bulunmuyor; lütfen kaldırın.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Kitap adındaki '😀' karakteri PDF yazı tipinde bulunmuyor; lütfen kaldırın."),
+    ).toBeInTheDocument();
 
     await user.clear(field);
     await user.type(field, '  Yeni Kongre Adı ');
@@ -85,13 +97,19 @@ describe('EditBookPage', () => {
         const body = (await request.json()) as { title: string };
         bodies.push({ paperUid: params.paperUid, ...body });
         if (body.title.includes('@')) {
-          return problem(400, 'PAPER_TITLE_CONTACT_INFO', 'Başlıkta e-posta adresi veya telefon numarası bulunamaz.');
+          return problem(
+            400,
+            'PAPER_TITLE_CONTACT_INFO',
+            'Başlıkta e-posta adresi veya telefon numarası bulunamaz.',
+          );
         }
 
         const book = bookDetail();
         return HttpResponse.json({
           ...book,
-          papers: book.papers.map((p) => (p.uid === params.paperUid ? { ...p, title: body.title, titleSource: 'Manual' } : p)),
+          papers: book.papers.map((p) =>
+            p.uid === params.paperUid ? { ...p, title: body.title, titleSource: 'Manual' } : p,
+          ),
         });
       }),
     );
@@ -110,7 +128,9 @@ describe('EditBookPage', () => {
     await user.click(screen.getByRole('button', { name: '01_Bildiri.docx başlığını düzenle' }));
     await user.clear(screen.getByRole('textbox', { name: '01_Bildiri.docx başlığı' }));
     await user.keyboard('Başlık ad@example.org{Enter}');
-    expect(await screen.findByText('Başlıkta e-posta adresi veya telefon numarası bulunamaz.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Başlıkta e-posta adresi veya telefon numarası bulunamaz.'),
+    ).toBeInTheDocument();
     const again = screen.getByRole('textbox', { name: '01_Bildiri.docx başlığı' });
     expect(again).toHaveValue('Başlık ad@example.org');
 
@@ -181,7 +201,11 @@ describe('EditBookPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Adı kaydet' }));
     setCurrent(bookDetail({ name: 'Yeni Ad', status: 'Uploaded' }));
-    await user.click(within(screen.getByRole('dialog', { name: 'PDF silinsin mi?' })).getByRole('button', { name: 'Devam et' }));
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'PDF silinsin mi?' })).getByRole('button', {
+        name: 'Devam et',
+      }),
+    );
     await waitFor(() => {
       expect(requests).toBe(1);
     });
@@ -199,7 +223,9 @@ describe('EditBookPage', () => {
   });
 
   it('explains a 409, reloads the book and keeps what the user typed', async () => {
-    server.use(http.put('/api/books/:uid', () => problem(409, 'EDIT_CONFLICT', 'Kitap bu sırada değiştirildi.')));
+    server.use(
+      http.put('/api/books/:uid', () => problem(409, 'EDIT_CONFLICT', 'Kitap bu sırada değiştirildi.')),
+    );
     const { user, gets } = renderEdit(bookDetail());
     const field = await screen.findByLabelText('Kitap adı');
     const before = gets();

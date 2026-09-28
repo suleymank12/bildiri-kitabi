@@ -23,7 +23,9 @@ export function paperTitleError(title: string): string | undefined {
     return 'Bildiri başlığı boş olamaz.';
   }
 
-  return trimmed.length > PAPER_TITLE_MAX ? `Bildiri başlığı en fazla ${PAPER_TITLE_MAX} karakter olabilir.` : undefined;
+  return trimmed.length > PAPER_TITLE_MAX
+    ? `Bildiri başlığı en fazla ${PAPER_TITLE_MAX} karakter olabilir.`
+    : undefined;
 }
 
 /**
@@ -81,7 +83,9 @@ export function PaperTitleEditor({ paper, onSave, disabled = false }: PaperTitle
       }
     } catch (caught) {
       // The page may already have turned the API error into its own message.
-      setError(caught instanceof ApiError || !(caught instanceof Error) ? errorMessage(caught) : caught.message);
+      setError(
+        caught instanceof ApiError || !(caught instanceof Error) ? errorMessage(caught) : caught.message,
+      );
       input.current?.focus();
     } finally {
       setSaving(false);

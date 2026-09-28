@@ -164,9 +164,9 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
       >
         <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-6">
           <p className="text-ink-muted">
-            Kitap adını yazın ve {REQUIRED_PAPER_COUNT} bildiri dosyasını seçin. Sonraki adımda sırayı ve tespit
-            edilen başlıkları kontrol edebilirsiniz. E-posta adresleri ve telefon numaraları kitaba eklenmeden
-            temizlenir.
+            Kitap adını yazın ve {REQUIRED_PAPER_COUNT} bildiri dosyasını seçin. Sonraki adımda sırayı ve
+            tespit edilen başlıkları kontrol edebilirsiniz. E-posta adresleri ve telefon numaraları kitaba
+            eklenmeden temizlenir.
           </p>
 
           <TextField
@@ -306,10 +306,7 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
             >
               Hayır
             </Button>
-            <Button
-              variant="danger"
-              onClick={onClose}
-            >
+            <Button variant="danger" onClick={onClose}>
               Evet
             </Button>
           </>

@@ -1,4 +1,11 @@
-import { BookOpenIcon, CaretLeftIcon, CaretRightIcon, PencilSimpleIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
+import {
+  BookOpenIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  PencilSimpleIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@phosphor-icons/react';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { errorMessage } from '../../api/errors';

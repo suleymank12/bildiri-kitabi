@@ -117,7 +117,9 @@ export function useRenameBook(uid: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (name: string) =>
-      unwrap(api.PUT('/api/books/{uid}', { params: { path: { uid } }, body: { name } })) as Promise<BookDetail>,
+      unwrap(
+        api.PUT('/api/books/{uid}', { params: { path: { uid } }, body: { name } }),
+      ) as Promise<BookDetail>,
     onSuccess: (book) => {
       queryClient.setQueryData(bookKeys.detail(uid), book);
       void queryClient.invalidateQueries({ queryKey: bookKeys.lists() });
@@ -134,7 +136,10 @@ export function useSetPaperTitle(uid: string) {
   return useMutation({
     mutationFn: ({ paperUid, title }: { paperUid: string; title: string }) =>
       unwrap(
-        api.PUT('/api/books/{uid}/papers/{paperUid}/title', { params: { path: { uid, paperUid } }, body: { title } }),
+        api.PUT('/api/books/{uid}/papers/{paperUid}/title', {
+          params: { path: { uid, paperUid } },
+          body: { title },
+        }),
       ) as Promise<BookDetail>,
     onSuccess: (book) => {
       queryClient.setQueryData(bookKeys.detail(uid), book);

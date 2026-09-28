@@ -2,13 +2,28 @@ import { ArrowLeftIcon, BookOpenIcon, FloppyDiskIcon, TrashIcon } from '@phospho
 import { useRef, useState, type SubmitEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ApiError, errorMessage } from '../../api/errors';
-import { useBook, useRenameBook, useReorderPapers, useSetPaperTitle, useStartGeneration } from '../../api/hooks';
+import {
+  useBook,
+  useRenameBook,
+  useReorderPapers,
+  useSetPaperTitle,
+  useStartGeneration,
+} from '../../api/hooks';
 import type { BookDetail, Paper } from '../../api/types';
 import { useAnnounce } from '../../app/Announcer';
 import { NotFoundState } from '../../app/NotFoundPage';
 import { paths } from '../../app/paths';
 import { usePageTitle } from '../../app/usePageTitle';
-import { Alert, Button, Card, Dialog, EmptyState, Skeleton, TextField, buttonClasses } from '../../components/ui';
+import {
+  Alert,
+  Button,
+  Card,
+  Dialog,
+  EmptyState,
+  Skeleton,
+  TextField,
+  buttonClasses,
+} from '../../components/ui';
 import { BOOK_NAME_MAX, bookNameError } from '../../lib/files';
 import { isBusy } from '../../lib/status';
 import { PaperOrderList, type PaperMove } from '../book/PaperOrderList';
@@ -270,8 +285,8 @@ function EditView({ book }: { book: BookDetail }) {
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl">Bildiriler</h2>
           <p className="text-sm text-ink-muted">
-            Sırayı Yukarı / Aşağı düğmeleriyle, bir başlığı yanındaki kalem düğmesiyle değiştirebilirsiniz. Her
-            değişiklik hemen kaydedilir.
+            Sırayı Yukarı / Aşağı düğmeleriyle, bir başlığı yanındaki kalem düğmesiyle değiştirebilirsiniz.
+            Her değişiklik hemen kaydedilir.
           </p>
         </div>
         {orderError && (

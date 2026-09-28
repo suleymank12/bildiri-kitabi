@@ -54,7 +54,12 @@ export function useFileSelection() {
             setEntries((current) =>
               current.map((e) =>
                 e.id === entry.id
-                  ? { ...e, hash: content?.hash ?? `unreadable-${entry.id}`, zip: content?.zip, hashing: false }
+                  ? {
+                      ...e,
+                      hash: content?.hash ?? `unreadable-${entry.id}`,
+                      zip: content?.zip,
+                      hashing: false,
+                    }
                   : e,
               ),
             );
@@ -73,7 +78,12 @@ export function useFileSelection() {
 
   const files = useMemo<SelectedFile[]>(() => {
     const issues = fileIssues(
-      entries.map((entry) => ({ name: entry.file.name, size: entry.file.size, hash: entry.hash, zip: entry.zip })),
+      entries.map((entry) => ({
+        name: entry.file.name,
+        size: entry.file.size,
+        hash: entry.hash,
+        zip: entry.zip,
+      })),
     );
     return entries.map((entry, index) => ({
       id: entry.id,

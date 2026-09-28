@@ -57,7 +57,9 @@ describe('BookPage — order step', () => {
       }),
     );
     const { user } = renderBook({ ...book, papers: [a, b, fallback] });
-    expect(await screen.findByText('Başlık bulunamadı, dosya adı kullanıldı. Kontrol edin.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Başlık bulunamadı, dosya adı kullanıldı. Kontrol edin.'),
+    ).toBeInTheDocument();
     // The "Dosyalar" step stays done.
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('Sıra ve kontrol');
 

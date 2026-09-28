@@ -174,7 +174,9 @@ describe('NewBookDialog', () => {
     const pdfRow = rows()[9]!;
     expect(within(pdfRow).getByText('makale.pdf')).toBeInTheDocument();
     expect(within(pdfRow).getByText('Hatalı')).toBeInTheDocument();
-    expect(within(pdfRow).getByText('Yalnızca .docx uzantılı Word belgeleri yüklenebilir.')).toBeInTheDocument();
+    expect(
+      within(pdfRow).getByText('Yalnızca .docx uzantılı Word belgeleri yüklenebilir.'),
+    ).toBeInTheDocument();
     expect(submit()).toBeDisabled();
   });
 
@@ -320,7 +322,9 @@ describe('NewBookDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Yükle ve devam et' }));
 
-    expect(await screen.findByText('Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…'),
+    ).toBeInTheDocument();
     const bar = screen.getByRole('progressbar', { name: 'Dosyalar kontrol ediliyor' });
     expect(bar).not.toHaveAttribute('aria-valuenow');
     expect(screen.getByRole('button', { name: 'Kontrol ediliyor' })).toBeDisabled();
