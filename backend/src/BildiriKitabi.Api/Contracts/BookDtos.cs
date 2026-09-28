@@ -6,6 +6,7 @@ namespace BildiriKitabi.Api.Contracts;
 
 public sealed record BookErrorDto(string Code, string Message);
 
+/// <summary>A paper of a book; <see cref="Id"/> is the paper's <see cref="Paper.Uid"/>.</summary>
 public sealed record PaperDto(
     Guid Id,
     int Order,
@@ -19,6 +20,10 @@ public sealed record PaperDto(
     int RemovedPhoneCount,
     long SizeBytes);
 
+/// <summary>
+/// A book with its papers. <see cref="Id"/> carries the book's <see cref="Book.Uid"/>: the numeric database id never
+/// appears in a response.
+/// </summary>
 public sealed record BookDetailDto(
     Guid Id,
     string Name,
@@ -35,7 +40,7 @@ public sealed record BookDetailDto(
     IReadOnlyList<PaperDto> Papers)
 {
     public static BookDetailDto From(Book book) => new(
-        book.Id,
+        book.Uid,
         book.Name,
         book.Status,
         book.Stage,
@@ -50,7 +55,7 @@ public sealed record BookDetailDto(
         book.Papers
             .OrderBy(p => p.Order)
             .Select(p => new PaperDto(
-                p.Id,
+                p.Uid,
                 p.Order,
                 p.UploadOrder,
                 p.OriginalFileName,
@@ -66,9 +71,10 @@ public sealed record BookDetailDto(
     internal static BookErrorDto? ErrorOf(Book book) =>
         book.Status == BookStatus.Failed ? new BookErrorDto(book.ErrorCode ?? BookErrorCodes.InternalError, book.ErrorMessage ?? string.Empty) : null;
 
-    internal static string? PdfUrlOf(Book book) => book.Status == BookStatus.Completed ? $"/api/books/{book.Id:D}/pdf" : null;
+    internal static string? PdfUrlOf(Book book) => book.Status == BookStatus.Completed ? $"/api/books/{book.Uid:D}/pdf" : null;
 }
 
+/// <summary>A row of the book list; <see cref="Id"/> is the book's <see cref="Book.Uid"/>.</summary>
 public sealed record BookSummaryDto(
     Guid Id,
     string Name,
@@ -84,6 +90,7 @@ public sealed record BookSummaryDto(
 
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int TotalCount);
 
+/// <summary>The paper ids (<see cref="Paper.Uid"/>) in the new order.</summary>
 public sealed record PaperOrderRequest(IReadOnlyList<Guid> PaperIds);
 
 /// <summary>multipart/form-data body of <c>POST /api/books</c>.</summary>

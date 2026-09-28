@@ -52,7 +52,7 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
         }
 
         var book = result.Book!;
-        return CreatedAtAction(nameof(Get), new { id = book.Id }, BookDetailDto.From(book));
+        return CreatedAtAction(nameof(Get), new { uid = book.Uid }, BookDetailDto.From(book));
     }
 
     /// <summary>Lists books, newest first.</summary>
@@ -78,7 +78,7 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
 
         var items = books
             .Select(x => new BookSummaryDto(
-                x.Book.Id,
+                x.Book.Uid,
                 x.Book.Name,
                 x.Book.Status,
                 x.Book.Stage,
@@ -94,24 +94,24 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
     }
 
     /// <summary>Status, progress, detected titles, page ranges and errors of one book.</summary>
-    [HttpGet("{id:guid}")]
+    [HttpGet("{uid:guid}")]
     [ProducesResponseType<BookDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status404NotFound, "application/problem+json")]
-    public async Task<IActionResult> Get(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Get(Guid uid, CancellationToken cancellationToken)
     {
-        var book = await db.Books.AsNoTracking().Include(b => b.Papers).FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+        var book = await db.Books.AsNoTracking().Include(b => b.Papers).FirstOrDefaultAsync(b => b.Uid == uid, cancellationToken);
         return book is null ? BookNotFound() : Ok(BookDetailDto.From(book));
     }
 
     /// <summary>Sets the order of the papers; allowed before generation or after a failed one.</summary>
-    [HttpPut("{id:guid}/paper-order")]
+    [HttpPut("{uid:guid}/paper-order")]
     [Consumes("application/json")]
     [ProducesResponseType<BookDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status400BadRequest, "application/problem+json")]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status409Conflict, "application/problem+json")]
     public async Task<IActionResult> SetPaperOrder(
-        Guid id,
+        Guid uid,
         [FromBody] PaperOrderRequest request,
         [FromServices] BookCommandService commands,
         CancellationToken cancellationToken)
@@ -119,10 +119,10 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(commands);
 
-        var outcome = await commands.ReorderAsync(id, request.PaperIds, cancellationToken);
+        var outcome = await commands.ReorderAsync(uid, request.PaperIds, cancellationToken);
         return outcome switch
         {
-            ReorderOutcome.Reordered => await Get(id, cancellationToken),
+            ReorderOutcome.Reordered => await Get(uid, cancellationToken),
             ReorderOutcome.NotFound => BookNotFound(),
             ReorderOutcome.InvalidList => ApiProblem.Create(
                 HttpContext,
@@ -139,20 +139,20 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
         };
     }
 
-    /// <summary>Starts generating the PDF in the background; poll <c>GET /api/books/{id}</c> for progress.</summary>
-    [HttpPost("{id:guid}/generate")]
+    /// <summary>Starts generating the PDF in the background; poll <c>GET /api/books/{uid}</c> for progress.</summary>
+    [HttpPost("{uid:guid}/generate")]
     [EnableRateLimiting(RateLimiting.GeneratePolicy)]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status409Conflict, "application/problem+json")]
-    public async Task<IActionResult> Generate(Guid id, [FromServices] BookCommandService commands, CancellationToken cancellationToken)
+    public async Task<IActionResult> Generate(Guid uid, [FromServices] BookCommandService commands, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(commands);
 
-        var outcome = await commands.StartGenerationAsync(id, cancellationToken);
+        var outcome = await commands.StartGenerationAsync(uid, cancellationToken);
         return outcome switch
         {
-            StartGenerationOutcome.Started => AcceptedAtAction(nameof(Get), new { id }, null),
+            StartGenerationOutcome.Started => AcceptedAtAction(nameof(Get), new { uid }, null),
             StartGenerationOutcome.NotFound => BookNotFound(),
             StartGenerationOutcome.AlreadyCompleted => ApiProblem.Create(
                 HttpContext,
@@ -173,15 +173,15 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
     /// The finished PDF. Supports range requests (206) and conditional requests (ETag / 304);
     /// <c>download=true</c> asks the browser to save it instead of showing it.
     /// </summary>
-    [HttpGet("{id:guid}/pdf")]
+    [HttpGet("{uid:guid}/pdf")]
     [ProducesResponseType(typeof(Stream), StatusCodes.Status200OK, "application/pdf")]
     [ProducesResponseType(typeof(Stream), StatusCodes.Status206PartialContent, "application/pdf")]
     [ProducesResponseType(StatusCodes.Status304NotModified)]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status409Conflict, "application/problem+json")]
-    public async Task<IActionResult> Pdf(Guid id, [FromQuery] bool download = false, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Pdf(Guid uid, [FromQuery] bool download = false, CancellationToken cancellationToken = default)
     {
-        var book = await db.Books.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+        var book = await db.Books.AsNoTracking().FirstOrDefaultAsync(b => b.Uid == uid, cancellationToken);
         if (book is null)
         {
             return BookNotFound();
@@ -219,15 +219,15 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
     }
 
     /// <summary>Deletes the book, its papers and every stored file; not allowed while it is queued or generating.</summary>
-    [HttpDelete("{id:guid}")]
+    [HttpDelete("{uid:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status409Conflict, "application/problem+json")]
-    public async Task<IActionResult> Delete(Guid id, [FromServices] BookCommandService commands, CancellationToken cancellationToken)
+    public async Task<IActionResult> Delete(Guid uid, [FromServices] BookCommandService commands, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(commands);
 
-        var outcome = await commands.DeleteAsync(id, cancellationToken);
+        var outcome = await commands.DeleteAsync(uid, cancellationToken);
         return outcome switch
         {
             DeleteBookOutcome.Deleted => NoContent(),

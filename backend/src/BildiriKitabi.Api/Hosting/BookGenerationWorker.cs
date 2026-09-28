@@ -17,13 +17,13 @@ public sealed class BookGenerationWorker(
     protected override Task ExecuteAsync(CancellationToken stoppingToken) =>
         queue.ConsumeAsync(HandleAsync, options.Value.MaxConcurrency, stoppingToken);
 
-    private async Task HandleAsync(Guid bookId, CancellationToken cancellationToken)
+    private async Task HandleAsync(Guid bookUid, CancellationToken cancellationToken)
     {
         var scope = scopeFactory.CreateAsyncScope();
         await using (scope.ConfigureAwait(false))
         {
             var handler = scope.ServiceProvider.GetRequiredService<BookGenerationHandler>();
-            await handler.HandleAsync(bookId, cancellationToken).ConfigureAwait(false);
+            await handler.HandleAsync(bookUid, cancellationToken).ConfigureAwait(false);
         }
     }
 }

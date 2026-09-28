@@ -29,8 +29,17 @@ public sealed class Book
         Name = string.Empty;
     }
 
-    /// <summary>Assigned by EF Core's sequential GUID generator when the book is added to the context.</summary>
-    public Guid Id { get; private set; }
+    /// <summary>
+    /// Database identity (<c>Kitaplar.Id</c>, <c>int IDENTITY</c>), assigned by SQL Server on insert. Used only for keys
+    /// and joins inside the database; it is guessable, so it never leaves the application.
+    /// </summary>
+    public int Id { get; private set; }
+
+    /// <summary>
+    /// External identity (<c>Kitaplar.Uid</c>), assigned by EF Core's sequential GUID generator when the book is added to
+    /// the context. API addresses and bodies, queue messages, logs and storage keys use only this value.
+    /// </summary>
+    public Guid Uid { get; private set; }
 
     public string Name { get; private set; }
 
@@ -84,17 +93,17 @@ public sealed class Book
         return paper;
     }
 
-    /// <summary>Fills the storage keys once the context has assigned the book and paper ids.</summary>
+    /// <summary>Fills the storage keys once the context has assigned the book and paper uids.</summary>
     public void AssignStorageKeys()
     {
-        if (Id == Guid.Empty || _papers.Any(p => p.Id == Guid.Empty))
+        if (Uid == Guid.Empty || _papers.Any(p => p.Uid == Guid.Empty))
         {
-            throw new InvalidOperationException("Storage keys need the ids; add the book to the context first.");
+            throw new InvalidOperationException("Storage keys need the uids; add the book to the context first.");
         }
 
         foreach (var paper in _papers)
         {
-            paper.AssignStorageKey(StorageKeys.Source(Id, paper.Id));
+            paper.AssignStorageKey(StorageKeys.Source(Uid, paper.Uid));
         }
     }
 

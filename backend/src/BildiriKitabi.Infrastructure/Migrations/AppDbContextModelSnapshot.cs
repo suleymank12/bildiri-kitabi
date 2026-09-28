@@ -24,10 +24,12 @@ namespace BildiriKitabi.Infrastructure.Migrations
 
             modelBuilder.Entity("BildiriKitabi.Core.Books.Book", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("int")
                         .HasColumnName("Id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -100,6 +102,11 @@ namespace BildiriKitabi.Infrastructure.Migrations
                         .HasColumnType("nvarchar(20)")
                         .HasColumnName("Durum");
 
+                    b.Property<Guid>("Uid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("Uid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt")
@@ -108,6 +115,10 @@ namespace BildiriKitabi.Infrastructure.Migrations
 
                     b.HasIndex("Status")
                         .HasDatabaseName("IX_Kitaplar_Durum");
+
+                    b.HasIndex("Uid")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Kitaplar_Uid");
 
                     b.ToTable("Kitaplar", null, t =>
                         {
@@ -123,13 +134,15 @@ namespace BildiriKitabi.Infrastructure.Migrations
 
             modelBuilder.Entity("BildiriKitabi.Core.Books.Paper", b =>
                 {
-                    b.Property<Guid>("Id")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier")
+                        .HasColumnType("int")
                         .HasColumnName("Id");
 
-                    b.Property<Guid>("BookId")
-                        .HasColumnType("uniqueidentifier")
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BookId")
+                        .HasColumnType("int")
                         .HasColumnName("KitapId");
 
                     b.Property<int?>("EndPage")
@@ -191,6 +204,11 @@ namespace BildiriKitabi.Infrastructure.Migrations
                         .HasColumnType("nvarchar(20)")
                         .HasColumnName("BaslikKaynagi");
 
+                    b.Property<Guid>("Uid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("Uid");
+
                     b.Property<int>("UploadOrder")
                         .HasColumnType("int")
                         .HasColumnName("YuklemeSirasi");
@@ -200,6 +218,10 @@ namespace BildiriKitabi.Infrastructure.Migrations
                         .HasColumnName("YuklenmeZamani");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Uid")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Bildiriler_Uid");
 
                     b.HasIndex("BookId", "Order")
                         .IsUnique()

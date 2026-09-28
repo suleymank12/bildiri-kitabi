@@ -84,7 +84,7 @@ public sealed class RabbitMqApiTests(SqlServerFixture sql, RabbitMqFixture rabbi
         (await HealthAsync(api)).Checks["database"].ShouldBe("Healthy");
 
         (await api.GenerateAsync(book.Id)).ShouldBe(HttpStatusCode.Accepted);
-        (await api.QueryAsync("SELECT Durum FROM Kitaplar WHERE Id = @id", r => r.GetString(0), ("@id", book.Id))).ShouldBe(["Queued"]);
+        (await api.QueryAsync("SELECT Durum FROM Kitaplar WHERE Uid = @id", r => r.GetString(0), ("@id", book.Id))).ShouldBe(["Queued"]);
 
         await broker.StartAsync(TestContext.Current.CancellationToken);
         var completed = await api.WaitForFinalStatusAsync(book.Id, timeoutSeconds: 120);
@@ -130,7 +130,7 @@ public sealed class RabbitMqApiTests(SqlServerFixture sql, RabbitMqFixture rabbi
 
     private static async Task<(int Pages, DateTime FinishedAt)> StoredResultAsync(ApiHost api, Guid id) =>
         (await api.QueryAsync(
-            "SELECT SayfaSayisi, IslemBitisZamani FROM Kitaplar WHERE Id = @id",
+            "SELECT SayfaSayisi, IslemBitisZamani FROM Kitaplar WHERE Uid = @id",
             r => (r.GetInt32(0), r.GetDateTime(1)),
             ("@id", id))).Single();
 

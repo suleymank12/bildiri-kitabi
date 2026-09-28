@@ -15,7 +15,9 @@ namespace BildiriKitabi.Infrastructure.Migrations
                 name: "Kitaplar",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Uid = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Ad = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
                     Durum = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     Asama = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
@@ -44,8 +46,10 @@ namespace BildiriKitabi.Infrastructure.Migrations
                 name: "Bildiriler",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    KitapId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Uid = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    KitapId = table.Column<int>(type: "int", nullable: false),
                     SiraNo = table.Column<int>(type: "int", nullable: false),
                     YuklemeSirasi = table.Column<int>(type: "int", nullable: false),
                     OrijinalDosyaAdi = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
@@ -86,6 +90,12 @@ namespace BildiriKitabi.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "UX_Bildiriler_Uid",
+                table: "Bildiriler",
+                column: "Uid",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Kitaplar_Durum",
                 table: "Kitaplar",
                 column: "Durum");
@@ -95,6 +105,12 @@ namespace BildiriKitabi.Infrastructure.Migrations
                 table: "Kitaplar",
                 column: "OlusturulmaZamani",
                 descending: new bool[0]);
+
+            migrationBuilder.CreateIndex(
+                name: "UX_Kitaplar_Uid",
+                table: "Kitaplar",
+                column: "Uid",
+                unique: true);
         }
 
         /// <inheritdoc />

@@ -60,7 +60,7 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
             GROUP BY i.name
             """,
             r => $"{r.GetString(0)}({r.GetString(1)})");
-        uniqueIndexes.ShouldBe(["UX_Bildiriler_KitapId_Sha256(KitapId,Sha256)", "UX_Bildiriler_KitapId_SiraNo(KitapId,SiraNo)"], ignoreOrder: true);
+        uniqueIndexes.ShouldBe(["UX_Bildiriler_KitapId_Sha256(KitapId,Sha256)", "UX_Bildiriler_KitapId_SiraNo(KitapId,SiraNo)", "UX_Bildiriler_Uid(Uid)"], ignoreOrder: true);
 
         var bookIndexes = await _api.QueryAsync(
             """
@@ -69,7 +69,7 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
             WHERE i.object_id = OBJECT_ID('Kitaplar') AND i.is_primary_key = 0
             """,
             r => $"{r.GetString(0)}:{r.GetString(1)}:{(r.GetBoolean(2) ? "DESC" : "ASC")}");
-        bookIndexes.ShouldBe(["IX_Kitaplar_Durum:Durum:ASC", "IX_Kitaplar_OlusturulmaZamani:OlusturulmaZamani:DESC"], ignoreOrder: true);
+        bookIndexes.ShouldBe(["IX_Kitaplar_Durum:Durum:ASC", "IX_Kitaplar_OlusturulmaZamani:OlusturulmaZamani:DESC", "UX_Kitaplar_Uid:Uid:ASC"], ignoreOrder: true);
 
         var checks = await _api.QueryAsync("SELECT name, definition FROM sys.check_constraints", r => (Name: r.GetString(0), Definition: r.GetString(1)));
         checks.Select(c => c.Name).ShouldBe(
@@ -80,7 +80,11 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
         var columns = await _api.QueryAsync(
             "SELECT TABLE_NAME + '.' + COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS",
             r => (Name: r.GetString(0), Type: r.GetString(1), Length: r.IsDBNull(2) ? (int?)null : r.GetInt32(2)));
-        columns.ShouldContain(("Kitaplar.Id", "uniqueidentifier", null));
+        columns.ShouldContain(("Kitaplar.Id", "int", null));
+        columns.ShouldContain(("Kitaplar.Uid", "uniqueidentifier", null));
+        columns.ShouldContain(("Bildiriler.Id", "int", null));
+        columns.ShouldContain(("Bildiriler.Uid", "uniqueidentifier", null));
+        columns.ShouldContain(("Bildiriler.KitapId", "int", null));
         columns.ShouldContain(("Kitaplar.Ad", "nvarchar", 150));
         columns.ShouldContain(("Kitaplar.Durum", "nvarchar", 20));
         columns.ShouldContain(("Kitaplar.IlerlemeYuzdesi", "tinyint", null));
@@ -96,11 +100,11 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
         sql.EnsureAvailable();
         var book = await _api.CreateSampleBookAsync();
 
-        var completed = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Completed' WHERE Id = @id", ("@id", book.Id)));
+        var completed = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Completed' WHERE Uid = @id", ("@id", book.Id)));
         completed.Message.ShouldContain("CK_Kitaplar_Tamamlandi_Pdf");
-        var failed = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Failed' WHERE Id = @id", ("@id", book.Id)));
+        var failed = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Failed' WHERE Uid = @id", ("@id", book.Id)));
         failed.Message.ShouldContain("CK_Kitaplar_Basarisiz_Mesaj");
-        var unknown = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Done' WHERE Id = @id", ("@id", book.Id)));
+        var unknown = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Done' WHERE Uid = @id", ("@id", book.Id)));
         unknown.Message.ShouldContain("CK_Kitaplar_Durum");
     }
 
@@ -131,7 +135,7 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
         book.Papers[9].Title.ShouldBe("MÜZE ZİYARETLERİNDE KİŞİSELLEŞTİRİLMİŞ DİJİTAL REHBERLERİN DENEYİME ETKİSİ");
 
         var rows = await _api.QueryAsync(
-            "SELECT SiraNo, OrijinalDosyaAdi, DepolamaAnahtari, DATALENGTH(Sha256) FROM Bildiriler WHERE KitapId = @id ORDER BY SiraNo",
+            "SELECT SiraNo, OrijinalDosyaAdi, DepolamaAnahtari, DATALENGTH(Sha256) FROM Bildiriler WHERE KitapId = (SELECT Id FROM Kitaplar WHERE Uid = @id) ORDER BY SiraNo",
             r => (Order: r.GetInt32(0), Name: r.GetString(1), Key: r.GetString(2), HashLength: r.GetInt32(3)),
             ("@id", book.Id));
         rows.Count.ShouldBe(10);

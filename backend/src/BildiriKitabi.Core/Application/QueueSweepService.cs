@@ -48,18 +48,18 @@ public sealed partial class QueueSweepService(
         var waiting = await db.Books.AsNoTracking()
             .Where(b => b.Status == BookStatus.Queued && (b.QueuedAt == null || b.QueuedAt <= threshold))
             .OrderBy(b => b.QueuedAt)
-            .Select(b => b.Id)
+            .Select(b => b.Uid)
             .Take(BatchSize)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
         var stale = recovered.Concat(waiting).ToList();
 
         var requeued = 0;
-        foreach (var bookId in stale)
+        foreach (var bookUid in stale)
         {
             try
             {
-                await queue.EnqueueAsync(bookId, cancellationToken).ConfigureAwait(false);
+                await queue.EnqueueAsync(bookUid, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -70,7 +70,7 @@ public sealed partial class QueueSweepService(
 
             // Restart the waiting time so the book is not enqueued again on every sweep while it waits its turn.
             await db.Books
-                .Where(b => b.Id == bookId && b.Status == BookStatus.Queued)
+                .Where(b => b.Uid == bookUid && b.Status == BookStatus.Queued)
                 .ExecuteUpdateAsync(setters => setters.SetProperty(b => b.QueuedAt, now), cancellationToken)
                 .ConfigureAwait(false);
             requeued++;

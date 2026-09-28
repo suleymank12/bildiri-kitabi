@@ -1,6 +1,7 @@
 using BildiriKitabi.Core.Books;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.ValueGeneration;
 
 namespace BildiriKitabi.Infrastructure.Persistence.Configurations;
 
@@ -18,11 +19,14 @@ internal sealed class BookConfiguration : IEntityTypeConfiguration<Book>
             table.HasCheckConstraint("CK_Kitaplar_Basarisiz_Mesaj", "[Durum] <> 'Failed' OR [HataMesaji] IS NOT NULL");
         });
 
-        // uniqueidentifier filled by EF Core's default SequentialGuidValueGenerator for SQL Server; Guid.CreateVersion7()
-        // is not used because SQL Server orders uniqueidentifier starting from the last six bytes, so v7 values would
-        // land randomly in the clustered index and fragment it.
+        // Two identities: Id (int IDENTITY) is the clustered primary key and the foreign key target, Uid is the only id
+        // that leaves the application (API, queue, logs, storage keys). Uid is filled by EF Core's
+        // SequentialGuidValueGenerator when the book is added; Guid.CreateVersion7() is not used because SQL Server
+        // orders uniqueidentifier starting from the last six bytes, so v7 values would land randomly in the index.
         builder.HasKey(b => b.Id);
-        builder.Property(b => b.Id).HasColumnName("Id").ValueGeneratedOnAdd();
+        builder.Property(b => b.Id).HasColumnName("Id").UseIdentityColumn();
+        builder.Property(b => b.Uid).HasColumnName("Uid").ValueGeneratedOnAdd().HasValueGenerator<SequentialGuidValueGenerator>();
+        builder.HasIndex(b => b.Uid).IsUnique().HasDatabaseName("UX_Kitaplar_Uid");
 
         builder.Property(b => b.Name).HasColumnName("Ad").HasMaxLength(Book.NameMaxLength).IsRequired();
         builder.Property(b => b.Status).HasColumnName("Durum").HasConversion<string>().HasMaxLength(20).IsRequired();

@@ -77,7 +77,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/books/{id}': {
+  '/api/books/{uid}': {
     parameters: {
       query?: never;
       header?: never;
@@ -89,7 +89,7 @@ export interface paths {
         query?: never;
         header?: never;
         path: {
-          id: string;
+          uid: string;
         };
         cookie?: never;
       };
@@ -122,7 +122,7 @@ export interface paths {
         query?: never;
         header?: never;
         path: {
-          id: string;
+          uid: string;
         };
         cookie?: never;
       };
@@ -160,7 +160,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/books/{id}/paper-order': {
+  '/api/books/{uid}/paper-order': {
     parameters: {
       query?: never;
       header?: never;
@@ -173,7 +173,7 @@ export interface paths {
         query?: never;
         header?: never;
         path: {
-          id: string;
+          uid: string;
         };
         cookie?: never;
       };
@@ -229,7 +229,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/books/{id}/generate': {
+  '/api/books/{uid}/generate': {
     parameters: {
       query?: never;
       header?: never;
@@ -243,7 +243,7 @@ export interface paths {
         query?: never;
         header?: never;
         path: {
-          id: string;
+          uid: string;
         };
         cookie?: never;
       };
@@ -282,7 +282,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/books/{id}/pdf': {
+  '/api/books/{uid}/pdf': {
     parameters: {
       query?: never;
       header?: never;
@@ -296,7 +296,7 @@ export interface paths {
         };
         header?: never;
         path: {
-          id: string;
+          uid: string;
         };
         cookie?: never;
       };

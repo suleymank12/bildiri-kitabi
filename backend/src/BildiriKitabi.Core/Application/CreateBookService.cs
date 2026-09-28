@@ -40,7 +40,7 @@ public sealed partial class CreateBookService(
             book.AddPaper(paper.FileName, paper.SizeBytes, paper.Sha256, paper.Title.Text, paper.Title.Source, now);
         }
 
-        // Adding the book assigns the sequential ids, which the storage keys are built from.
+        // Adding the book assigns the sequential uids, which the storage keys are built from.
         db.Books.Add(book);
         book.AssignStorageKeys();
         try
@@ -64,16 +64,16 @@ public sealed partial class CreateBookService(
                 db.Papers.Entry(paper).State = EntityState.Detached;
             }
 
-            await storage.DeletePrefixAsync(StorageKeys.BookPrefix(book.Id), CancellationToken.None).ConfigureAwait(false);
+            await storage.DeletePrefixAsync(StorageKeys.BookPrefix(book.Uid), CancellationToken.None).ConfigureAwait(false);
             throw;
         }
 
-        LogCreated(logger, book.Id, book.Papers.Count);
+        LogCreated(logger, book.Uid, book.Papers.Count);
         return new CreateBookResult(book, []);
     }
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookId} created with {PaperCount} papers")]
-    private static partial void LogCreated(ILogger logger, Guid bookId, int paperCount);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookUid} created with {PaperCount} papers")]
+    private static partial void LogCreated(ILogger logger, Guid bookUid, int paperCount);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Book upload rejected with {ErrorCount} validation error(s) for {FileCount} file(s)")]
     private static partial void LogRejected(ILogger logger, int errorCount, int fileCount);

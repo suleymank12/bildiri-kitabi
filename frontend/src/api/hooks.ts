@@ -22,7 +22,7 @@ export function useBook(id: string) {
   return useQuery({
     queryKey: bookKeys.detail(id),
     queryFn: ({ signal }) =>
-      unwrap(api.GET('/api/books/{id}', { params: { path: { id } }, signal })) as Promise<BookDetail>,
+      unwrap(api.GET('/api/books/{uid}', { params: { path: { uid: id } }, signal })) as Promise<BookDetail>,
     refetchInterval: (query) => (query.state.data && isBusy(query.state.data.status) ? BOOK_POLL_MS : false),
     // Polling pauses while the tab is hidden and resumes when it is visible again.
     refetchIntervalInBackground: false,
@@ -71,7 +71,7 @@ export function useReorderPapers(id: string) {
   return useMutation({
     mutationFn: (paperIds: string[]) =>
       unwrap(
-        api.PUT('/api/books/{id}/paper-order', { params: { path: { id } }, body: { paperIds } }),
+        api.PUT('/api/books/{uid}/paper-order', { params: { path: { uid: id } }, body: { paperIds } }),
       ) as Promise<BookDetail>,
     onMutate: async (paperIds) => {
       await queryClient.cancelQueries({ queryKey: key });
@@ -106,7 +106,7 @@ export function useReorderPapers(id: string) {
 export function useStartGeneration(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => unwrap(api.POST('/api/books/{id}/generate', { params: { path: { id } } })),
+    mutationFn: () => unwrap(api.POST('/api/books/{uid}/generate', { params: { path: { uid: id } } })),
     onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: bookKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: bookKeys.lists() });
@@ -117,7 +117,7 @@ export function useStartGeneration(id: string) {
 export function useDeleteBook() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => unwrap(api.DELETE('/api/books/{id}', { params: { path: { id } } })),
+    mutationFn: (id: string) => unwrap(api.DELETE('/api/books/{uid}', { params: { path: { uid: id } } })),
     onSuccess: (_result, id) => {
       queryClient.removeQueries({ queryKey: bookKeys.detail(id) });
       void queryClient.invalidateQueries({ queryKey: bookKeys.lists() });

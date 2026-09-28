@@ -39,9 +39,14 @@ public sealed class Paper
         Title = string.Empty;
     }
 
-    public Guid Id { get; private set; }
+    /// <summary>Database identity (<c>Bildiriler.Id</c>, <c>int IDENTITY</c>); never leaves the application.</summary>
+    public int Id { get; private set; }
 
-    public Guid BookId { get; private set; }
+    /// <summary>External identity (<c>Bildiriler.Uid</c>): the paper id in API bodies and in its storage key.</summary>
+    public Guid Uid { get; private set; }
+
+    /// <summary>Database identity of the book (<c>Bildiriler.KitapId</c> → <c>Kitaplar.Id</c>).</summary>
+    public int BookId { get; private set; }
 
     public Book Book { get; private set; }
 

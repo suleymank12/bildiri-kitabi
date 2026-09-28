@@ -1,6 +1,7 @@
 using BildiriKitabi.Core.Books;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.ValueGeneration;
 
 namespace BildiriKitabi.Infrastructure.Persistence.Configurations;
 
@@ -14,9 +15,11 @@ internal sealed class PaperConfiguration : IEntityTypeConfiguration<Paper>
             table.HasCheckConstraint("CK_Bildiriler_YuklemeSirasi", "[YuklemeSirasi] >= 1");
         });
 
-        // Same sequential GUID strategy as Kitaplar (see BookConfiguration).
+        // Same two identities as Kitaplar (see BookConfiguration): int Id inside the database, Uid outside.
         builder.HasKey(p => p.Id);
-        builder.Property(p => p.Id).HasColumnName("Id").ValueGeneratedOnAdd();
+        builder.Property(p => p.Id).HasColumnName("Id").UseIdentityColumn();
+        builder.Property(p => p.Uid).HasColumnName("Uid").ValueGeneratedOnAdd().HasValueGenerator<SequentialGuidValueGenerator>();
+        builder.HasIndex(p => p.Uid).IsUnique().HasDatabaseName("UX_Bildiriler_Uid");
 
         builder.Property(p => p.BookId).HasColumnName("KitapId");
         builder.Property(p => p.Order).HasColumnName("SiraNo");

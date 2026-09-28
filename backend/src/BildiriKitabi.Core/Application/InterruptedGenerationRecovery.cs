@@ -44,7 +44,7 @@ public sealed partial class InterruptedGenerationRecovery(
     /// book when it is null (at startup no run can be alive). A row changed meanwhile, for example by a run that is still
     /// writing progress, fails the row version check and is left alone.
     /// </summary>
-    /// <returns>The ids of the books returned to the queue, oldest run first; the caller enqueues them.</returns>
+    /// <returns>The uids of the books returned to the queue, oldest run first; the caller enqueues them.</returns>
     public async Task<IReadOnlyList<Guid>> RecoverAsync(DateTime? startedBefore, CancellationToken cancellationToken)
     {
         var query = db.Books.Where(b => b.Status == BookStatus.Processing);
@@ -80,7 +80,7 @@ public sealed partial class InterruptedGenerationRecovery(
             }
             catch (DbUpdateConcurrencyException)
             {
-                LogChangedMeanwhile(logger, book.Id);
+                LogChangedMeanwhile(logger, book.Uid);
                 foreach (var entry in db.ChangeTracker.Entries<Book>().Where(e => e.Entity == book))
                 {
                     entry.State = EntityState.Detached;
@@ -91,12 +91,12 @@ public sealed partial class InterruptedGenerationRecovery(
 
             if (action == RecoveryAction.Requeue)
             {
-                requeued.Add(book.Id);
+                requeued.Add(book.Uid);
             }
             else
             {
                 failed++;
-                await DeleteOutputAsync(book.Id).ConfigureAwait(false);
+                await DeleteOutputAsync(book.Uid).ConfigureAwait(false);
             }
         }
 
@@ -108,27 +108,27 @@ public sealed partial class InterruptedGenerationRecovery(
         return requeued;
     }
 
-    private async Task DeleteOutputAsync(Guid bookId)
+    private async Task DeleteOutputAsync(Guid bookUid)
     {
         try
         {
-            await storage.DeleteAsync(StorageKeys.Output(bookId), CancellationToken.None).ConfigureAwait(false);
+            await storage.DeleteAsync(StorageKeys.Output(bookUid), CancellationToken.None).ConfigureAwait(false);
         }
         catch (IOException ex)
         {
             // A leftover PDF of a failed book is never served; deleting the book removes it.
-            LogOutputDeleteFailed(logger, ex, bookId);
+            LogOutputDeleteFailed(logger, ex, bookUid);
         }
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Interrupted generation: {RequeuedCount} book(s) returned to the queue, {FailedCount} book(s) interrupted again marked failed")]
     private static partial void LogRecovered(ILogger logger, int requeuedCount, int failedCount);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Book {BookId} changed while it was being recovered; left alone")]
-    private static partial void LogChangedMeanwhile(ILogger logger, Guid bookId);
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Book {BookUid} changed while it was being recovered; left alone")]
+    private static partial void LogChangedMeanwhile(ILogger logger, Guid bookUid);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Output of failed book {BookId} could not be deleted")]
-    private static partial void LogOutputDeleteFailed(ILogger logger, Exception exception, Guid bookId);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Output of failed book {BookUid} could not be deleted")]
+    private static partial void LogOutputDeleteFailed(ILogger logger, Exception exception, Guid bookUid);
 }
 
 public enum RecoveryAction

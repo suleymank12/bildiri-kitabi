@@ -23,7 +23,7 @@ public sealed partial class RabbitMqBookGenerationQueue(
     private readonly SemaphoreSlim _publishLock = new(1, 1);
     private IChannel? _publishChannel;
 
-    public async ValueTask EnqueueAsync(Guid bookId, CancellationToken cancellationToken = default)
+    public async ValueTask EnqueueAsync(Guid bookUid, CancellationToken cancellationToken = default)
     {
         connection.EnsureStarted();
         var current = connection.Current
@@ -53,7 +53,7 @@ public sealed partial class RabbitMqBookGenerationQueue(
                 Persistent = true,
                 ContentType = GenerationMessage.ContentType,
                 MessageId = Guid.NewGuid().ToString("D"),
-                CorrelationId = bookId.ToString("D"),
+                CorrelationId = bookUid.ToString("D"),
             };
 
             // With confirmation tracking the call completes only when the broker has taken the message (or throws).
@@ -62,7 +62,7 @@ public sealed partial class RabbitMqBookGenerationQueue(
                 routingKey: options.QueueName,
                 mandatory: true,
                 basicProperties: properties,
-                body: GenerationMessage.Serialize(bookId),
+                body: GenerationMessage.Serialize(bookUid),
                 cancellationToken: timeout.Token).ConfigureAwait(false);
         }
         finally
@@ -164,7 +164,7 @@ public sealed partial class RabbitMqBookGenerationQueue(
         Func<Guid, CancellationToken, Task> handler,
         CancellationToken stoppingToken)
     {
-        if (!GenerationMessage.TryParse(delivery.Body.Span, out var bookId))
+        if (!GenerationMessage.TryParse(delivery.Body.Span, out var bookUid))
         {
             LogInvalidMessage(logger, delivery.BasicProperties.MessageId);
             await channel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: false, CancellationToken.None).ConfigureAwait(false);
@@ -173,7 +173,7 @@ public sealed partial class RabbitMqBookGenerationQueue(
 
         try
         {
-            await handler(bookId, stoppingToken).ConfigureAwait(false);
+            await handler(bookUid, stoppingToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -181,7 +181,7 @@ public sealed partial class RabbitMqBookGenerationQueue(
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            LogHandlerFailed(logger, ex, bookId);
+            LogHandlerFailed(logger, ex, bookUid);
             await channel.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: false, CancellationToken.None).ConfigureAwait(false);
             return;
         }
@@ -219,8 +219,8 @@ public sealed partial class RabbitMqBookGenerationQueue(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Message {MessageId} has an invalid body; sent to the dead-letter queue")]
     private static partial void LogInvalidMessage(ILogger logger, string? messageId);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Generation job for book {BookId} crashed; message sent to the dead-letter queue")]
-    private static partial void LogHandlerFailed(ILogger logger, Exception exception, Guid bookId);
+    [LoggerMessage(Level = LogLevel.Error, Message = "Generation job for book {BookUid} crashed; message sent to the dead-letter queue")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception, Guid bookUid);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "RabbitMQ consumer did not stop cleanly")]
     private static partial void LogStopFailed(ILogger logger, Exception exception);

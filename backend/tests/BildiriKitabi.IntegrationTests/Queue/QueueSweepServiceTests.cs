@@ -58,7 +58,7 @@ public sealed class QueueSweepServiceTests(SqlServerFixture sql)
 
         (await Sweep(db, new RecordingQueue { Fail = true }, clock)).ShouldBe(0);
 
-        var queuedAt = await db.Books.AsNoTracking().Where(b => b.Id == id).Select(b => b.QueuedAt).SingleAsync(TestContext.Current.CancellationToken);
+        var queuedAt = await db.Books.AsNoTracking().Where(b => b.Uid == id).Select(b => b.QueuedAt).SingleAsync(TestContext.Current.CancellationToken);
         queuedAt.ShouldBe(Start.UtcDateTime.AddMinutes(-5));
         var queue = new RecordingQueue();
         (await Sweep(db, queue, clock)).ShouldBe(1);
@@ -93,7 +93,7 @@ public sealed class QueueSweepServiceTests(SqlServerFixture sql)
         requeued.ProcessingStartedAt.ShouldBeNull();
 
         // The handler claims it again (as TryClaimAsync does) and the second run gets stuck too.
-        await db.Books.Where(b => b.Id == stuck).ExecuteUpdateAsync(
+        await db.Books.Where(b => b.Uid == stuck).ExecuteUpdateAsync(
             setters => setters.SetProperty(b => b.Status, BookStatus.Processing).SetProperty(b => b.ProcessingStartedAt, now),
             TestContext.Current.CancellationToken);
         clock.Advance(TimeSpan.FromSeconds(180));
@@ -111,7 +111,7 @@ public sealed class QueueSweepServiceTests(SqlServerFixture sql)
     private static async Task<Book> LoadAsync(AppDbContext db, Guid id)
     {
         db.ChangeTracker.Clear();
-        return await db.Books.AsNoTracking().SingleAsync(b => b.Id == id, TestContext.Current.CancellationToken);
+        return await db.Books.AsNoTracking().SingleAsync(b => b.Uid == id, TestContext.Current.CancellationToken);
     }
 
     private static Task<int> Sweep(AppDbContext db, RecordingQueue queue, TimeProvider clock)
@@ -136,7 +136,7 @@ public sealed class QueueSweepServiceTests(SqlServerFixture sql)
         db.Books.Add(book);
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
         db.ChangeTracker.Clear();
-        return book.Id;
+        return book.Uid;
     }
 
     private sealed class NoStorage : IFileStorage

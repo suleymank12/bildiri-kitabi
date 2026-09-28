@@ -34,7 +34,7 @@ public sealed partial class GenerationRecoveryService(
             queued = await db.Books.AsNoTracking()
                 .Where(b => b.Status == BookStatus.Queued)
                 .OrderBy(b => b.CreatedAt)
-                .Select(b => b.Id)
+                .Select(b => b.Uid)
                 .ToListAsync(cancellationToken)
                 .ConfigureAwait(false);
             LogRecovered(logger, interrupted.Count, queued.Count);
@@ -68,14 +68,14 @@ public sealed partial class GenerationRecoveryService(
         _stopping.Dispose();
     }
 
-    private async Task EnqueueAsync(List<Guid> bookIds, CancellationToken cancellationToken)
+    private async Task EnqueueAsync(List<Guid> bookUids, CancellationToken cancellationToken)
     {
         await Task.Yield();
         try
         {
-            foreach (var id in bookIds)
+            foreach (var uid in bookUids)
             {
-                await queue.EnqueueAsync(id, cancellationToken).ConfigureAwait(false);
+                await queue.EnqueueAsync(uid, cancellationToken).ConfigureAwait(false);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

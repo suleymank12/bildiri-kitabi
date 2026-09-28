@@ -3,13 +3,14 @@ using System.Diagnostics.CodeAnalysis;
 namespace BildiriKitabi.Core.Books;
 
 /// <summary>
-/// Carries book ids to the background worker. A message holds nothing but the id; the database stays the single
+/// Carries book ids to the background worker: the external <see cref="Book.Uid"/>, never the database id. A message
+/// holds nothing but that uid; the database stays the single
 /// source of truth, so a message may be delivered more than once (at-least-once brokers such as RabbitMQ).
 /// </summary>
 [SuppressMessage("Naming", "CA1711", Justification = "It is a queue; the name is part of the documented design.")]
 public interface IBookGenerationQueue
 {
-    ValueTask EnqueueAsync(Guid bookId, CancellationToken cancellationToken = default);
+    ValueTask EnqueueAsync(Guid bookUid, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Calls <paramref name="handler"/> for each message, at most <paramref name="maxConcurrency"/> at a time, until

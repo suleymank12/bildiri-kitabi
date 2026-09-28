@@ -43,7 +43,7 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
         failed.Error.ShouldBe(new BookErrorDto(BookErrorCodes.InternalError, BookGenerationHandler.UnexpectedErrorMessage));
         failed.PdfUrl.ShouldBeNull();
         var row = await api.QueryAsync(
-            "SELECT Durum, HataMesaji, HataKodu FROM Kitaplar WHERE Id = @id",
+            "SELECT Durum, HataMesaji, HataKodu FROM Kitaplar WHERE Uid = @id",
             r => (Status: r.GetString(0), Message: r.IsDBNull(1) ? null : r.GetString(1), Code: r.GetString(2)),
             ("@id", book.Id));
         row.ShouldHaveSingleItem().Status.ShouldBe("Failed");
@@ -57,7 +57,7 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
 
         completed.Status.ShouldBe(BookStatus.Completed);
         completed.Error.ShouldBeNull();
-        (await api.QueryAsync("SELECT HataMesaji FROM Kitaplar WHERE Id = @id", r => r.IsDBNull(0), ("@id", book.Id))).ShouldBe([true]);
+        (await api.QueryAsync("SELECT HataMesaji FROM Kitaplar WHERE Uid = @id", r => r.IsDBNull(0), ("@id", book.Id))).ShouldBe([true]);
     }
 
     [Fact]
@@ -118,9 +118,9 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
         var first = Host(connectionString: connectionString, dataRoot: dataRoot);
         var queued = await first.CreateSampleBookAsync("Kuyrukta Kalan Kitap");
         var interrupted = await first.CreateSampleBookAsync("Yarıda Kalan Kitap");
-        await first.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Queued' WHERE Id = @id", ("@id", queued.Id));
+        await first.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Queued' WHERE Uid = @id", ("@id", queued.Id));
         await first.ExecuteAsync(
-            "UPDATE Kitaplar SET Durum = 'Processing', Asama = 'Rendering', IlerlemeYuzdesi = 45, IslemBaslangicZamani = SYSUTCDATETIME() WHERE Id = @id",
+            "UPDATE Kitaplar SET Durum = 'Processing', Asama = 'Rendering', IlerlemeYuzdesi = 45, IslemBaslangicZamani = SYSUTCDATETIME() WHERE Uid = @id",
             ("@id", interrupted.Id));
         await first.DisposeAsync();
         _hosts.Remove(first);
@@ -142,25 +142,25 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
         using var client = api.Client();
         var uri = new Uri($"/api/books/{book.Id}", UriKind.Relative);
 
-        await api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Processing' WHERE Id = @id", ("@id", book.Id));
+        await api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Processing' WHERE Uid = @id", ("@id", book.Id));
         using (var busy = await client.DeleteAsync(uri, TestContext.Current.CancellationToken))
         {
             busy.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         }
 
         api.StoredFiles(book.Id).Count.ShouldBe(10);
-        await api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Uploaded' WHERE Id = @id", ("@id", book.Id));
+        await api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Uploaded' WHERE Uid = @id", ("@id", book.Id));
         using (var deleted = await client.DeleteAsync(uri, TestContext.Current.CancellationToken))
         {
             deleted.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         }
 
-        (await api.QueryAsync("SELECT COUNT(*) FROM Kitaplar WHERE Id = @id", r => r.GetInt32(0), ("@id", book.Id))).ShouldBe([0]);
-        (await api.QueryAsync("SELECT COUNT(*) FROM Bildiriler WHERE KitapId = @id", r => r.GetInt32(0), ("@id", book.Id))).ShouldBe([0]);
+        (await api.QueryAsync("SELECT COUNT(*) FROM Kitaplar WHERE Uid = @id", r => r.GetInt32(0), ("@id", book.Id))).ShouldBe([0]);
+        (await api.QueryAsync("SELECT COUNT(*) FROM Bildiriler WHERE KitapId = (SELECT Id FROM Kitaplar WHERE Uid = @id)", r => r.GetInt32(0), ("@id", book.Id))).ShouldBe([0]);
         api.StoredFiles(book.Id).ShouldBeEmpty();
         Directory.Exists(Path.Combine(api.StorageRoot, "books", book.Id.ToString("D"))).ShouldBeFalse();
         api.StoredFiles(other.Id).Count.ShouldBe(10);
-        (await api.QueryAsync("SELECT COUNT(*) FROM Bildiriler WHERE KitapId = @id", r => r.GetInt32(0), ("@id", other.Id))).ShouldBe([10]);
+        (await api.QueryAsync("SELECT COUNT(*) FROM Bildiriler WHERE KitapId = (SELECT Id FROM Kitaplar WHERE Uid = @id)", r => r.GetInt32(0), ("@id", other.Id))).ShouldBe([10]);
 
         using var again = await client.DeleteAsync(uri, TestContext.Current.CancellationToken);
         again.StatusCode.ShouldBe(HttpStatusCode.NotFound);

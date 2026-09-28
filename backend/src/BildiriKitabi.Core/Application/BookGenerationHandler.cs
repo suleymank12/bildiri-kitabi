@@ -26,9 +26,9 @@ public sealed partial class BookGenerationHandler(
 
     private const int ProgressStep = 5;
 
-    public async Task HandleAsync(Guid bookId, CancellationToken stoppingToken)
+    public async Task HandleAsync(Guid bookUid, CancellationToken stoppingToken)
     {
-        if (!await TryClaimAsync(bookId, stoppingToken).ConfigureAwait(false))
+        if (!await TryClaimAsync(bookUid, stoppingToken).ConfigureAwait(false))
         {
             return;
         }
@@ -38,49 +38,49 @@ public sealed partial class BookGenerationHandler(
         timeout.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
         try
         {
-            await GenerateAsync(bookId, timeout.Token, stoppingToken).ConfigureAwait(false);
+            await GenerateAsync(bookUid, timeout.Token, stoppingToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             // Application shutdown: the book stays Processing and the startup recovery queues it again.
-            LogInterrupted(logger, bookId);
+            LogInterrupted(logger, bookUid);
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)
         {
-            LogTimedOut(logger, bookId, timeoutSeconds);
+            LogTimedOut(logger, bookUid, timeoutSeconds);
             await FailAsync(
-                bookId,
+                bookUid,
                 BookErrorCodes.GenerationTimeout,
                 $"Kitap oluşturma {timeoutSeconds} saniyelik süre sınırını aştı. Lütfen tekrar deneyin.").ConfigureAwait(false);
         }
         catch (BookGenerationException ex)
         {
-            LogGenerationFailed(logger, bookId, ex.Code);
-            await FailAsync(bookId, ex.Code, ex.Message).ConfigureAwait(false);
+            LogGenerationFailed(logger, bookUid, ex.Code);
+            await FailAsync(bookUid, ex.Code, ex.Message).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            LogUnexpectedError(logger, ex, bookId);
-            await FailAsync(bookId, BookErrorCodes.InternalError, UnexpectedErrorMessage).ConfigureAwait(false);
+            LogUnexpectedError(logger, ex, bookUid);
+            await FailAsync(bookUid, BookErrorCodes.InternalError, UnexpectedErrorMessage).ConfigureAwait(false);
         }
     }
 
-    private async Task<bool> TryClaimAsync(Guid bookId, CancellationToken cancellationToken)
+    private async Task<bool> TryClaimAsync(Guid bookUid, CancellationToken cancellationToken)
     {
         var status = await db.Books.AsNoTracking()
-            .Where(b => b.Id == bookId)
+            .Where(b => b.Uid == bookUid)
             .Select(b => (BookStatus?)b.Status)
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
         if (status != BookStatus.Queued)
         {
-            LogSkipped(logger, bookId, status);
+            LogSkipped(logger, bookUid, status);
             return false;
         }
 
         var startedAt = UtcNow();
         var claimed = await db.Books
-            .Where(b => b.Id == bookId && b.Status == BookStatus.Queued)
+            .Where(b => b.Uid == bookUid && b.Status == BookStatus.Queued)
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(b => b.Status, BookStatus.Processing)
@@ -91,16 +91,16 @@ public sealed partial class BookGenerationHandler(
             .ConfigureAwait(false);
         if (claimed == 0)
         {
-            LogAlreadyClaimed(logger, bookId);
+            LogAlreadyClaimed(logger, bookUid);
             return false;
         }
 
         return true;
     }
 
-    private async Task GenerateAsync(Guid bookId, CancellationToken timeoutToken, CancellationToken stoppingToken)
+    private async Task GenerateAsync(Guid bookUid, CancellationToken timeoutToken, CancellationToken stoppingToken)
     {
-        var book = await db.Books.Include(b => b.Papers).FirstAsync(b => b.Id == bookId, stoppingToken).ConfigureAwait(false);
+        var book = await db.Books.Include(b => b.Papers).FirstAsync(b => b.Uid == bookUid, stoppingToken).ConfigureAwait(false);
         var papers = book.Papers.OrderBy(p => p.Order).ToList();
 
         var streams = new List<Stream>(papers.Count);
@@ -134,7 +134,7 @@ public sealed partial class BookGenerationHandler(
             book.ReportProgress(GenerationStage.Saving, 97);
             await db.SaveChangesAsync(stoppingToken).ConfigureAwait(false);
 
-            var key = StorageKeys.Output(book.Id);
+            var key = StorageKeys.Output(book.Uid);
             using (var pdf = new MemoryStream(result.Pdf, writable: false))
             {
                 await storage.SaveAsync(key, pdf, stoppingToken).ConfigureAwait(false);
@@ -148,7 +148,7 @@ public sealed partial class BookGenerationHandler(
 
             book.MarkCompleted(key, result.Pdf.LongLength, result.PageCount, UtcNow());
             await db.SaveChangesAsync(stoppingToken).ConfigureAwait(false);
-            LogCompleted(logger, bookId, result.PageCount);
+            LogCompleted(logger, bookUid, result.PageCount);
         }
         finally
         {
@@ -182,7 +182,7 @@ public sealed partial class BookGenerationHandler(
             catch (Exception ex) when (ex is DbUpdateException or OperationCanceledException)
             {
                 // Progress is informative only; the outcome is written by the caller.
-                LogProgressWriteFailed(logger, ex, book.Id);
+                LogProgressWriteFailed(logger, ex, book.Uid);
                 writing = false;
             }
         }
@@ -192,12 +192,12 @@ public sealed partial class BookGenerationHandler(
     /// Writes the failure. Never throws: when the database cannot be reached the book stays <c>Processing</c> and the
     /// sweeper recovers it once the time limit has passed.
     /// </summary>
-    internal async Task FailAsync(Guid bookId, string code, string message)
+    internal async Task FailAsync(Guid bookUid, string code, string message)
     {
         try
         {
             db.ChangeTracker.Clear();
-            var book = await db.Books.FirstOrDefaultAsync(b => b.Id == bookId, CancellationToken.None).ConfigureAwait(false);
+            var book = await db.Books.FirstOrDefaultAsync(b => b.Uid == bookUid, CancellationToken.None).ConfigureAwait(false);
             if (book is not { Status: BookStatus.Processing })
             {
                 return;
@@ -205,11 +205,11 @@ public sealed partial class BookGenerationHandler(
 
             book.MarkFailed(code, message, UtcNow());
             await db.SaveChangesAsync(CancellationToken.None).ConfigureAwait(false);
-            await storage.DeleteAsync(StorageKeys.Output(bookId), CancellationToken.None).ConfigureAwait(false);
+            await storage.DeleteAsync(StorageKeys.Output(bookUid), CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            LogFailWriteFailed(logger, ex, bookId);
+            LogFailWriteFailed(logger, ex, bookUid);
         }
     }
 
@@ -221,30 +221,30 @@ public sealed partial class BookGenerationHandler(
         public void Report(GenerationProgress value) => writer.TryWrite(value);
     }
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Book {BookId} skipped; status is {Status} (empty when the book no longer exists)")]
-    private static partial void LogSkipped(ILogger logger, Guid bookId, BookStatus? status);
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Book {BookUid} skipped; status is {Status} (empty when the book no longer exists)")]
+    private static partial void LogSkipped(ILogger logger, Guid bookUid, BookStatus? status);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Book {BookId} skipped; another handler claimed it")]
-    private static partial void LogAlreadyClaimed(ILogger logger, Guid bookId);
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Book {BookUid} skipped; another handler claimed it")]
+    private static partial void LogAlreadyClaimed(ILogger logger, Guid bookUid);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookId} completed with {PageCount} pages")]
-    private static partial void LogCompleted(ILogger logger, Guid bookId, int pageCount);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookUid} completed with {PageCount} pages")]
+    private static partial void LogCompleted(ILogger logger, Guid bookUid, int pageCount);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookId} interrupted by shutdown; it will be queued again on startup")]
-    private static partial void LogInterrupted(ILogger logger, Guid bookId);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookUid} interrupted by shutdown; it will be queued again on startup")]
+    private static partial void LogInterrupted(ILogger logger, Guid bookUid);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Book {BookId} timed out after {TimeoutSeconds} s")]
-    private static partial void LogTimedOut(ILogger logger, Guid bookId, int timeoutSeconds);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Book {BookUid} timed out after {TimeoutSeconds} s")]
+    private static partial void LogTimedOut(ILogger logger, Guid bookUid, int timeoutSeconds);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Book {BookId} failed with {ErrorCode}")]
-    private static partial void LogGenerationFailed(ILogger logger, Guid bookId, string errorCode);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Book {BookUid} failed with {ErrorCode}")]
+    private static partial void LogGenerationFailed(ILogger logger, Guid bookUid, string errorCode);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Book {BookId} failed with an unexpected error")]
-    private static partial void LogUnexpectedError(ILogger logger, Exception exception, Guid bookId);
+    [LoggerMessage(Level = LogLevel.Error, Message = "Book {BookUid} failed with an unexpected error")]
+    private static partial void LogUnexpectedError(ILogger logger, Exception exception, Guid bookUid);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Progress of book {BookId} could not be written")]
-    private static partial void LogProgressWriteFailed(ILogger logger, Exception exception, Guid bookId);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Progress of book {BookUid} could not be written")]
+    private static partial void LogProgressWriteFailed(ILogger logger, Exception exception, Guid bookUid);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Failure state of book {BookId} could not be written")]
-    private static partial void LogFailWriteFailed(ILogger logger, Exception exception, Guid bookId);
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failure state of book {BookUid} could not be written")]
+    private static partial void LogFailWriteFailed(ILogger logger, Exception exception, Guid bookUid);
 }

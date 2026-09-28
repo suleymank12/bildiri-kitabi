@@ -42,16 +42,16 @@ public sealed partial class BookCommandService(
     ILogger<BookCommandService> logger)
 {
     /// <summary>
-    /// Sets the order of all papers of a book in one <c>UPDATE … SET SiraNo = CASE Id …</c>. SQL Server checks the
+    /// Sets the order of all papers of a book in one <c>UPDATE … SET SiraNo = CASE Uid …</c>. SQL Server checks the
     /// unique (KitapId, SiraNo) index at the end of the statement, so swapping numbers needs no temporary values.
     /// </summary>
-    public async Task<ReorderOutcome> ReorderAsync(Guid bookId, IReadOnlyList<Guid> paperIds, CancellationToken cancellationToken)
+    public async Task<ReorderOutcome> ReorderAsync(Guid bookUid, IReadOnlyList<Guid> paperUids, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(paperIds);
+        ArgumentNullException.ThrowIfNull(paperUids);
 
         var book = await db.Books.AsNoTracking()
-            .Where(b => b.Id == bookId)
-            .Select(b => new { b.Status, PaperIds = b.Papers.Select(p => p.Id).ToList() })
+            .Where(b => b.Uid == bookUid)
+            .Select(b => new { b.Id, b.Status, PaperUids = b.Papers.Select(p => p.Uid).ToList() })
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
         if (book is null)
@@ -64,30 +64,30 @@ public sealed partial class BookCommandService(
             return ReorderOutcome.Locked;
         }
 
-        if (paperIds.Count != book.PaperIds.Count || paperIds.Distinct().Count() != paperIds.Count || !paperIds.All(book.PaperIds.Contains))
+        if (paperUids.Count != book.PaperUids.Count || paperUids.Distinct().Count() != paperUids.Count || !paperUids.All(book.PaperUids.Contains))
         {
             return ReorderOutcome.InvalidList;
         }
 
-        var newOrder = OrderExpression(paperIds);
+        var newOrder = OrderExpression(paperUids);
         var updated = await db.Papers
-            .Where(p => p.BookId == bookId && (p.Book.Status == BookStatus.Uploaded || p.Book.Status == BookStatus.Failed))
+            .Where(p => p.BookId == book.Id && (p.Book.Status == BookStatus.Uploaded || p.Book.Status == BookStatus.Failed))
             .ExecuteUpdateAsync(setters => setters.SetProperty(p => p.Order, newOrder), cancellationToken)
             .ConfigureAwait(false);
 
         // Zero rows: generation started (or the book was deleted) between the read above and the update.
-        return updated == paperIds.Count ? ReorderOutcome.Reordered : ReorderOutcome.Locked;
+        return updated == paperUids.Count ? ReorderOutcome.Reordered : ReorderOutcome.Locked;
     }
 
     /// <summary>
     /// Queues generation with one conditional update (<c>Uploaded</c>/<c>Failed</c> → <c>Queued</c>), then enqueues
     /// the id. If enqueueing fails the book stays <c>Queued</c> and the queued-book sweeper enqueues it again later.
     /// </summary>
-    public async Task<StartGenerationOutcome> StartGenerationAsync(Guid bookId, CancellationToken cancellationToken)
+    public async Task<StartGenerationOutcome> StartGenerationAsync(Guid bookUid, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var queued = await db.Books
-            .Where(b => b.Id == bookId && (b.Status == BookStatus.Uploaded || b.Status == BookStatus.Failed))
+            .Where(b => b.Uid == bookUid && (b.Status == BookStatus.Uploaded || b.Status == BookStatus.Failed))
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(b => b.Status, BookStatus.Queued)
@@ -104,7 +104,7 @@ public sealed partial class BookCommandService(
         if (queued == 0)
         {
             var status = await db.Books.AsNoTracking()
-                .Where(b => b.Id == bookId)
+                .Where(b => b.Uid == bookUid)
                 .Select(b => (BookStatus?)b.Status)
                 .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -118,55 +118,55 @@ public sealed partial class BookCommandService(
 
         try
         {
-            await queue.EnqueueAsync(bookId, cancellationToken).ConfigureAwait(false);
+            await queue.EnqueueAsync(bookUid, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            LogEnqueueFailed(logger, ex, bookId);
+            LogEnqueueFailed(logger, ex, bookUid);
         }
 
-        LogQueued(logger, bookId);
+        LogQueued(logger, bookUid);
         return StartGenerationOutcome.Started;
     }
 
     /// <summary>Deletes the book (papers cascade) and every stored file under <c>books/{id}/</c>.</summary>
-    public async Task<DeleteBookOutcome> DeleteAsync(Guid bookId, CancellationToken cancellationToken)
+    public async Task<DeleteBookOutcome> DeleteAsync(Guid bookUid, CancellationToken cancellationToken)
     {
         var deleted = await db.Books
-            .Where(b => b.Id == bookId && b.Status != BookStatus.Queued && b.Status != BookStatus.Processing)
+            .Where(b => b.Uid == bookUid && b.Status != BookStatus.Queued && b.Status != BookStatus.Processing)
             .ExecuteDeleteAsync(cancellationToken)
             .ConfigureAwait(false);
         if (deleted == 0)
         {
-            var exists = await db.Books.AnyAsync(b => b.Id == bookId, cancellationToken).ConfigureAwait(false);
+            var exists = await db.Books.AnyAsync(b => b.Uid == bookUid, cancellationToken).ConfigureAwait(false);
             return exists ? DeleteBookOutcome.InProgress : DeleteBookOutcome.NotFound;
         }
 
-        await storage.DeletePrefixAsync(StorageKeys.BookPrefix(bookId), CancellationToken.None).ConfigureAwait(false);
-        LogDeleted(logger, bookId);
+        await storage.DeletePrefixAsync(StorageKeys.BookPrefix(bookUid), CancellationToken.None).ConfigureAwait(false);
+        LogDeleted(logger, bookUid);
         return DeleteBookOutcome.Deleted;
     }
 
-    /// <summary>Builds <c>p =&gt; p.Id == id1 ? 1 : p.Id == id2 ? 2 : … : p.Order</c>, translated to a SQL CASE.</summary>
-    private static Expression<Func<Paper, int>> OrderExpression(IReadOnlyList<Guid> paperIds)
+    /// <summary>Builds <c>p =&gt; p.Uid == uid1 ? 1 : p.Uid == uid2 ? 2 : … : p.Order</c>, translated to a SQL CASE.</summary>
+    private static Expression<Func<Paper, int>> OrderExpression(IReadOnlyList<Guid> paperUids)
     {
         var paper = Expression.Parameter(typeof(Paper), "p");
-        var id = Expression.Property(paper, nameof(Paper.Id));
+        var uid = Expression.Property(paper, nameof(Paper.Uid));
         Expression body = Expression.Property(paper, nameof(Paper.Order));
-        for (var i = paperIds.Count - 1; i >= 0; i--)
+        for (var i = paperUids.Count - 1; i >= 0; i--)
         {
-            body = Expression.Condition(Expression.Equal(id, Expression.Constant(paperIds[i])), Expression.Constant(i + 1), body);
+            body = Expression.Condition(Expression.Equal(uid, Expression.Constant(paperUids[i])), Expression.Constant(i + 1), body);
         }
 
         return Expression.Lambda<Func<Paper, int>>(body, paper);
     }
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookId} queued for generation")]
-    private static partial void LogQueued(ILogger logger, Guid bookId);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookUid} queued for generation")]
+    private static partial void LogQueued(ILogger logger, Guid bookUid);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Book {BookId} could not be enqueued; it stays queued and the queued-book sweeper sends it later")]
-    private static partial void LogEnqueueFailed(ILogger logger, Exception exception, Guid bookId);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Book {BookUid} could not be enqueued; it stays queued and the queued-book sweeper sends it later")]
+    private static partial void LogEnqueueFailed(ILogger logger, Exception exception, Guid bookUid);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookId} deleted")]
-    private static partial void LogDeleted(ILogger logger, Guid bookId);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookUid} deleted")]
+    private static partial void LogDeleted(ILogger logger, Guid bookUid);
 }

@@ -22,8 +22,8 @@ public sealed partial class InMemoryBookGenerationQueue(
         SingleReader = true,
     });
 
-    public ValueTask EnqueueAsync(Guid bookId, CancellationToken cancellationToken = default) =>
-        _channel.Writer.WriteAsync(bookId, cancellationToken);
+    public ValueTask EnqueueAsync(Guid bookUid, CancellationToken cancellationToken = default) =>
+        _channel.Writer.WriteAsync(bookUid, cancellationToken);
 
     public async Task ConsumeAsync(Func<Guid, CancellationToken, Task> handler, int maxConcurrency, CancellationToken stoppingToken)
     {
@@ -33,11 +33,11 @@ public sealed partial class InMemoryBookGenerationQueue(
         var parallel = new ParallelOptions { MaxDegreeOfParallelism = maxConcurrency, CancellationToken = stoppingToken };
         try
         {
-            await Parallel.ForEachAsync(_channel.Reader.ReadAllAsync(stoppingToken), parallel, async (bookId, cancellationToken) =>
+            await Parallel.ForEachAsync(_channel.Reader.ReadAllAsync(stoppingToken), parallel, async (bookUid, cancellationToken) =>
             {
                 try
                 {
-                    await handler(bookId, cancellationToken).ConfigureAwait(false);
+                    await handler(bookUid, cancellationToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -46,7 +46,7 @@ public sealed partial class InMemoryBookGenerationQueue(
                 catch (Exception ex)
                 {
                     // There is no broker to hand the message back to: log it and keep consuming.
-                    LogHandlerFailed(logger, ex, bookId);
+                    LogHandlerFailed(logger, ex, bookUid);
                 }
             }).ConfigureAwait(false);
         }
@@ -56,6 +56,6 @@ public sealed partial class InMemoryBookGenerationQueue(
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Generation job for book {BookId} crashed")]
-    private static partial void LogHandlerFailed(ILogger logger, Exception exception, Guid bookId);
+    [LoggerMessage(Level = LogLevel.Error, Message = "Generation job for book {BookUid} crashed")]
+    private static partial void LogHandlerFailed(ILogger logger, Exception exception, Guid bookUid);
 }
