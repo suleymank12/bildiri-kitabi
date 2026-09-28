@@ -154,8 +154,8 @@ export function Dialog({
             </h2>
             <Button
               variant="ghost"
-              className="w-11 shrink-0 px-0"
-              icon={<XIcon size={20} aria-hidden="true" />}
+              className="w-11 shrink-0 px-0!"
+              icon={<XIcon size={22} weight="bold" aria-hidden="true" />}
               aria-label="Kapat"
               disabled={closeDisabled}
               onClick={onClose}

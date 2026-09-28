@@ -63,6 +63,10 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
   const [showingStatus, setShowingStatus] = useState(false);
   const statusShownAt = useRef(0);
   const statusTimer = useRef<number>(undefined);
+  // The panel takes the height the form showed (the visible part of a long form), so the modal does not jump when
+  // the upload starts and the panel stays in view.
+  const form = useRef<HTMLFormElement>(null);
+  const [statusHeight, setStatusHeight] = useState<number>();
 
   useEffect(
     () => () => {
@@ -127,6 +131,7 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
     }
 
     clearServerErrors();
+    setStatusHeight(visibleFormHeight(form.current));
     setShowingStatus(true);
     statusShownAt.current = now();
     createBook.mutate(
@@ -175,8 +180,17 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
           </>
         }
       >
-        {showingStatus && <UploadStatus checking={checking} progress={createBook.progress} />}
-        <form id={formId} onSubmit={submit} noValidate hidden={showingStatus} className="flex flex-col gap-6">
+        {showingStatus && (
+          <UploadStatus checking={checking} progress={createBook.progress} height={statusHeight} />
+        )}
+        <form
+          ref={form}
+          id={formId}
+          onSubmit={submit}
+          noValidate
+          hidden={showingStatus}
+          className="flex flex-col gap-6"
+        >
           <p className="text-ink-muted">
             Kitap adını yazın ve {REQUIRED_PAPER_COUNT} bildiri dosyasını seçin. Sonraki adımda sırayı ve
             tespit edilen başlıkları kontrol edebilirsiniz. E-posta adresleri ve telefon numaraları kitaba
@@ -332,13 +346,37 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** Height of the part of the form the dialog body shows: the whole form, or the body's inner height if it scrolls. */
+function visibleFormHeight(form: HTMLFormElement | null): number | undefined {
+  const body = form?.closest<HTMLElement>('[data-dialog-body]');
+  if (!form || !body) {
+    return undefined;
+  }
+
+  const style = getComputedStyle(body);
+  const inner =
+    body.clientHeight - Number.parseFloat(style.paddingTop) - Number.parseFloat(style.paddingBottom);
+  return Math.min(form.offsetHeight, inner);
+}
+
 /**
  * Two stages: the bytes going up (with the percentage), then the server checking the files and finding the titles
  * (no percentage is known, so the bar moves on its own).
  */
-function UploadStatus({ checking, progress }: { checking: boolean; progress: number }) {
+function UploadStatus({
+  checking,
+  progress,
+  height,
+}: {
+  checking: boolean;
+  progress: number;
+  height?: number | undefined;
+}) {
   return (
-    <div className="flex min-h-64 flex-col items-center justify-center gap-4 py-8 text-center">
+    <div
+      className="flex min-h-64 flex-col items-center justify-center gap-4 py-8 text-center"
+      style={height === undefined ? undefined : { minHeight: height }}
+    >
       <span aria-hidden="true" className="text-accent">
         <UploadSimpleIcon size={40} />
       </span>
