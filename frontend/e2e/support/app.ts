@@ -45,6 +45,8 @@ export async function openNewBookDialog(page: Page): Promise<Locator> {
   const dialog = page.getByRole('dialog', { name: 'Yeni kitap' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel('Kitap adı')).toBeFocused();
+  // Nothing typed yet: no validation message (the dev server runs React's StrictMode, which mounts twice).
+  await expect(dialog.getByText('Kitap adını yazın.')).toHaveCount(0);
   return dialog;
 }
 

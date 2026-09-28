@@ -22,6 +22,8 @@ afterAll(() => {
 if (typeof HTMLDialogElement !== 'undefined' && typeof HTMLDialogElement.prototype.showModal !== 'function') {
   HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
     this.setAttribute('open', '');
+    // Like the browsers: the first focusable element inside the dialog gets the focus.
+    this.querySelector<HTMLElement>('button:not([disabled]), input:not([disabled]), a[href]')?.focus();
   };
   HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
     this.removeAttribute('open');

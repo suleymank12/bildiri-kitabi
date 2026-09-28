@@ -55,7 +55,10 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
   const createBook = useCreateBook();
   const formId = useId();
   const [name, setName] = useState('');
+  // The name's error shows once the user typed in the field and left it, or pressed "Yükle ve devam et". A blur alone
+  // does not count: the focus is also moved by code (opening and closing dialogs), not only by the user.
   const [nameTouched, setNameTouched] = useState(false);
+  const nameEdited = useRef(false);
   const [serverErrors, setServerErrors] = useState<UploadErrors>(noServerErrors);
   const [sortNotice, setSortNotice] = useState(false);
   const [confirmingClose, setConfirmingClose] = useState(false);
@@ -213,13 +216,16 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
               </span>
             }
             onChange={(event) => {
+              nameEdited.current = true;
               setName(event.target.value);
               if (serverErrors.name) {
                 setServerErrors({ ...serverErrors, name: undefined });
               }
             }}
             onBlur={() => {
-              setNameTouched(true);
+              if (nameEdited.current) {
+                setNameTouched(true);
+              }
             }}
           />
 

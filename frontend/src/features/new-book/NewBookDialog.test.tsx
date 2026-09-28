@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { ApiError } from '../../api/errors';
 import { uploadBook } from '../../api/upload';
 import { bookDetail, docx } from '../../test/fixtures';
@@ -36,8 +36,17 @@ function Harness() {
   );
 }
 
-async function openDialog() {
-  const view = renderPage(<Harness />);
+async function openDialog({ strict = false } = {}) {
+  // StrictMode runs every effect twice when it mounts, as the development server (npm run dev) does.
+  const view = renderPage(
+    strict ? (
+      <StrictMode>
+        <Harness />
+      </StrictMode>
+    ) : (
+      <Harness />
+    ),
+  );
   await view.user.click(screen.getByRole('button', { name: 'Yeni kitap' }));
   return view;
 }
@@ -67,6 +76,62 @@ async function waitUntilChecked() {
 }
 
 describe('NewBookDialog', () => {
+  it('opens under StrictMode without the name error, with one showModal, the right focus and the page locked', async () => {
+    const showModal = vi.spyOn(HTMLDialogElement.prototype, 'showModal');
+    document.documentElement.style.overflow = 'auto';
+    try {
+      const { user } = await openDialog({ strict: true });
+
+      expect(screen.queryByText('Kitap adını yazın.')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Kitap adı')).toHaveFocus();
+      expect(showModal).toHaveBeenCalledTimes(1);
+      expect(dialog()).toHaveAttribute('open');
+      expect(document.documentElement.style.overflow).toBe('hidden');
+
+      await user.click(screen.getByRole('button', { name: 'Vazgeç' }));
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Yeni kitap' })).toHaveFocus();
+      expect(document.documentElement.style.overflow).toBe('auto');
+      expect(screen.queryByText('Kitap adını yazın.')).not.toBeInTheDocument();
+    } finally {
+      showModal.mockRestore();
+      document.documentElement.style.overflow = '';
+    }
+  });
+
+  it('shows the name error once the user typed, cleared the field and left it', async () => {
+    const { user } = await openDialog({ strict: true });
+    const field = screen.getByLabelText('Kitap adı');
+
+    // Only focus moving through the field: no message.
+    await user.tab();
+    expect(screen.queryByText('Kitap adını yazın.')).not.toBeInTheDocument();
+
+    await user.click(field);
+    await user.type(field, 'Ki');
+    await user.clear(field);
+    expect(screen.queryByText('Kitap adını yazın.')).not.toBeInTheDocument();
+    await user.tab();
+
+    expect(field).toHaveAccessibleDescription(expect.stringContaining('Kitap adını yazın.'));
+  });
+
+  it('shows the name error when the form is sent with an empty name', async () => {
+    await openDialog({ strict: true });
+    expect(screen.queryByText('Kitap adını yazın.')).not.toBeInTheDocument();
+
+    // "Yükle ve devam et" stays disabled until the form is complete; the submit itself is what counts.
+    act(() => {
+      fireEvent.submit(screen.getByLabelText('Kitap adı').closest('form')!);
+    });
+
+    expect(screen.getByLabelText('Kitap adı')).toHaveAccessibleDescription(
+      expect.stringContaining('Kitap adını yazın.'),
+    );
+    expect(upload).not.toHaveBeenCalled();
+  });
+
   it('opens with the focus on the book name, is labelled by its title and returns the focus on close', async () => {
     const { user } = await openDialog();
 

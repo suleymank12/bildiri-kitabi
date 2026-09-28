@@ -43,6 +43,10 @@ export function Dialog({
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const bodyId = useId();
+  // Each run of the opening effect gets a number; a close scheduled by an older run is dropped (see below).
+  const openRun = useRef(0);
+  // Where the focus goes back to: the element focused when the dialog really opened.
+  const returnFocus = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -50,7 +54,7 @@ export function Dialog({
       return;
     }
 
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const run = ++openRun.current;
     const trapFocus = (event: KeyboardEvent) => {
       if (event.key !== 'Tab') {
         return;
@@ -73,18 +77,39 @@ export function Dialog({
     };
 
     dialog.addEventListener('keydown', trapFocus);
-    dialog.showModal();
+    const opening = !dialog.open;
+    if (opening) {
+      returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      dialog.showModal();
+    }
+
     // The first focusable element of the body (lg) or of the buttons (sm); every part of the list gets the prefix.
-    const scope = size === 'lg' ? '[data-dialog-body]' : 'footer';
-    const initial = focusableSelector
-      .split(', ')
-      .map((part) => `${scope} ${part}`)
-      .join(', ');
-    dialog.querySelector<HTMLElement>(initial)?.focus();
+    // showModal() itself focuses the first focusable element (the "X"), so this runs on every real opening; on a
+    // second run for the same opening it runs only if the focus has left the dialog.
+    if (opening || !dialog.contains(document.activeElement)) {
+      const scope = size === 'lg' ? '[data-dialog-body]' : 'footer';
+      const initial = focusableSelector
+        .split(', ')
+        .map((part) => `${scope} ${part}`)
+        .join(', ');
+      dialog.querySelector<HTMLElement>(initial)?.focus();
+    }
+
     return () => {
       dialog.removeEventListener('keydown', trapFocus);
-      dialog.close();
-      previous?.focus();
+      // Closing moves the focus out of the dialog, and a form field that loses the focus counts as visited. React
+      // StrictMode runs this cleanup and the effect again at once for the same opening; closing then would blur the
+      // field for nothing. So the close waits for the current task: if the effect has run again meanwhile, the dialog
+      // simply stays open.
+      queueMicrotask(() => {
+        if (openRun.current !== run) {
+          return;
+        }
+
+        dialog.close();
+        returnFocus.current?.focus();
+        returnFocus.current = null;
+      });
     };
   }, [open, size]);
 
