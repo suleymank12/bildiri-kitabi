@@ -78,6 +78,39 @@ describe('Tooltip', () => {
     expect(button).toHaveFocus();
   });
 
+  it('uses up the Esc that closes it, so a modal dialog around it does not start to close', async () => {
+    const user = userEvent.setup();
+    render(<Example />);
+    const button = screen.getByRole('button', { name: 'Düğme' });
+
+    // Opened by the mouse, with the focus elsewhere: the key reaches the document.
+    await user.hover(button);
+    const fromDocument = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    act(() => {
+      document.body.dispatchEvent(fromDocument);
+    });
+    expect(fromDocument.defaultPrevented).toBe(true);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+    // Opened by focus: the key reaches the trigger first.
+    act(() => {
+      button.focus();
+    });
+    const onTrigger = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    act(() => {
+      button.dispatchEvent(onTrigger);
+    });
+    expect(onTrigger.defaultPrevented).toBe(true);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+    // Without an open bubble, Esc is left alone.
+    const idle = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    act(() => {
+      button.dispatchEvent(idle);
+    });
+    expect(idle.defaultPrevented).toBe(false);
+  });
+
   it('opens on a tap and closes after a few seconds', () => {
     vi.useFakeTimers();
     try {

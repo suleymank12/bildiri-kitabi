@@ -61,9 +61,11 @@ export function Tooltip({ content, align = 'center', children }: TooltipProps) {
       return;
     }
 
-    // Esc dismisses (WCAG 1.4.13); a tap or click outside closes a bubble opened by touch.
+    // Esc dismisses (WCAG 1.4.13); a tap or click outside closes a bubble opened by touch. Esc only closes the
+    // bubble: preventing its default action keeps a modal dialog around it from starting to close too.
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
+        event.preventDefault();
         setOpen(false);
       }
     }
@@ -124,7 +126,8 @@ export function Tooltip({ content, align = 'center', children }: TooltipProps) {
     },
     onKeyDown: (event) => {
       if (event.key === 'Escape' && visible) {
-        // Only the tooltip closes; a dialog around the trigger stays open.
+        // Only the tooltip closes; a dialog around the trigger stays open (its "cancel" is the key's default).
+        event.preventDefault();
         event.stopPropagation();
         setOpen(false);
       }
