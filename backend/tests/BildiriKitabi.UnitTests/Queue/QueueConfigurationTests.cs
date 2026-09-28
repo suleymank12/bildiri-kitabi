@@ -9,15 +9,15 @@ namespace BildiriKitabi.UnitTests.Queue;
 public sealed class GenerationMessageTests
 {
     [Fact]
-    public void The_body_is_the_book_id_and_the_version_in_json()
+    public void The_body_is_the_book_uid_and_the_version_in_json()
     {
-        var bookId = Guid.Parse("3f2c1a9e-5b7d-4c21-9e0a-1b2c3d4e5f60");
+        var bookUid = Guid.Parse("3f2c1a9e-5b7d-4c21-9e0a-1b2c3d4e5f60");
 
-        var body = Encoding.UTF8.GetString(GenerationMessage.Serialize(bookId));
+        var body = Encoding.UTF8.GetString(GenerationMessage.Serialize(bookUid));
 
-        body.ShouldBe("""{"bookId":"3f2c1a9e-5b7d-4c21-9e0a-1b2c3d4e5f60","version":1}""");
+        body.ShouldBe("""{"bookUid":"3f2c1a9e-5b7d-4c21-9e0a-1b2c3d4e5f60","version":2}""");
         GenerationMessage.TryParse(Encoding.UTF8.GetBytes(body), out var parsed).ShouldBeTrue();
-        parsed.ShouldBe(bookId);
+        parsed.ShouldBe(bookUid);
     }
 
     [Theory]
@@ -25,14 +25,18 @@ public sealed class GenerationMessageTests
     [InlineData("not json")]
     [InlineData("[]")]
     [InlineData("{}")]
-    [InlineData("""{"version":1}""")]
-    [InlineData("""{"bookId":"abc","version":1}""")]
-    [InlineData("""{"bookId":"00000000-0000-0000-0000-000000000000","version":1}""")]
-    [InlineData("""{"bookId":42}""")]
+    [InlineData("""{"version":2}""")]
+    [InlineData("""{"bookUid":"abc","version":2}""")]
+    [InlineData("""{"bookUid":"00000000-0000-0000-0000-000000000000","version":2}""")]
+    [InlineData("""{"bookUid":42,"version":2}""")]
+    [InlineData("""{"bookUid":"3f2c1a9e-5b7d-4c21-9e0a-1b2c3d4e5f60"}""")]
+    [InlineData("""{"bookUid":"3f2c1a9e-5b7d-4c21-9e0a-1b2c3d4e5f60","version":1}""")]
+    [InlineData("""{"bookId":"3f2c1a9e-5b7d-4c21-9e0a-1b2c3d4e5f60","version":1}""")]
+    [InlineData("""{"bookId":"3f2c1a9e-5b7d-4c21-9e0a-1b2c3d4e5f60","version":2}""")]
     public void Invalid_bodies_are_rejected(string body)
     {
-        GenerationMessage.TryParse(Encoding.UTF8.GetBytes(body), out var bookId).ShouldBeFalse();
-        bookId.ShouldBe(Guid.Empty);
+        GenerationMessage.TryParse(Encoding.UTF8.GetBytes(body), out var bookUid).ShouldBeFalse();
+        bookUid.ShouldBe(Guid.Empty);
     }
 }
 

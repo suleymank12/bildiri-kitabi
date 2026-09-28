@@ -148,7 +148,7 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(edits);
 
-        var result = await edits.ReorderAsync(uid, request.PaperIds, cancellationToken);
+        var result = await edits.ReorderAsync(uid, request.PaperUids, cancellationToken);
         if (result.Outcome == EditBookOutcome.InvalidList)
         {
             return ApiProblem.Create(

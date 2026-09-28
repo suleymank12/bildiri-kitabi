@@ -40,25 +40,25 @@ public sealed class RabbitMqQueueTests(RabbitMqFixture rabbit) : IAsyncDisposabl
     public async Task A_published_message_is_persistent_json_with_the_book_as_correlation_id()
     {
         var (_, queue, name) = await StartAsync();
-        var bookId = Guid.NewGuid();
+        var bookUid = Guid.NewGuid();
 
-        await queue.EnqueueAsync(bookId, TestContext.Current.CancellationToken);
+        await queue.EnqueueAsync(bookUid, TestContext.Current.CancellationToken);
 
         var raw = await RawChannelAsync();
         var message = await raw.BasicGetAsync(name, autoAck: true, TestContext.Current.CancellationToken);
         message.ShouldNotBeNull();
         message.BasicProperties.Persistent.ShouldBeTrue();
         message.BasicProperties.ContentType.ShouldBe("application/json");
-        message.BasicProperties.CorrelationId.ShouldBe(bookId.ToString("D"));
+        message.BasicProperties.CorrelationId.ShouldBe(bookUid.ToString("D"));
         Guid.TryParse(message.BasicProperties.MessageId, out _).ShouldBeTrue();
-        Encoding.UTF8.GetString(message.Body.Span).ShouldBe($$"""{"bookId":"{{bookId:D}}","version":1}""");
+        Encoding.UTF8.GetString(message.Body.Span).ShouldBe($$"""{"bookUid":"{{bookUid:D}}","version":2}""");
     }
 
     [Fact]
     public async Task The_message_is_acknowledged_only_after_the_handler_returned()
     {
         var (_, queue, name) = await StartAsync();
-        var bookId = Guid.NewGuid();
+        var bookUid = Guid.NewGuid();
         var started = new TaskCompletionSource<Guid>(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var stopping = new CancellationTokenSource();
@@ -71,8 +71,8 @@ public sealed class RabbitMqQueueTests(RabbitMqFixture rabbit) : IAsyncDisposabl
             2,
             stopping.Token);
 
-        await queue.EnqueueAsync(bookId, TestContext.Current.CancellationToken);
-        (await started.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken)).ShouldBe(bookId);
+        await queue.EnqueueAsync(bookUid, TestContext.Current.CancellationToken);
+        (await started.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken)).ShouldBe(bookUid);
 
         await RabbitMqFixture.EventuallyAsync(async () => await rabbit.CountsAsync(name) == (0, 1), "handler çalışırken 1 onaysız mesaj");
         release.SetResult();
@@ -125,7 +125,7 @@ public sealed class RabbitMqQueueTests(RabbitMqFixture rabbit) : IAsyncDisposabl
     public async Task A_message_left_unacknowledged_by_a_stopped_consumer_is_delivered_to_the_next_one()
     {
         var (_, queue, name) = await StartAsync();
-        var bookId = Guid.NewGuid();
+        var bookUid = Guid.NewGuid();
         var firstStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using (var stoppingFirst = new CancellationTokenSource())
         {
@@ -138,7 +138,7 @@ public sealed class RabbitMqQueueTests(RabbitMqFixture rabbit) : IAsyncDisposabl
                 1,
                 stoppingFirst.Token);
 
-            await queue.EnqueueAsync(bookId, TestContext.Current.CancellationToken);
+            await queue.EnqueueAsync(bookUid, TestContext.Current.CancellationToken);
             await firstStarted.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
             await stoppingFirst.CancelAsync();
             await first;
@@ -157,7 +157,7 @@ public sealed class RabbitMqQueueTests(RabbitMqFixture rabbit) : IAsyncDisposabl
             1,
             stoppingSecond.Token);
 
-        (await handled.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken)).ShouldBe(bookId);
+        (await handled.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken)).ShouldBe(bookUid);
         await RabbitMqFixture.EventuallyAsync(async () => await rabbit.CountsAsync(name) == (0, 0), "ikinci tüketici onayladı");
         await stoppingSecond.CancelAsync();
         await second;

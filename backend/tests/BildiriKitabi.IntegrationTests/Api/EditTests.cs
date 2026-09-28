@@ -38,7 +38,7 @@ public sealed class EditTests(SqlServerFixture sql) : IAsyncDisposable
         var book = await api.CreateSampleBookAsync();
         using var client = api.Client();
 
-        using var response = await RenameAsync(client, book.Id, name);
+        using var response = await RenameAsync(client, book.Uid, name);
 
         await SoftDeleteTests.ShouldBeProblemAsync(response, HttpStatusCode.BadRequest, code);
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
@@ -46,10 +46,10 @@ public sealed class EditTests(SqlServerFixture sql) : IAsyncDisposable
         var error = problem.GetProperty("errors").EnumerateArray().ShouldHaveSingleItem();
         error.GetProperty("field").GetString().ShouldBe("name");
         error.GetProperty("code").GetString().ShouldBe(code);
-        (await api.GetBookAsync(book.Id)).Name.ShouldBe(book.Name);
+        (await api.GetBookAsync(book.Uid)).Name.ShouldBe(book.Name);
 
         var tooLong = new string('a', 151);
-        using var longName = await RenameAsync(client, book.Id, tooLong);
+        using var longName = await RenameAsync(client, book.Uid, tooLong);
         await SoftDeleteTests.ShouldBeProblemAsync(longName, HttpStatusCode.BadRequest, "BOOK_NAME_INVALID");
     }
 
@@ -60,13 +60,13 @@ public sealed class EditTests(SqlServerFixture sql) : IAsyncDisposable
         var book = await api.CreateSampleBookAsync();
         using var client = api.Client();
 
-        using var response = await RenameAsync(client, book.Id, "  Yeni Ad 2026  ");
+        using var response = await RenameAsync(client, book.Uid, "  Yeni Ad 2026  ");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var renamed = (await response.Content.ReadFromJsonAsync<BookDetailDto>(ApiHost.Json, TestContext.Current.CancellationToken))!;
         renamed.Name.ShouldBe("Yeni Ad 2026");
         renamed.Status.ShouldBe(BookStatus.Uploaded);
-        (await api.QueryAsync("SELECT Ad FROM Kitaplar WHERE Uid = @id", r => r.GetString(0), ("@id", book.Id))).ShouldBe(["Yeni Ad 2026"]);
+        (await api.QueryAsync("SELECT Ad FROM Kitaplar WHERE Uid = @id", r => r.GetString(0), ("@id", book.Uid))).ShouldBe(["Yeni Ad 2026"]);
     }
 
     [Fact]
@@ -75,21 +75,21 @@ public sealed class EditTests(SqlServerFixture sql) : IAsyncDisposable
         var api = Host();
         var book = await CompletedBookAsync(api);
         using var client = api.Client();
-        var pdfPath = PdfPath(api, book.Id);
+        var pdfPath = PdfPath(api, book.Uid);
         File.Exists(pdfPath).ShouldBeTrue();
 
         // The same name (after trimming) changes nothing.
-        var before = await RowVersionAsync(api, book.Id);
-        using (var same = await RenameAsync(client, book.Id, $" {book.Name} "))
+        var before = await RowVersionAsync(api, book.Uid);
+        using (var same = await RenameAsync(client, book.Uid, $" {book.Name} "))
         {
             same.StatusCode.ShouldBe(HttpStatusCode.OK);
             (await same.Content.ReadFromJsonAsync<BookDetailDto>(ApiHost.Json, TestContext.Current.CancellationToken))!.Status.ShouldBe(BookStatus.Completed);
         }
 
-        (await RowVersionAsync(api, book.Id)).ShouldBe(before);
+        (await RowVersionAsync(api, book.Uid)).ShouldBe(before);
         File.Exists(pdfPath).ShouldBeTrue();
 
-        using (var response = await RenameAsync(client, book.Id, "Düzeltilmiş Kongre Kitabı"))
+        using (var response = await RenameAsync(client, book.Uid, "Düzeltilmiş Kongre Kitabı"))
         {
             response.StatusCode.ShouldBe(HttpStatusCode.OK);
             var reopened = (await response.Content.ReadFromJsonAsync<BookDetailDto>(ApiHost.Json, TestContext.Current.CancellationToken))!;
@@ -97,16 +97,16 @@ public sealed class EditTests(SqlServerFixture sql) : IAsyncDisposable
             reopened.Name.ShouldBe("Düzeltilmiş Kongre Kitabı");
         }
 
-        await ShouldBeReopenedInDatabaseAsync(api, book.Id);
+        await ShouldBeReopenedInDatabaseAsync(api, book.Uid);
         File.Exists(pdfPath).ShouldBeFalse();
-        api.StoredFiles(book.Id).Count.ShouldBe(10);
-        using (var pdf = await client.GetAsync(new Uri($"/api/books/{book.Id}/pdf", UriKind.Relative), TestContext.Current.CancellationToken))
+        api.StoredFiles(book.Uid).Count.ShouldBe(10);
+        using (var pdf = await client.GetAsync(new Uri($"/api/books/{book.Uid}/pdf", UriKind.Relative), TestContext.Current.CancellationToken))
         {
             await SoftDeleteTests.ShouldBeProblemAsync(pdf, HttpStatusCode.Conflict, "BOOK_NOT_COMPLETED");
         }
 
-        (await api.GenerateAsync(book.Id)).ShouldBe(HttpStatusCode.Accepted);
-        var regenerated = await api.WaitForFinalStatusAsync(book.Id);
+        (await api.GenerateAsync(book.Uid)).ShouldBe(HttpStatusCode.Accepted);
+        var regenerated = await api.WaitForFinalStatusAsync(book.Uid);
         regenerated.Status.ShouldBe(BookStatus.Completed);
         regenerated.Papers.Select(p => p.StartPage).ShouldBe([3, 5, 7, 9, 11, 13, 15, 17, 19, 21]);
         var bytes = await client.GetByteArrayAsync(new Uri(regenerated.PdfUrl!, UriKind.Relative), TestContext.Current.CancellationToken);
@@ -119,30 +119,30 @@ public sealed class EditTests(SqlServerFixture sql) : IAsyncDisposable
         var api = Host();
         var book = await CompletedBookAsync(api);
         using var client = api.Client();
-        var pdfPath = PdfPath(api, book.Id);
-        var order = book.Papers.Select(p => p.Id).ToList();
+        var pdfPath = PdfPath(api, book.Uid);
+        var order = book.Papers.Select(p => p.Uid).ToList();
 
-        var before = await RowVersionAsync(api, book.Id);
-        using (var same = await ReorderAsync(client, book.Id, order))
+        var before = await RowVersionAsync(api, book.Uid);
+        using (var same = await ReorderAsync(client, book.Uid, order))
         {
             same.StatusCode.ShouldBe(HttpStatusCode.OK);
             (await same.Content.ReadFromJsonAsync<BookDetailDto>(ApiHost.Json, TestContext.Current.CancellationToken))!.Status.ShouldBe(BookStatus.Completed);
         }
 
-        (await RowVersionAsync(api, book.Id)).ShouldBe(before);
+        (await RowVersionAsync(api, book.Uid)).ShouldBe(before);
         File.Exists(pdfPath).ShouldBeTrue();
 
         var swapped = order.ToList();
         (swapped[0], swapped[1]) = (swapped[1], swapped[0]);
-        using (var response = await ReorderAsync(client, book.Id, swapped))
+        using (var response = await ReorderAsync(client, book.Uid, swapped))
         {
             response.StatusCode.ShouldBe(HttpStatusCode.OK);
             var reopened = (await response.Content.ReadFromJsonAsync<BookDetailDto>(ApiHost.Json, TestContext.Current.CancellationToken))!;
             ShouldBeReopened(reopened);
-            reopened.Papers.Select(p => p.Id).ShouldBe(swapped);
+            reopened.Papers.Select(p => p.Uid).ShouldBe(swapped);
         }
 
-        await ShouldBeReopenedInDatabaseAsync(api, book.Id);
+        await ShouldBeReopenedInDatabaseAsync(api, book.Uid);
         File.Exists(pdfPath).ShouldBeFalse();
     }
 
@@ -154,19 +154,19 @@ public sealed class EditTests(SqlServerFixture sql) : IAsyncDisposable
         var api = Host();
         var book = await api.CreateSampleBookAsync();
         using var client = api.Client();
-        await api.ExecuteAsync($"UPDATE Kitaplar SET Durum = '{status}' WHERE Uid = @id", ("@id", book.Id));
+        await api.ExecuteAsync($"UPDATE Kitaplar SET Durum = '{status}' WHERE Uid = @id", ("@id", book.Uid));
 
-        using (var rename = await RenameAsync(client, book.Id, "Başka Bir Ad"))
+        using (var rename = await RenameAsync(client, book.Uid, "Başka Bir Ad"))
         {
             await SoftDeleteTests.ShouldBeProblemAsync(rename, HttpStatusCode.Conflict, "GENERATION_ALREADY_IN_PROGRESS");
         }
 
-        using (var reorder = await ReorderAsync(client, book.Id, book.Papers.Select(p => p.Id).Reverse().ToList()))
+        using (var reorder = await ReorderAsync(client, book.Uid, book.Papers.Select(p => p.Uid).Reverse().ToList()))
         {
             await SoftDeleteTests.ShouldBeProblemAsync(reorder, HttpStatusCode.Conflict, "PAPER_ORDER_LOCKED");
         }
 
-        (await api.QueryAsync("SELECT Ad FROM Kitaplar WHERE Uid = @id", r => r.GetString(0), ("@id", book.Id))).ShouldBe([book.Name]);
+        (await api.QueryAsync("SELECT Ad FROM Kitaplar WHERE Uid = @id", r => r.GetString(0), ("@id", book.Uid))).ShouldBe([book.Name]);
     }
 
     [Fact]
@@ -175,12 +175,12 @@ public sealed class EditTests(SqlServerFixture sql) : IAsyncDisposable
         var api = Host();
         var book = await api.CreateSampleBookAsync();
         using var client = api.Client();
-        using (var deleted = await client.DeleteAsync(SoftDeleteTests.BookUri(book.Id), TestContext.Current.CancellationToken))
+        using (var deleted = await client.DeleteAsync(SoftDeleteTests.BookUri(book.Uid), TestContext.Current.CancellationToken))
         {
             deleted.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         }
 
-        using (var rename = await RenameAsync(client, book.Id, "Başka Bir Ad"))
+        using (var rename = await RenameAsync(client, book.Uid, "Başka Bir Ad"))
         {
             await SoftDeleteTests.ShouldBeProblemAsync(rename, HttpStatusCode.NotFound, "BOOK_NOT_FOUND");
         }
@@ -190,7 +190,7 @@ public sealed class EditTests(SqlServerFixture sql) : IAsyncDisposable
             await SoftDeleteTests.ShouldBeProblemAsync(unknown, HttpStatusCode.NotFound, "BOOK_NOT_FOUND");
         }
 
-        (await api.QueryAsync("SELECT Ad FROM Kitaplar WHERE Uid = @id", r => r.GetString(0), ("@id", book.Id))).ShouldBe([book.Name]);
+        (await api.QueryAsync("SELECT Ad FROM Kitaplar WHERE Uid = @id", r => r.GetString(0), ("@id", book.Uid))).ShouldBe([book.Name]);
     }
 
     [Fact]
@@ -203,24 +203,24 @@ public sealed class EditTests(SqlServerFixture sql) : IAsyncDisposable
         using var client = api.Client();
 
         // Another request writes the book after this one read it and before it saves.
-        interceptor.Arm(book.Id);
-        using (var rename = await RenameAsync(client, book.Id, "Çakışan Ad"))
+        interceptor.Arm(book.Uid);
+        using (var rename = await RenameAsync(client, book.Uid, "Çakışan Ad"))
         {
             await SoftDeleteTests.ShouldBeProblemAsync(rename, HttpStatusCode.Conflict, "EDIT_CONFLICT");
         }
 
-        interceptor.Arm(book.Id);
-        using (var reorder = await ReorderAsync(client, book.Id, book.Papers.Select(p => p.Id).Reverse().ToList()))
+        interceptor.Arm(book.Uid);
+        using (var reorder = await ReorderAsync(client, book.Uid, book.Papers.Select(p => p.Uid).Reverse().ToList()))
         {
             await SoftDeleteTests.ShouldBeProblemAsync(reorder, HttpStatusCode.Conflict, "EDIT_CONFLICT");
         }
 
-        var unchanged = await api.GetBookAsync(book.Id);
+        var unchanged = await api.GetBookAsync(book.Uid);
         unchanged.Name.ShouldBe(book.Name);
-        unchanged.Papers.Select(p => p.Id).ShouldBe(book.Papers.Select(p => p.Id));
+        unchanged.Papers.Select(p => p.Uid).ShouldBe(book.Papers.Select(p => p.Uid));
 
         // Without an overlapping change the same edits go through.
-        using var ok = await RenameAsync(client, book.Id, "Çakışmayan Ad");
+        using var ok = await RenameAsync(client, book.Uid, "Çakışmayan Ad");
         ok.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
@@ -255,8 +255,8 @@ public sealed class EditTests(SqlServerFixture sql) : IAsyncDisposable
     private static async Task<BookDetailDto> CompletedBookAsync(ApiHost api)
     {
         var book = await api.CreateSampleBookAsync();
-        (await api.GenerateAsync(book.Id)).ShouldBe(HttpStatusCode.Accepted);
-        var completed = await api.WaitForFinalStatusAsync(book.Id);
+        (await api.GenerateAsync(book.Uid)).ShouldBe(HttpStatusCode.Accepted);
+        var completed = await api.WaitForFinalStatusAsync(book.Uid);
         completed.Status.ShouldBe(BookStatus.Completed);
         completed.Papers.Sum(p => p.RemovedEmailCount).ShouldBe(13);
         return completed;

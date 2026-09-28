@@ -37,17 +37,17 @@ public sealed class GenerationTests(SqlServerFixture sql) : IAsyncLifetime
     {
         sql.EnsureAvailable();
         using var client = _api.Client();
-        using var response = await client.PostAsync(new Uri($"/api/books/{_book.Id}/generate", UriKind.Relative), null, TestContext.Current.CancellationToken);
+        using var response = await client.PostAsync(new Uri($"/api/books/{_book.Uid}/generate", UriKind.Relative), null, TestContext.Current.CancellationToken);
         response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
-        response.Headers.Location!.AbsolutePath.ShouldBe($"/api/books/{_book.Id}");
+        response.Headers.Location!.AbsolutePath.ShouldBe($"/api/books/{_book.Uid}");
 
-        var book = await _api.WaitForFinalStatusAsync(_book.Id);
+        var book = await _api.WaitForFinalStatusAsync(_book.Uid);
 
         book.Status.ShouldBe(BookStatus.Completed, book.Error?.Message);
         book.ProgressPercent.ShouldBe(100);
         book.Stage.ShouldBeNull();
         book.Error.ShouldBeNull();
-        book.PdfUrl.ShouldBe($"/api/books/{_book.Id}/pdf");
+        book.PdfUrl.ShouldBe($"/api/books/{_book.Uid}/pdf");
         book.PageCount.ShouldBe(22);
         book.Papers.Select(p => p.StartPage).ShouldBe([3, 5, 7, 9, 11, 13, 15, 17, 19, 21]);
         book.Papers.Sum(p => p.RemovedEmailCount).ShouldBe(13);
@@ -65,18 +65,18 @@ public sealed class GenerationTests(SqlServerFixture sql) : IAsyncLifetime
         var stored = await _api.QueryAsync(
             "SELECT Durum, SayfaSayisi, PdfBoyutuBayt, PdfDepolamaAnahtari, Asama FROM Kitaplar WHERE Uid = @id",
             r => (Status: r.GetString(0), Pages: r.GetInt32(1), Size: r.GetInt64(2), Key: r.GetString(3), StageIsNull: r.IsDBNull(4)),
-            ("@id", _book.Id));
-        stored.ShouldBe([("Completed", 22, bytes.LongLength, $"books/{_book.Id}/output/book.pdf", true)]);
-        (await _api.QueryAsync("SELECT KuyrugaAlinmaZamani FROM Kitaplar WHERE Uid = @id", r => r.IsDBNull(0), ("@id", _book.Id)))
+            ("@id", _book.Uid));
+        stored.ShouldBe([("Completed", 22, bytes.LongLength, $"books/{_book.Uid}/output/book.pdf", true)]);
+        (await _api.QueryAsync("SELECT KuyrugaAlinmaZamani FROM Kitaplar WHERE Uid = @id", r => r.IsDBNull(0), ("@id", _book.Uid)))
             .ShouldBe([false]);
         var pages = await _api.QueryAsync(
             "SELECT BaslangicSayfasi, BitisSayfasi FROM Bildiriler WHERE KitapId = (SELECT Id FROM Kitaplar WHERE Uid = @id) ORDER BY SiraNo",
             r => (r.GetInt32(0), r.GetInt32(1)),
-            ("@id", _book.Id));
+            ("@id", _book.Uid));
         pages.ShouldBe(Enumerable.Range(0, 10).Select(i => (3 + (2 * i), 4 + (2 * i))).ToList());
 
         // A completed book cannot be generated again or reordered.
-        (await _api.GenerateAsync(_book.Id)).ShouldBe(HttpStatusCode.Conflict);
+        (await _api.GenerateAsync(_book.Uid)).ShouldBe(HttpStatusCode.Conflict);
 
         // Range and download headers.
         using var range = new HttpRequestMessage(HttpMethod.Get, new Uri(book.PdfUrl!, UriKind.Relative));
@@ -102,10 +102,10 @@ public sealed class GenerationTests(SqlServerFixture sql) : IAsyncLifetime
     public async Task Two_concurrent_generate_requests_start_one_generation()
     {
         sql.EnsureAvailable();
-        var results = await Task.WhenAll(_api.GenerateAsync(_book.Id), _api.GenerateAsync(_book.Id));
+        var results = await Task.WhenAll(_api.GenerateAsync(_book.Uid), _api.GenerateAsync(_book.Uid));
 
         results.Order().ShouldBe([HttpStatusCode.Accepted, HttpStatusCode.Conflict]);
-        (await _api.WaitForFinalStatusAsync(_book.Id)).Status.ShouldBe(BookStatus.Completed);
+        (await _api.WaitForFinalStatusAsync(_book.Uid)).Status.ShouldBe(BookStatus.Completed);
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public sealed class GenerationTests(SqlServerFixture sql) : IAsyncLifetime
     {
         sql.EnsureAvailable();
         using var client = _api.Client();
-        using var response = await client.GetAsync(new Uri($"/api/books/{_book.Id}/pdf", UriKind.Relative), TestContext.Current.CancellationToken);
+        using var response = await client.GetAsync(new Uri($"/api/books/{_book.Uid}/pdf", UriKind.Relative), TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).ShouldContain("BOOK_NOT_COMPLETED");

@@ -20,8 +20,8 @@ import { BOOK_STEPS } from './steps';
 const PdfViewer = lazy(() => import('../viewer/PdfViewer').then((module) => ({ default: module.PdfViewer })));
 
 export function BookPage() {
-  const { id = '' } = useParams();
-  const query = useBook(id);
+  const { uid = '' } = useParams();
+  const query = useBook(uid);
   const book = query.data;
   usePageTitle(book?.name ?? 'Kitap');
   useStatusAnnouncements(book);
@@ -60,7 +60,7 @@ export function BookPage() {
 /** Chooses what the book page shows from the server state; a refresh lands in the same place. */
 function BookView({ book }: { book: BookDetail }) {
   const announce = useAnnounce();
-  const generate = useStartGeneration(book.id);
+  const generate = useStartGeneration(book.uid);
   // "Sırayı düzenle" on a failed book goes back to the order step; the status stays Failed on the server.
   const [editingAfterFailure, setEditingAfterFailure] = useState(false);
   const showOrder = book.status === 'Uploaded' || (book.status === 'Failed' && editingAfterFailure);
@@ -139,14 +139,14 @@ interface OrderStepProps {
 
 function OrderStep({ book, starting, onStart }: OrderStepProps) {
   const announce = useAnnounce();
-  const reorder = useReorderPapers(book.id);
+  const reorder = useReorderPapers(book.uid);
   const [orderError, setOrderError] = useState<string>();
   const [locked, setLocked] = useState(false);
   const reordered = book.papers.some((paper) => paper.order !== paper.uploadOrder);
 
-  function saveOrder(paperIds: string[], { paper, position }: PaperMove) {
+  function saveOrder(paperUids: string[], { paper, position }: PaperMove) {
     setOrderError(undefined);
-    reorder.mutate(paperIds, {
+    reorder.mutate(paperUids, {
       onSuccess: () => {
         announce(`${paper.fileName}, ${String(position)}. sıraya taşındı.`);
       },

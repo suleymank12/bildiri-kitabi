@@ -147,15 +147,15 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
         sql.EnsureAvailable();
         var book = await _api.CreateSampleBookAsync();
 
-        var completed = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Completed' WHERE Uid = @id", ("@id", book.Id)));
+        var completed = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Completed' WHERE Uid = @id", ("@id", book.Uid)));
         completed.Message.ShouldContain("CK_Kitaplar_Tamamlandi_Pdf");
-        var failed = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Failed' WHERE Uid = @id", ("@id", book.Id)));
+        var failed = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Failed' WHERE Uid = @id", ("@id", book.Uid)));
         failed.Message.ShouldContain("CK_Kitaplar_Basarisiz_Mesaj");
-        var unknown = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Done' WHERE Uid = @id", ("@id", book.Id)));
+        var unknown = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Done' WHERE Uid = @id", ("@id", book.Uid)));
         unknown.Message.ShouldContain("CK_Kitaplar_Durum");
-        var deletedWithoutTime = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET AktifMi = 0 WHERE Uid = @id", ("@id", book.Id)));
+        var deletedWithoutTime = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET AktifMi = 0 WHERE Uid = @id", ("@id", book.Uid)));
         deletedWithoutTime.Message.ShouldContain("CK_Kitaplar_Silinme");
-        var activeWithTime = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET SilinmeZamani = SYSUTCDATETIME() WHERE Uid = @id", ("@id", book.Id)));
+        var activeWithTime = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET SilinmeZamani = SYSUTCDATETIME() WHERE Uid = @id", ("@id", book.Uid)));
         activeWithTime.Message.ShouldContain("CK_Kitaplar_Silinme");
     }
 
@@ -170,7 +170,7 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
         var book = (await response.Content.ReadFromJsonAsync<BildiriKitabi.Api.Contracts.BookDetailDto>(ApiHost.Json, TestContext.Current.CancellationToken))!;
-        response.Headers.Location!.AbsolutePath.ShouldBe($"/api/books/{book.Id}");
+        response.Headers.Location!.AbsolutePath.ShouldBe($"/api/books/{book.Uid}");
         response.Headers.GetValues("X-Content-Type-Options").ShouldBe(["nosniff"]);
         response.Headers.GetValues("X-Frame-Options").ShouldBe(["DENY"]);
         response.Headers.GetValues("Content-Security-Policy").Single().ShouldContain("default-src 'none'");
@@ -188,10 +188,10 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
         var rows = await _api.QueryAsync(
             "SELECT SiraNo, OrijinalDosyaAdi, DepolamaAnahtari, DATALENGTH(Sha256) FROM Bildiriler WHERE KitapId = (SELECT Id FROM Kitaplar WHERE Uid = @id) ORDER BY SiraNo",
             r => (Order: r.GetInt32(0), Name: r.GetString(1), Key: r.GetString(2), HashLength: r.GetInt32(3)),
-            ("@id", book.Id));
+            ("@id", book.Uid));
         rows.Count.ShouldBe(10);
-        rows.ShouldAllBe(r => r.HashLength == 32 && r.Key.StartsWith($"books/{book.Id}/sources/", StringComparison.Ordinal) && r.Key.EndsWith(".docx", StringComparison.Ordinal));
-        _api.StoredFiles(book.Id).Count.ShouldBe(10);
+        rows.ShouldAllBe(r => r.HashLength == 32 && r.Key.StartsWith($"books/{book.Uid}/sources/", StringComparison.Ordinal) && r.Key.EndsWith(".docx", StringComparison.Ordinal));
+        _api.StoredFiles(book.Uid).Count.ShouldBe(10);
     }
 
     [Fact]

@@ -173,9 +173,9 @@ public sealed class ApiHost : WebApplicationFactory<Program>
         return await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
     }
 
-    public IReadOnlyList<string> StoredFiles(Guid? bookId = null)
+    public IReadOnlyList<string> StoredFiles(Guid? bookUid = null)
     {
-        var folder = bookId is { } id ? Path.Combine(StorageRoot, "books", id.ToString("D")) : StorageRoot;
+        var folder = bookUid is { } uid ? Path.Combine(StorageRoot, "books", uid.ToString("D")) : StorageRoot;
         return Directory.Exists(folder) ? Directory.GetFiles(folder, "*", SearchOption.AllDirectories) : [];
     }
 }

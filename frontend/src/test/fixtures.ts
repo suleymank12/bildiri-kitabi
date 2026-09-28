@@ -3,7 +3,7 @@ import type { BookDetail, BookSummary, Paper } from '../api/types';
 export function paper(index: number, overrides: Partial<Paper> = {}): Paper {
   const number = String(index).padStart(2, '0');
   return {
-    id: `00000000-0000-0000-0000-0000000000${number}`,
+    uid: `00000000-0000-0000-0000-0000000000${number}`,
     order: index,
     uploadOrder: index,
     fileName: `${number}_Bildiri.docx`,
@@ -20,7 +20,7 @@ export function paper(index: number, overrides: Partial<Paper> = {}): Paper {
 
 export function bookDetail(overrides: Partial<BookDetail> = {}): BookDetail {
   return {
-    id: 'b0000000-0000-0000-0000-000000000001',
+    uid: 'b0000000-0000-0000-0000-000000000001',
     name: 'Örnek Bilim Kongresi 2026',
     status: 'Uploaded',
     stage: null,
@@ -39,7 +39,7 @@ export function bookDetail(overrides: Partial<BookDetail> = {}): BookDetail {
 
 export function bookSummary(overrides: Partial<BookSummary> = {}): BookSummary {
   return {
-    id: 'b0000000-0000-0000-0000-000000000001',
+    uid: 'b0000000-0000-0000-0000-000000000001',
     name: 'Örnek Bilim Kongresi 2026',
     status: 'Completed',
     stage: null,

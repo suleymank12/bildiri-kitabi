@@ -139,8 +139,8 @@ test('sunucu hatası: kitap adındaki emoji ad alanında gösterilir', async ({ 
 });
 
 test('üretim hatası: hata ekranı, tekrar dene ve sırayı düzenle', async ({ page, request }) => {
-  const id = await createThroughApi(request, 'Hata Ekranı Denemesi');
-  await page.route(`**/api/books/${id}`, async (route) => {
+  const uid = await createThroughApi(request, 'Hata Ekranı Denemesi');
+  await page.route(`**/api/books/${uid}`, async (route) => {
     const response = await route.fetch();
     const book = (await response.json()) as Record<string, unknown>;
     await route.fulfill({
@@ -154,7 +154,7 @@ test('üretim hatası: hata ekranı, tekrar dene ve sırayı düzenle', async ({
     });
   });
 
-  await page.goto(`/kitaplar/${id}`);
+  await page.goto(`/kitaplar/${uid}`);
 
   const alert = page.getByRole('alert');
   await expect(alert).toContainText('Kitap oluşturulamadı');
@@ -169,8 +169,8 @@ test('üretim hatası: hata ekranı, tekrar dene ve sırayı düzenle', async ({
 });
 
 test('bekleme ekranı erişilebilir', async ({ page, request }) => {
-  const id = await createThroughApi(request, 'Bekleme Ekranı Denemesi');
-  await page.route(`**/api/books/${id}`, async (route) => {
+  const uid = await createThroughApi(request, 'Bekleme Ekranı Denemesi');
+  await page.route(`**/api/books/${uid}`, async (route) => {
     const response = await route.fetch();
     const book = (await response.json()) as Record<string, unknown>;
     await route.fulfill({
@@ -185,15 +185,15 @@ test('bekleme ekranı erişilebilir', async ({ page, request }) => {
     });
   });
 
-  await page.goto(`/kitaplar/${id}`);
+  await page.goto(`/kitaplar/${uid}`);
   await expect(page.getByRole('list', { name: 'Aşamalar' })).toBeVisible();
   await expectAccessible(page, 'Bekleme ekranı');
 });
 
 test('Kitaplarım: kitap listede görünür ve onayla silinir', async ({ page, request }, testInfo) => {
   const name = `Silinecek Kitap ${testInfo.project.name} ${run}`;
-  const id = await createThroughApi(request, name);
-  await generateThroughApi(request, id);
+  const uid = await createThroughApi(request, name);
+  await generateThroughApi(request, uid);
 
   await page.goto('/kitaplar');
   const row = page.getByRole('listitem').filter({ has: page.getByRole('link', { name }) });
@@ -213,14 +213,14 @@ test('görüntüleyici: varsayılan açılış, ortalanmış kapak, yakınlaşt�
   page,
   request,
 }, testInfo) => {
-  const id = await createThroughApi(request, `Görüntüleyici Denemesi ${testInfo.project.name} ${run}`);
-  await generateThroughApi(request, id);
+  const uid = await createThroughApi(request, `Görüntüleyici Denemesi ${testInfo.project.name} ${run}`);
+  await generateThroughApi(request, uid);
   const phone = isPhone(page);
   if (!phone) {
     await page.setViewportSize({ width: 1920, height: 1080 });
   }
 
-  await page.goto(`/kitaplar/${id}`);
+  await page.goto(`/kitaplar/${uid}`);
   const area = page.getByTestId('page-area');
   const horizontalOverflow = () => area.evaluate((element) => element.scrollWidth - element.clientWidth);
   const cover = page.locator('[data-page-slot="1"]');
@@ -285,7 +285,7 @@ test('görüntüleyici: varsayılan açılış, ortalanmış kapak, yakınlaşt�
   } else {
     // Phones: a double tap zooms to 200 % around the tap, a second one fits the width again. Page 3 is body
     // text (page 2, the table of contents, is all links).
-    await page.goto(`/kitaplar/${id}?sayfa=3`);
+    await page.goto(`/kitaplar/${uid}?sayfa=3`);
     const slot = page.locator('[data-page-slot="3"]');
     await expect(slot.locator('canvas')).toBeVisible();
     const fitted = (await slot.boundingBox())?.width ?? 0;
@@ -321,7 +321,7 @@ test('görüntüleyici: varsayılan açılış, ortalanmış kapak, yakınlaşt�
 
 test('düzen: yatay kaydırma yok ve dokunma hedefleri en az 44 px', async ({ page, request }, testInfo) => {
   const suffix = `${testInfo.project.name} ${run}`;
-  const id = await createThroughApi(
+  const uid = await createThroughApi(
     request,
     `Düzen Denemesi Uzun Bir Kitap Adı ile Satır Kırılımı Kontrolü ${suffix}`,
   );
@@ -331,7 +331,7 @@ test('düzen: yatay kaydırma yok ve dokunma hedefleri en az 44 px', async ({ pa
   const screens: [string, string][] = [
     ['/', 'Yeni kitap'],
     ['/kitaplar', 'Kitaplarım'],
-    [`/kitaplar/${id}`, `Düzen Denemesi Uzun Bir Kitap Adı ile Satır Kırılımı Kontrolü ${suffix}`],
+    [`/kitaplar/${uid}`, `Düzen Denemesi Uzun Bir Kitap Adı ile Satır Kırılımı Kontrolü ${suffix}`],
     [`/kitaplar/${finished}`, `Düzen Denemesi Hazır Kitap ${suffix}`],
     ['/olmayan-sayfa', 'Sayfa bulunamadı'],
   ];

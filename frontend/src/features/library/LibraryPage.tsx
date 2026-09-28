@@ -36,7 +36,7 @@ export function LibraryPage() {
     }
 
     const book = pendingDelete;
-    deleteBook.mutate(book.id, {
+    deleteBook.mutate(book.uid, {
       onSuccess: () => {
         setPendingDelete(undefined);
         announce(`“${book.name}” silindi.`);
@@ -107,7 +107,7 @@ export function LibraryPage() {
           <ul aria-label="Kitaplar" className="flex flex-col">
             {data.items.map((book) => (
               <BookRow
-                key={book.id}
+                key={book.uid}
                 book={book}
                 onDelete={() => {
                   deleteBook.reset();
@@ -190,7 +190,7 @@ function BookRow({ book, onDelete }: { book: BookSummary; onDelete: () => void }
       className={`relative grid grid-cols-[minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2 border-b border-line px-5 py-4 last:border-b-0 hover:bg-surface-muted md:items-center ${LIBRARY_TABLE_COLUMNS}`}
     >
       <Link
-        to={paths.book(book.id)}
+        to={paths.book(book.uid)}
         className="flex min-h-11 items-center font-serif text-lg leading-snug font-semibold break-words text-ink after:absolute after:inset-0 after:content-[''] hover:underline"
       >
         {book.name}

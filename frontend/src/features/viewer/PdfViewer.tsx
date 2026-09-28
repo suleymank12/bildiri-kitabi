@@ -383,7 +383,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
   const toc = (
     <ViewerToc
       papers={book.papers}
-      activePaperId={activePaper?.id}
+      activePaperUid={activePaper?.uid}
       onSelect={(target) => {
         setMobileTocOpen(false);
         goToPage(target);

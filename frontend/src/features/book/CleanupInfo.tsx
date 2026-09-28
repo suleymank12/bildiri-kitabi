@@ -88,7 +88,7 @@ export function CleanupInfo({ book }: { book: BookDetail }) {
           </thead>
           <tbody>
             {book.papers.map((paper) => (
-              <tr key={paper.id} className="border-b border-line last:border-b-0">
+              <tr key={paper.uid} className="border-b border-line last:border-b-0">
                 <td className="numeric py-1 pr-2 text-ink-muted">{paper.order}</td>
                 <td className="max-w-0 py-1 pr-2">
                   <span className="block truncate" title={paper.title}>

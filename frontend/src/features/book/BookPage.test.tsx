@@ -21,8 +21,8 @@ const [a, b, c] = book.papers as [
 ];
 
 function renderBook(detail: BookDetail = book) {
-  server.use(http.get('/api/books/:id', () => HttpResponse.json(detail)));
-  return renderPage(<BookPage />, { path: '/kitaplar/:id', route: `/kitaplar/${detail.id}` });
+  server.use(http.get('/api/books/:uid', () => HttpResponse.json(detail)));
+  return renderPage(<BookPage />, { path: '/kitaplar/:uid', route: `/kitaplar/${detail.uid}` });
 }
 
 const fileOrder = () =>
@@ -47,7 +47,7 @@ describe('BookPage — order step', () => {
   it('"Aşağı" moves the paper and sends the whole new order', async () => {
     let body: unknown;
     server.use(
-      http.put('/api/books/:id/paper-order', async ({ request }) => {
+      http.put('/api/books/:uid/paper-order', async ({ request }) => {
         body = await request.json();
         return HttpResponse.json({
           ...book,
@@ -65,7 +65,7 @@ describe('BookPage — order step', () => {
 
     expect(fileOrder()).toEqual(['02_Bildiri.docx', '01_Bildiri.docx', '03_Bildiri.docx']);
     await waitFor(() => {
-      expect(body).toEqual({ paperIds: [b.id, a.id, c.id] });
+      expect(body).toEqual({ paperUids: [b.uid, a.uid, c.uid] });
     });
     expect(await screen.findByText('Sıra, yükleme sırasından farklı.')).toBeInTheDocument();
     // The focus stays on the button that was pressed and the new position is read out.
@@ -84,7 +84,7 @@ describe('BookPage — order step', () => {
 
   it('moves the focus to the other button when a paper reaches the end of the list', async () => {
     server.use(
-      http.put('/api/books/:id/paper-order', () =>
+      http.put('/api/books/:uid/paper-order', () =>
         HttpResponse.json({
           ...book,
           papers: [
@@ -104,7 +104,7 @@ describe('BookPage — order step', () => {
 
   it('rolls the order back and explains when saving fails', async () => {
     server.use(
-      http.put('/api/books/:id/paper-order', () =>
+      http.put('/api/books/:uid/paper-order', () =>
         HttpResponse.json(
           {
             type: null,
@@ -129,7 +129,7 @@ describe('BookPage — order step', () => {
   it('shows the error of a failed book with a retry button', async () => {
     let started = false;
     server.use(
-      http.post('/api/books/:id/generate', () => {
+      http.post('/api/books/:uid/generate', () => {
         started = true;
         return new HttpResponse(null, { status: 202 });
       }),
@@ -194,7 +194,7 @@ describe('BookPage — generation', () => {
       progressPercent: 100,
       pageCount: 22,
       pdfSizeBytes: 131_700,
-      pdfUrl: `/api/books/${book.id}/pdf`,
+      pdfUrl: `/api/books/${book.uid}/pdf`,
       papers: book.papers.map((p, i) => ({
         ...p,
         startPage: 3 + 2 * i,
@@ -221,7 +221,7 @@ describe('BookPage — generation', () => {
     expect(info).toHaveFocus();
     expect(screen.queryByRole('list', { name: 'Aşamalar' })).not.toBeInTheDocument();
     expect(await screen.findByRole('region', { name: 'PDF görüntüleyici' })).toHaveTextContent(
-      `/api/books/${book.id}/pdf`,
+      `/api/books/${book.uid}/pdf`,
     );
   });
 });
@@ -237,7 +237,7 @@ describe('BookPage — failure', () => {
   it('shows the message, the code, the stage where it stopped and retries on "Tekrar dene"', async () => {
     let started = 0;
     server.use(
-      http.post('/api/books/:id/generate', () => {
+      http.post('/api/books/:uid/generate', () => {
         started++;
         return new HttpResponse(null, { status: 202 });
       }),
@@ -269,14 +269,14 @@ describe('BookPage — failure', () => {
 
   it('says so when the book does not exist', async () => {
     server.use(
-      http.get('/api/books/:id', () =>
+      http.get('/api/books/:uid', () =>
         HttpResponse.json(
           { title: 'x', status: 404, detail: 'yok', code: 'BOOK_NOT_FOUND' },
           { status: 404 },
         ),
       ),
     );
-    renderPage(<BookPage />, { path: '/kitaplar/:id', route: '/kitaplar/olmayan' });
+    renderPage(<BookPage />, { path: '/kitaplar/:uid', route: '/kitaplar/olmayan' });
 
     expect(await screen.findByRole('heading', { name: 'Kitap bulunamadı' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Yeni kitap' })).toBeInTheDocument();

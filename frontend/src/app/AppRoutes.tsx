@@ -11,7 +11,7 @@ export function AppRoutes() {
       <Route element={<Layout />}>
         <Route index element={<NewBookPage />} />
         <Route path="kitaplar" element={<LibraryPage />} />
-        <Route path="kitaplar/:id" element={<BookPage />} />
+        <Route path="kitaplar/:uid" element={<BookPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

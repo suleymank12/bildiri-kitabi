@@ -38,14 +38,14 @@ public sealed class SoftDeleteTests(SqlServerFixture sql) : IAsyncDisposable
         var api = Host();
         var book = await api.CreateSampleBookAsync("Silinecek Kitap");
         var other = await api.CreateSampleBookAsync("Kalacak Kitap");
-        (await api.GenerateAsync(book.Id)).ShouldBe(HttpStatusCode.Accepted);
-        var completed = await api.WaitForFinalStatusAsync(book.Id);
+        (await api.GenerateAsync(book.Uid)).ShouldBe(HttpStatusCode.Accepted);
+        var completed = await api.WaitForFinalStatusAsync(book.Uid);
         completed.Status.ShouldBe(BookStatus.Completed);
         using var client = api.Client();
-        var files = api.StoredFiles(book.Id);
+        var files = api.StoredFiles(book.Uid);
         files.Count.ShouldBe(11);
 
-        using (var deleted = await client.DeleteAsync(BookUri(book.Id), TestContext.Current.CancellationToken))
+        using (var deleted = await client.DeleteAsync(BookUri(book.Uid), TestContext.Current.CancellationToken))
         {
             deleted.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         }
@@ -54,20 +54,20 @@ public sealed class SoftDeleteTests(SqlServerFixture sql) : IAsyncDisposable
         var row = await api.QueryAsync(
             "SELECT AktifMi, SilinmeZamani, Durum, PdfDepolamaAnahtari FROM Kitaplar WHERE Uid = @id",
             r => (Active: r.GetBoolean(0), DeletedAt: r.IsDBNull(1) ? (DateTime?)null : r.GetDateTime(1), Status: r.GetString(2), Pdf: r.GetString(3)),
-            ("@id", book.Id));
+            ("@id", book.Uid));
         row.ShouldHaveSingleItem().Active.ShouldBeFalse();
         row[0].DeletedAt.ShouldNotBeNull();
         row[0].Status.ShouldBe("Completed");
-        (await api.QueryAsync("SELECT COUNT(*) FROM Bildiriler WHERE KitapId = (SELECT Id FROM Kitaplar WHERE Uid = @id)", r => r.GetInt32(0), ("@id", book.Id))).ShouldBe([10]);
-        api.StoredFiles(book.Id).ShouldBe(files, ignoreOrder: true);
+        (await api.QueryAsync("SELECT COUNT(*) FROM Bildiriler WHERE KitapId = (SELECT Id FROM Kitaplar WHERE Uid = @id)", r => r.GetInt32(0), ("@id", book.Uid))).ShouldBe([10]);
+        api.StoredFiles(book.Uid).ShouldBe(files, ignoreOrder: true);
 
         // Out of the book list, in the deleted list with its deletion time.
         var list = (await client.GetFromJsonAsync<PagedResult<BookSummaryDto>>(new Uri("/api/books", UriKind.Relative), ApiHost.Json, TestContext.Current.CancellationToken))!;
-        list.Items.Select(b => b.Id).ShouldBe([other.Id]);
+        list.Items.Select(b => b.Uid).ShouldBe([other.Uid]);
         list.TotalCount.ShouldBe(1);
         var trash = (await client.GetFromJsonAsync<PagedResult<DeletedBookSummaryDto>>(new Uri("/api/books/deleted", UriKind.Relative), ApiHost.Json, TestContext.Current.CancellationToken))!;
         var item = trash.Items.ShouldHaveSingleItem();
-        item.Id.ShouldBe(book.Id);
+        item.Uid.ShouldBe(book.Uid);
         item.Name.ShouldBe("Silinecek Kitap");
         item.Status.ShouldBe(BookStatus.Completed);
         item.PaperCount.ShouldBe(10);
@@ -77,24 +77,24 @@ public sealed class SoftDeleteTests(SqlServerFixture sql) : IAsyncDisposable
         item.DeletedAt.Kind.ShouldBe(DateTimeKind.Utc);
 
         // Deleted again or restored twice: not found.
-        using (var again = await client.DeleteAsync(BookUri(book.Id), TestContext.Current.CancellationToken))
+        using (var again = await client.DeleteAsync(BookUri(book.Uid), TestContext.Current.CancellationToken))
         {
             await ShouldBeProblemAsync(again, HttpStatusCode.NotFound, "BOOK_NOT_FOUND");
         }
 
-        using (var restored = await client.PostAsync(new Uri($"/api/books/{book.Id}/restore", UriKind.Relative), null, TestContext.Current.CancellationToken))
+        using (var restored = await client.PostAsync(new Uri($"/api/books/{book.Uid}/restore", UriKind.Relative), null, TestContext.Current.CancellationToken))
         {
             restored.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         }
 
-        using (var twice = await client.PostAsync(new Uri($"/api/books/{book.Id}/restore", UriKind.Relative), null, TestContext.Current.CancellationToken))
+        using (var twice = await client.PostAsync(new Uri($"/api/books/{book.Uid}/restore", UriKind.Relative), null, TestContext.Current.CancellationToken))
         {
             await ShouldBeProblemAsync(twice, HttpStatusCode.NotFound, "DELETED_BOOK_NOT_FOUND");
         }
 
         // Back in the list as it was, and its PDF downloads again.
-        (await api.QueryAsync("SELECT AktifMi, SilinmeZamani FROM Kitaplar WHERE Uid = @id", r => (r.GetBoolean(0), r.IsDBNull(1)), ("@id", book.Id))).ShouldBe([(true, true)]);
-        var back = await api.GetBookAsync(book.Id);
+        (await api.QueryAsync("SELECT AktifMi, SilinmeZamani FROM Kitaplar WHERE Uid = @id", r => (r.GetBoolean(0), r.IsDBNull(1)), ("@id", book.Uid))).ShouldBe([(true, true)]);
+        var back = await api.GetBookAsync(book.Uid);
         back.Status.ShouldBe(BookStatus.Completed);
         back.PdfUrl.ShouldBe(completed.PdfUrl);
         back.Papers.Select(p => p.StartPage).ShouldBe(completed.Papers.Select(p => p.StartPage));
@@ -112,31 +112,31 @@ public sealed class SoftDeleteTests(SqlServerFixture sql) : IAsyncDisposable
         var api = Host();
         var book = await api.CreateSampleBookAsync();
         using var client = api.Client();
-        using (var deleted = await client.DeleteAsync(BookUri(book.Id), TestContext.Current.CancellationToken))
+        using (var deleted = await client.DeleteAsync(BookUri(book.Uid), TestContext.Current.CancellationToken))
         {
             deleted.StatusCode.ShouldBe(HttpStatusCode.NoContent);
         }
 
-        var before = await RowAsync(api, book.Id);
-        var reversed = book.Papers.Select(p => p.Id).Reverse().ToList();
+        var before = await RowAsync(api, book.Uid);
+        var reversed = book.Papers.Select(p => p.Uid).Reverse().ToList();
 
-        using (var detail = await client.GetAsync(BookUri(book.Id), TestContext.Current.CancellationToken))
+        using (var detail = await client.GetAsync(BookUri(book.Uid), TestContext.Current.CancellationToken))
         {
             await ShouldBeProblemAsync(detail, HttpStatusCode.NotFound, "BOOK_NOT_FOUND");
         }
 
-        using (var pdf = await client.GetAsync(new Uri($"/api/books/{book.Id}/pdf", UriKind.Relative), TestContext.Current.CancellationToken))
+        using (var pdf = await client.GetAsync(new Uri($"/api/books/{book.Uid}/pdf", UriKind.Relative), TestContext.Current.CancellationToken))
         {
             await ShouldBeProblemAsync(pdf, HttpStatusCode.NotFound, "BOOK_NOT_FOUND");
         }
 
-        using (var generate = await client.PostAsync(new Uri($"/api/books/{book.Id}/generate", UriKind.Relative), null, TestContext.Current.CancellationToken))
+        using (var generate = await client.PostAsync(new Uri($"/api/books/{book.Uid}/generate", UriKind.Relative), null, TestContext.Current.CancellationToken))
         {
             await ShouldBeProblemAsync(generate, HttpStatusCode.NotFound, "BOOK_NOT_FOUND");
         }
 
         using (var order = await client.PutAsJsonAsync(
-            new Uri($"/api/books/{book.Id}/paper-order", UriKind.Relative),
+            new Uri($"/api/books/{book.Uid}/paper-order", UriKind.Relative),
             new PaperOrderRequest(reversed),
             ApiHost.Json,
             TestContext.Current.CancellationToken))
@@ -144,11 +144,11 @@ public sealed class SoftDeleteTests(SqlServerFixture sql) : IAsyncDisposable
             await ShouldBeProblemAsync(order, HttpStatusCode.NotFound, "BOOK_NOT_FOUND");
         }
 
-        (await RowAsync(api, book.Id)).ShouldBe(before);
+        (await RowAsync(api, book.Uid)).ShouldBe(before);
         (await api.QueryAsync(
             "SELECT SiraNo FROM Bildiriler WHERE KitapId = (SELECT Id FROM Kitaplar WHERE Uid = @id) ORDER BY YuklemeSirasi",
             r => r.GetInt32(0),
-            ("@id", book.Id))).ShouldBe(Enumerable.Range(1, 10));
+            ("@id", book.Uid))).ShouldBe(Enumerable.Range(1, 10));
     }
 
     [Fact]
@@ -160,16 +160,16 @@ public sealed class SoftDeleteTests(SqlServerFixture sql) : IAsyncDisposable
 
         foreach (var status in new[] { "Queued", "Processing" })
         {
-            await api.ExecuteAsync($"UPDATE Kitaplar SET Durum = '{status}' WHERE Uid = @id", ("@id", book.Id));
-            using var busy = await client.DeleteAsync(BookUri(book.Id), TestContext.Current.CancellationToken);
+            await api.ExecuteAsync($"UPDATE Kitaplar SET Durum = '{status}' WHERE Uid = @id", ("@id", book.Uid));
+            using var busy = await client.DeleteAsync(BookUri(book.Uid), TestContext.Current.CancellationToken);
             await ShouldBeProblemAsync(busy, HttpStatusCode.Conflict, "GENERATION_ALREADY_IN_PROGRESS");
         }
 
-        (await api.QueryAsync("SELECT AktifMi FROM Kitaplar WHERE Uid = @id", r => r.GetBoolean(0), ("@id", book.Id))).ShouldBe([true]);
+        (await api.QueryAsync("SELECT AktifMi FROM Kitaplar WHERE Uid = @id", r => r.GetBoolean(0), ("@id", book.Uid))).ShouldBe([true]);
 
         using var unknown = await client.PostAsync(new Uri($"/api/books/{Guid.NewGuid()}/restore", UriKind.Relative), null, TestContext.Current.CancellationToken);
         await ShouldBeProblemAsync(unknown, HttpStatusCode.NotFound, "DELETED_BOOK_NOT_FOUND");
-        using var active = await client.PostAsync(new Uri($"/api/books/{book.Id}/restore", UriKind.Relative), null, TestContext.Current.CancellationToken);
+        using var active = await client.PostAsync(new Uri($"/api/books/{book.Uid}/restore", UriKind.Relative), null, TestContext.Current.CancellationToken);
         await ShouldBeProblemAsync(active, HttpStatusCode.NotFound, "DELETED_BOOK_NOT_FOUND");
     }
 
@@ -186,10 +186,10 @@ public sealed class SoftDeleteTests(SqlServerFixture sql) : IAsyncDisposable
         const string Deleted = "AktifMi = 0, SilinmeZamani = DATEADD(MINUTE, -30, SYSUTCDATETIME())";
         await first.ExecuteAsync(
             $"UPDATE Kitaplar SET Durum = 'Queued', KuyrugaAlinmaZamani = DATEADD(HOUR, -1, SYSUTCDATETIME()), {Deleted} WHERE Uid = @id",
-            ("@id", queued.Id));
+            ("@id", queued.Uid));
         await first.ExecuteAsync(
             $"UPDATE Kitaplar SET Durum = 'Processing', IslemBaslangicZamani = DATEADD(HOUR, -1, SYSUTCDATETIME()), {Deleted} WHERE Uid = @id",
-            ("@id", processing.Id));
+            ("@id", processing.Uid));
         await first.DisposeAsync();
         _hosts.Remove(first);
 
@@ -197,12 +197,12 @@ public sealed class SoftDeleteTests(SqlServerFixture sql) : IAsyncDisposable
         var restarted = Host(connectionString, dataRoot);
         using (restarted.Client())
         {
-            var before = new[] { await RowAsync(restarted, queued.Id), await RowAsync(restarted, processing.Id) };
+            var before = new[] { await RowAsync(restarted, queued.Uid), await RowAsync(restarted, processing.Uid) };
 
             await using (var scope = restarted.Services.CreateAsyncScope())
             {
-                await scope.ServiceProvider.GetRequiredService<BookGenerationHandler>().HandleAsync(queued.Id, TestContext.Current.CancellationToken);
-                await scope.ServiceProvider.GetRequiredService<BookGenerationHandler>().HandleAsync(processing.Id, TestContext.Current.CancellationToken);
+                await scope.ServiceProvider.GetRequiredService<BookGenerationHandler>().HandleAsync(queued.Uid, TestContext.Current.CancellationToken);
+                await scope.ServiceProvider.GetRequiredService<BookGenerationHandler>().HandleAsync(processing.Uid, TestContext.Current.CancellationToken);
             }
 
             await using (var scope = restarted.Services.CreateAsyncScope())
@@ -210,11 +210,11 @@ public sealed class SoftDeleteTests(SqlServerFixture sql) : IAsyncDisposable
                 (await scope.ServiceProvider.GetRequiredService<QueueSweepService>().SweepAsync(TestContext.Current.CancellationToken)).ShouldBe(0);
             }
 
-            new[] { await RowAsync(restarted, queued.Id), await RowAsync(restarted, processing.Id) }.ShouldBe(before);
+            new[] { await RowAsync(restarted, queued.Uid), await RowAsync(restarted, processing.Uid) }.ShouldBe(before);
             before[0].Status.ShouldBe("Queued");
             before[1].Status.ShouldBe("Processing");
-            restarted.StoredFiles(queued.Id).ShouldAllBe(f => f.EndsWith(".docx", StringComparison.Ordinal));
-            restarted.StoredFiles(processing.Id).ShouldAllBe(f => f.EndsWith(".docx", StringComparison.Ordinal));
+            restarted.StoredFiles(queued.Uid).ShouldAllBe(f => f.EndsWith(".docx", StringComparison.Ordinal));
+            restarted.StoredFiles(processing.Uid).ShouldAllBe(f => f.EndsWith(".docx", StringComparison.Ordinal));
         }
     }
 

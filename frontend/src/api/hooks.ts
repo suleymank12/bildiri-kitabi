@@ -14,15 +14,15 @@ export const bookKeys = {
   all: ['books'] as const,
   lists: () => [...bookKeys.all, 'list'] as const,
   list: (page: number) => [...bookKeys.lists(), page] as const,
-  detail: (id: string) => [...bookKeys.all, 'detail', id] as const,
+  detail: (uid: string) => [...bookKeys.all, 'detail', uid] as const,
 };
 
 /** One book; polled every 700 ms while it is queued or being generated, not at all otherwise. */
-export function useBook(id: string) {
+export function useBook(uid: string) {
   return useQuery({
-    queryKey: bookKeys.detail(id),
+    queryKey: bookKeys.detail(uid),
     queryFn: ({ signal }) =>
-      unwrap(api.GET('/api/books/{uid}', { params: { path: { uid: id } }, signal })) as Promise<BookDetail>,
+      unwrap(api.GET('/api/books/{uid}', { params: { path: { uid } }, signal })) as Promise<BookDetail>,
     refetchInterval: (query) => (query.state.data && isBusy(query.state.data.status) ? BOOK_POLL_MS : false),
     // Polling pauses while the tab is hidden and resumes when it is visible again.
     refetchIntervalInBackground: false,
@@ -54,7 +54,7 @@ export function useCreateBook() {
       return uploadBook(name, files, setProgress);
     },
     onSuccess: (book) => {
-      queryClient.setQueryData(bookKeys.detail(book.id), book);
+      queryClient.setQueryData(bookKeys.detail(book.uid), book);
       void queryClient.invalidateQueries({ queryKey: bookKeys.lists() });
     },
   });
@@ -65,21 +65,21 @@ export function useCreateBook() {
  * Saves a new paper order. The list changes at once (optimistic update) and is rolled back if the server
  * refuses; the caller shows the error.
  */
-export function useReorderPapers(id: string) {
+export function useReorderPapers(uid: string) {
   const queryClient = useQueryClient();
-  const key = bookKeys.detail(id);
+  const key = bookKeys.detail(uid);
   return useMutation({
-    mutationFn: (paperIds: string[]) =>
+    mutationFn: (paperUids: string[]) =>
       unwrap(
-        api.PUT('/api/books/{uid}/paper-order', { params: { path: { uid: id } }, body: { paperIds } }),
+        api.PUT('/api/books/{uid}/paper-order', { params: { path: { uid } }, body: { paperUids } }),
       ) as Promise<BookDetail>,
-    onMutate: async (paperIds) => {
+    onMutate: async (paperUids) => {
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<BookDetail>(key);
       if (previous) {
-        const byId = new Map(previous.papers.map((paper) => [paper.id, paper]));
-        const papers = paperIds.flatMap((paperId, index) => {
-          const paper = byId.get(paperId);
+        const byUid = new Map(previous.papers.map((paper) => [paper.uid, paper]));
+        const papers = paperUids.flatMap((paperUid, index) => {
+          const paper = byUid.get(paperUid);
           return paper ? [{ ...paper, order: index + 1 }] : [];
         });
         queryClient.setQueryData<BookDetail>(key, { ...previous, papers });
@@ -87,7 +87,7 @@ export function useReorderPapers(id: string) {
 
       return { previous };
     },
-    onError: (error, _paperIds, context) => {
+    onError: (error, _paperUids, context) => {
       if (context?.previous) {
         queryClient.setQueryData(key, context.previous);
       }
@@ -103,12 +103,12 @@ export function useReorderPapers(id: string) {
 }
 
 /** Starts generation (202) and refreshes the book so its page switches to the progress view. */
-export function useStartGeneration(id: string) {
+export function useStartGeneration(uid: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => unwrap(api.POST('/api/books/{uid}/generate', { params: { path: { uid: id } } })),
+    mutationFn: () => unwrap(api.POST('/api/books/{uid}/generate', { params: { path: { uid } } })),
     onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: bookKeys.detail(id) });
+      await queryClient.invalidateQueries({ queryKey: bookKeys.detail(uid) });
       void queryClient.invalidateQueries({ queryKey: bookKeys.lists() });
     },
   });
@@ -117,9 +117,9 @@ export function useStartGeneration(id: string) {
 export function useDeleteBook() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => unwrap(api.DELETE('/api/books/{uid}', { params: { path: { uid: id } } })),
-    onSuccess: (_result, id) => {
-      queryClient.removeQueries({ queryKey: bookKeys.detail(id) });
+    mutationFn: (uid: string) => unwrap(api.DELETE('/api/books/{uid}', { params: { path: { uid } } })),
+    onSuccess: (_result, uid) => {
+      queryClient.removeQueries({ queryKey: bookKeys.detail(uid) });
       void queryClient.invalidateQueries({ queryKey: bookKeys.lists() });
     },
   });

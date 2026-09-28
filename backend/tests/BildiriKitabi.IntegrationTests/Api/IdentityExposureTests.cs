@@ -5,7 +5,7 @@ using BildiriKitabi.Api.Contracts;
 
 namespace BildiriKitabi.IntegrationTests.Api;
 
-/// <summary>The numeric database ids never leave the API: every id in a response is the Uid.</summary>
+/// <summary>The numeric database ids never leave the API: every identifier in a response is a Uid named <c>uid</c>.</summary>
 public sealed class IdentityExposureTests(SqlServerFixture sql) : IAsyncLifetime
 {
     private ApiHost _api = null!;
@@ -41,8 +41,8 @@ public sealed class IdentityExposureTests(SqlServerFixture sql) : IAsyncLifetime
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
         var createdBody = await created.Content.ReadFromJsonAsync<JsonElement>(TestContext.Current.CancellationToken);
         responses.Add(createdBody);
-        var uid = createdBody.GetProperty("id").GetGuid();
-        var paperUids = createdBody.GetProperty("papers").EnumerateArray().Select(p => p.GetProperty("id").GetGuid()).ToList();
+        var uid = createdBody.GetProperty("uid").GetGuid();
+        var paperUids = createdBody.GetProperty("papers").EnumerateArray().Select(p => p.GetProperty("uid").GetGuid()).ToList();
 
         // The ids in the response are the Uid columns, and the storage keys are built from them.
         var row = await _api.QueryAsync("SELECT Id FROM Kitaplar WHERE Uid = @id", r => r.GetInt32(0), ("@id", uid));
@@ -79,6 +79,9 @@ public sealed class IdentityExposureTests(SqlServerFixture sql) : IAsyncLifetime
         foreach (var response in responses)
         {
             IdProperties(response).ShouldNotBeEmpty();
+
+            // Every identifier is named for what it is: uid, never a bare id.
+            IdProperties(response).Select(p => p.Path).ShouldAllBe(path => path.EndsWith("uid", StringComparison.OrdinalIgnoreCase));
             foreach (var (path, value) in IdProperties(response))
             {
                 value.ValueKind.ShouldBe(JsonValueKind.String, path);

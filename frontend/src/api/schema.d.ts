@@ -502,7 +502,7 @@ export interface components {
     };
     BookDetailDto: {
       /** Format: uuid */
-      id: string;
+      uid: string;
       name: string;
       status: components['schemas']['BookStatus'];
       stage: null | components['schemas']['GenerationStage'];
@@ -530,7 +530,7 @@ export interface components {
     BookStatus: 'Uploaded' | 'Queued' | 'Processing' | 'Completed' | 'Failed';
     BookSummaryDto: {
       /** Format: uuid */
-      id: string;
+      uid: string;
       name: string;
       status: components['schemas']['BookStatus'];
       stage: null | components['schemas']['GenerationStage'];
@@ -549,7 +549,7 @@ export interface components {
     };
     DeletedBookSummaryDto: {
       /** Format: uuid */
-      id: string;
+      uid: string;
       name: string;
       status: components['schemas']['BookStatus'];
       stage: null | components['schemas']['GenerationStage'];
@@ -592,7 +592,7 @@ export interface components {
     };
     PaperDto: {
       /** Format: uuid */
-      id: string;
+      uid: string;
       /** Format: int32 */
       order: number;
       /** Format: int32 */
@@ -612,7 +612,7 @@ export interface components {
       sizeBytes: number;
     };
     PaperOrderRequest: {
-      paperIds: string[];
+      paperUids: string[];
     };
     ProblemResponse: {
       type?: null | string;

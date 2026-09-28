@@ -6,9 +6,9 @@ namespace BildiriKitabi.Api.Contracts;
 
 public sealed record BookErrorDto(string Code, string Message);
 
-/// <summary>A paper of a book; <see cref="Id"/> is the paper's <see cref="Paper.Uid"/>.</summary>
+/// <summary>A paper of a book, identified by its <see cref="Paper.Uid"/>.</summary>
 public sealed record PaperDto(
-    Guid Id,
+    Guid Uid,
     int Order,
     int UploadOrder,
     string FileName,
@@ -21,11 +21,11 @@ public sealed record PaperDto(
     long SizeBytes);
 
 /// <summary>
-/// A book with its papers. <see cref="Id"/> carries the book's <see cref="Book.Uid"/>: the numeric database id never
-/// appears in a response.
+/// A book with its papers, identified by its <see cref="Book.Uid"/>: the numeric database id never appears in a
+/// response.
 /// </summary>
 public sealed record BookDetailDto(
-    Guid Id,
+    Guid Uid,
     string Name,
     BookStatus Status,
     GenerationStage? Stage,
@@ -74,9 +74,9 @@ public sealed record BookDetailDto(
     internal static string? PdfUrlOf(Book book) => book.Status == BookStatus.Completed ? $"/api/books/{book.Uid:D}/pdf" : null;
 }
 
-/// <summary>A row of the book list; <see cref="Id"/> is the book's <see cref="Book.Uid"/>.</summary>
+/// <summary>A row of the book list, identified by the book's <see cref="Book.Uid"/>.</summary>
 public sealed record BookSummaryDto(
-    Guid Id,
+    Guid Uid,
     string Name,
     BookStatus Status,
     GenerationStage? Stage,
@@ -111,7 +111,7 @@ public sealed record BookSummaryDto(
 /// <see cref="PdfUrl"/> is always null because a deleted book's PDF is not served until it is restored.
 /// </summary>
 public sealed record DeletedBookSummaryDto(
-    Guid Id,
+    Guid Uid,
     string Name,
     BookStatus Status,
     GenerationStage? Stage,
@@ -148,8 +148,8 @@ public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSi
 /// <summary>Body of <c>PUT /api/books/{uid}</c>: the new book name, 3–150 characters.</summary>
 public sealed record RenameBookRequest(string? Name);
 
-/// <summary>The paper ids (<see cref="Paper.Uid"/>) in the new order.</summary>
-public sealed record PaperOrderRequest(IReadOnlyList<Guid> PaperIds);
+/// <summary>The paper uids (<see cref="Paper.Uid"/>) in the new order.</summary>
+public sealed record PaperOrderRequest(IReadOnlyList<Guid> PaperUids);
 
 /// <summary>multipart/form-data body of <c>POST /api/books</c>.</summary>
 public sealed class CreateBookForm

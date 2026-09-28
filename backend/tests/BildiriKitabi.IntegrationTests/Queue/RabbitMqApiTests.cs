@@ -29,23 +29,23 @@ public sealed class RabbitMqApiTests(SqlServerFixture sql, RabbitMqFixture rabbi
         var api = Host(options);
         var book = await api.CreateSampleBookAsync();
 
-        (await api.GenerateAsync(book.Id)).ShouldBe(HttpStatusCode.Accepted);
-        var completed = await api.WaitForFinalStatusAsync(book.Id);
+        (await api.GenerateAsync(book.Uid)).ShouldBe(HttpStatusCode.Accepted);
+        var completed = await api.WaitForFinalStatusAsync(book.Uid);
         completed.Status.ShouldBe(BookStatus.Completed, completed.Error?.Message);
         using var client = api.Client();
         var pdf = await client.GetByteArrayAsync(new Uri(completed.PdfUrl!, UriKind.Relative), TestContext.Current.CancellationToken);
         pdf.AsSpan(0, 5).SequenceEqual("%PDF-"u8).ShouldBeTrue();
-        var before = await StoredResultAsync(api, book.Id);
+        var before = await StoredResultAsync(api, book.Uid);
 
         // At-least-once delivery: the same book id arrives again.
         var connection = await rabbit.RawConnectionAsync();
         _disposables.Add(connection);
         var channel = await connection.CreateChannelAsync(cancellationToken: TestContext.Current.CancellationToken);
         _disposables.Add(channel);
-        await channel.BasicPublishAsync(string.Empty, options.QueueName, GenerationMessage.Serialize(book.Id), TestContext.Current.CancellationToken);
+        await channel.BasicPublishAsync(string.Empty, options.QueueName, GenerationMessage.Serialize(book.Uid), TestContext.Current.CancellationToken);
         await RabbitMqFixture.EventuallyAsync(async () => await rabbit.CountsAsync(options.QueueName) == (0, 0), "ikinci mesaj işlenip onaylandı");
 
-        (await StoredResultAsync(api, book.Id)).ShouldBe(before);
+        (await StoredResultAsync(api, book.Uid)).ShouldBe(before);
         (await rabbit.CountsAsync(options.DeadLetterQueue)).Ready.ShouldBe(0);
 
         var health = await HealthAsync(api);
@@ -83,11 +83,11 @@ public sealed class RabbitMqApiTests(SqlServerFixture sql, RabbitMqFixture rabbi
         (await HealthAsync(api)).Checks["rabbitmq"].ShouldBe("Unhealthy");
         (await HealthAsync(api)).Checks["database"].ShouldBe("Healthy");
 
-        (await api.GenerateAsync(book.Id)).ShouldBe(HttpStatusCode.Accepted);
-        (await api.QueryAsync("SELECT Durum FROM Kitaplar WHERE Uid = @id", r => r.GetString(0), ("@id", book.Id))).ShouldBe(["Queued"]);
+        (await api.GenerateAsync(book.Uid)).ShouldBe(HttpStatusCode.Accepted);
+        (await api.QueryAsync("SELECT Durum FROM Kitaplar WHERE Uid = @id", r => r.GetString(0), ("@id", book.Uid))).ShouldBe(["Queued"]);
 
         await broker.StartAsync(TestContext.Current.CancellationToken);
-        var completed = await api.WaitForFinalStatusAsync(book.Id, timeoutSeconds: 120);
+        var completed = await api.WaitForFinalStatusAsync(book.Uid, timeoutSeconds: 120);
 
         completed.Status.ShouldBe(BookStatus.Completed, completed.Error?.Message);
         (await HealthAsync(api)).Status.ShouldBe(HttpStatusCode.OK);

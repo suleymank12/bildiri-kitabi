@@ -64,8 +64,8 @@ describe('LibraryPage', () => {
     let deleted: string | undefined;
     server.use(
       http.get('/api/books', () => HttpResponse.json(listOf(items))),
-      http.delete('/api/books/:id', ({ params }) => {
-        deleted = String(params.id);
+      http.delete('/api/books/:uid', ({ params }) => {
+        deleted = String(params.uid);
         items = [];
         return new HttpResponse(null, { status: 204 });
       }),
@@ -80,7 +80,7 @@ describe('LibraryPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Sil' }));
 
     await waitFor(() => {
-      expect(deleted).toBe(bookSummary().id);
+      expect(deleted).toBe(bookSummary().uid);
     });
     expect(await screen.findByRole('heading', { name: 'Henüz kitap oluşturmadınız.' })).toBeInTheDocument();
   });
@@ -89,7 +89,7 @@ describe('LibraryPage', () => {
     let deleted = false;
     server.use(
       http.get('/api/books', () => HttpResponse.json(listOf([bookSummary()]))),
-      http.delete('/api/books/:id', () => {
+      http.delete('/api/books/:uid', () => {
         deleted = true;
         return new HttpResponse(null, { status: 204 });
       }),

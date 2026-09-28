@@ -3,27 +3,27 @@ using System.Text.Json;
 namespace BildiriKitabi.Infrastructure.Queue;
 
 /// <summary>
-/// The body of a generation message: <c>{"bookId":"…","version":1}</c>. The id is the book's external
-/// <see cref="Core.Books.Book.Uid"/> (like <c>id</c> in the API); it is all a consumer needs.
+/// The body of a generation message: <c>{"bookUid":"…","version":2}</c>, the book's external
+/// <see cref="Core.Books.Book.Uid"/>; it is all a consumer needs.
 /// </summary>
 public static class GenerationMessage
 {
-    public const int Version = 1;
+    public const int Version = 2;
     public const string ContentType = "application/json";
 
     public static byte[] Serialize(Guid bookUid) =>
         JsonSerializer.SerializeToUtf8Bytes(new Body(bookUid, Version), BodyJson.Options);
 
-    /// <summary>False for anything that is not a JSON object with a non-empty <c>bookId</c> GUID.</summary>
+    /// <summary>False for anything but a JSON object of this version with a non-empty <c>bookUid</c> GUID.</summary>
     public static bool TryParse(ReadOnlySpan<byte> body, out Guid bookUid)
     {
         bookUid = Guid.Empty;
         try
         {
             var parsed = JsonSerializer.Deserialize<Body>(body, BodyJson.Options);
-            if (parsed is { BookId: var id } && id != Guid.Empty)
+            if (parsed is { Version: Version, BookUid: var uid } && uid != Guid.Empty)
             {
-                bookUid = id;
+                bookUid = uid;
                 return true;
             }
         }
@@ -35,7 +35,7 @@ public static class GenerationMessage
         return false;
     }
 
-    private sealed record Body(Guid BookId, int Version);
+    private sealed record Body(Guid BookUid, int Version);
 
     private static class BodyJson
     {

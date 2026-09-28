@@ -86,7 +86,7 @@ export function NewBookPage() {
       {
         onSuccess: (book) => {
           announce('Dosyalar yüklendi. Sıra ve kontrol adımına geçildi.');
-          void navigate(paths.book(book.id));
+          void navigate(paths.book(book.uid));
         },
         onError: (error) => {
           const mapped = mapUploadErrors(error);

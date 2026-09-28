@@ -36,8 +36,8 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
         });
         var book = await api.CreateSampleBookAsync();
 
-        (await api.GenerateAsync(book.Id)).ShouldBe(HttpStatusCode.Accepted);
-        var failed = await api.WaitForFinalStatusAsync(book.Id);
+        (await api.GenerateAsync(book.Uid)).ShouldBe(HttpStatusCode.Accepted);
+        var failed = await api.WaitForFinalStatusAsync(book.Uid);
 
         failed.Status.ShouldBe(BookStatus.Failed);
         failed.Error.ShouldBe(new BookErrorDto(BookErrorCodes.InternalError, BookGenerationHandler.UnexpectedErrorMessage));
@@ -45,19 +45,19 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
         var row = await api.QueryAsync(
             "SELECT Durum, HataMesaji, HataKodu FROM Kitaplar WHERE Uid = @id",
             r => (Status: r.GetString(0), Message: r.IsDBNull(1) ? null : r.GetString(1), Code: r.GetString(2)),
-            ("@id", book.Id));
+            ("@id", book.Uid));
         row.ShouldHaveSingleItem().Status.ShouldBe("Failed");
         row[0].Message.ShouldNotBeNullOrWhiteSpace();
         row[0].Code.ShouldBe("INTERNAL_ERROR");
         row[0].Message!.ShouldNotContain("Sahte");
 
         renderer.Fail = false;
-        (await api.GenerateAsync(book.Id)).ShouldBe(HttpStatusCode.Accepted);
-        var completed = await api.WaitForFinalStatusAsync(book.Id);
+        (await api.GenerateAsync(book.Uid)).ShouldBe(HttpStatusCode.Accepted);
+        var completed = await api.WaitForFinalStatusAsync(book.Uid);
 
         completed.Status.ShouldBe(BookStatus.Completed);
         completed.Error.ShouldBeNull();
-        (await api.QueryAsync("SELECT HataMesaji FROM Kitaplar WHERE Uid = @id", r => r.IsDBNull(0), ("@id", book.Id))).ShouldBe([true]);
+        (await api.QueryAsync("SELECT HataMesaji FROM Kitaplar WHERE Uid = @id", r => r.IsDBNull(0), ("@id", book.Uid))).ShouldBe([true]);
     }
 
     [Fact]
@@ -65,11 +65,11 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
     {
         var api = Host();
         var book = await api.CreateSampleBookAsync();
-        var reversed = book.Papers.Select(p => p.Id).Reverse().ToList();
+        var reversed = book.Papers.Select(p => p.Uid).Reverse().ToList();
         using var client = api.Client();
 
         using (var invalid = await client.PutAsJsonAsync(
-            new Uri($"/api/books/{book.Id}/paper-order", UriKind.Relative),
+            new Uri($"/api/books/{book.Uid}/paper-order", UriKind.Relative),
             new PaperOrderRequest(reversed.Take(9).ToList()),
             ApiHost.Json,
             TestContext.Current.CancellationToken))
@@ -79,18 +79,18 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
         }
 
         using var response = await client.PutAsJsonAsync(
-            new Uri($"/api/books/{book.Id}/paper-order", UriKind.Relative),
+            new Uri($"/api/books/{book.Uid}/paper-order", UriKind.Relative),
             new PaperOrderRequest(reversed),
             ApiHost.Json,
             TestContext.Current.CancellationToken);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var reordered = (await response.Content.ReadFromJsonAsync<BookDetailDto>(ApiHost.Json, TestContext.Current.CancellationToken))!;
-        reordered.Papers.Select(p => p.Id).ShouldBe(reversed);
+        reordered.Papers.Select(p => p.Uid).ShouldBe(reversed);
         reordered.Papers.Select(p => p.Order).ShouldBe(Enumerable.Range(1, 10));
         reordered.Papers.Select(p => p.UploadOrder).ShouldBe(Enumerable.Range(1, 10).Reverse());
 
-        (await api.GenerateAsync(book.Id)).ShouldBe(HttpStatusCode.Accepted);
-        var completed = await api.WaitForFinalStatusAsync(book.Id);
+        (await api.GenerateAsync(book.Uid)).ShouldBe(HttpStatusCode.Accepted);
+        var completed = await api.WaitForFinalStatusAsync(book.Uid);
         completed.Status.ShouldBe(BookStatus.Completed);
         completed.Papers[0].FileName.ShouldBe("10_Muze_Deneyimi.docx");
         completed.Papers.Select(p => p.StartPage).ShouldBe([3, 5, 7, 9, 11, 13, 15, 17, 19, 21]);
@@ -104,8 +104,8 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
 
         // A completed book can be reordered again; it goes back to Uploaded until it is generated once more.
         using var reopened = await client.PutAsJsonAsync(
-            new Uri($"/api/books/{book.Id}/paper-order", UriKind.Relative),
-            new PaperOrderRequest(book.Papers.Select(p => p.Id).ToList()),
+            new Uri($"/api/books/{book.Uid}/paper-order", UriKind.Relative),
+            new PaperOrderRequest(book.Papers.Select(p => p.Uid).ToList()),
             ApiHost.Json,
             TestContext.Current.CancellationToken);
         reopened.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -120,18 +120,18 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
         var first = Host(connectionString: connectionString, dataRoot: dataRoot);
         var queued = await first.CreateSampleBookAsync("Kuyrukta Kalan Kitap");
         var interrupted = await first.CreateSampleBookAsync("Yarıda Kalan Kitap");
-        await first.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Queued' WHERE Uid = @id", ("@id", queued.Id));
+        await first.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Queued' WHERE Uid = @id", ("@id", queued.Uid));
         await first.ExecuteAsync(
             "UPDATE Kitaplar SET Durum = 'Processing', Asama = 'Rendering', IlerlemeYuzdesi = 45, IslemBaslangicZamani = SYSUTCDATETIME() WHERE Uid = @id",
-            ("@id", interrupted.Id));
+            ("@id", interrupted.Uid));
         await first.DisposeAsync();
         _hosts.Remove(first);
 
         var restarted = Host(connectionString: connectionString, dataRoot: dataRoot);
         using (restarted.Client())
         {
-            (await restarted.WaitForFinalStatusAsync(queued.Id)).Status.ShouldBe(BookStatus.Completed);
-            (await restarted.WaitForFinalStatusAsync(interrupted.Id)).Status.ShouldBe(BookStatus.Completed);
+            (await restarted.WaitForFinalStatusAsync(queued.Uid)).Status.ShouldBe(BookStatus.Completed);
+            (await restarted.WaitForFinalStatusAsync(interrupted.Uid)).Status.ShouldBe(BookStatus.Completed);
         }
     }
 
@@ -147,8 +147,8 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
             settings: new Dictionary<string, string> { ["Generation:TimeoutSeconds"] = "1" });
         var book = await api.CreateSampleBookAsync();
 
-        (await api.GenerateAsync(book.Id)).ShouldBe(HttpStatusCode.Accepted);
-        var failed = await api.WaitForFinalStatusAsync(book.Id);
+        (await api.GenerateAsync(book.Uid)).ShouldBe(HttpStatusCode.Accepted);
+        var failed = await api.WaitForFinalStatusAsync(book.Uid);
 
         failed.Status.ShouldBe(BookStatus.Failed);
         failed.Error!.Code.ShouldBe(BookErrorCodes.GenerationTimeout);

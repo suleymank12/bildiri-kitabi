@@ -39,7 +39,7 @@ vi.mock('react-pdf', () => ({
 }));
 
 const completed: BookDetail = bookDetail({
-  id: 'kitap-1',
+  uid: 'kitap-1',
   status: 'Completed',
   pageCount: 22,
   pdfUrl: '/api/books/kitap-1/pdf',
@@ -50,7 +50,7 @@ const completed: BookDetail = bookDetail({
 
 function renderViewer(query = '') {
   return renderPage(<PdfViewer book={completed} />, {
-    path: '/kitaplar/:id',
+    path: '/kitaplar/:uid',
     route: `/kitaplar/kitap-1${query}`,
   });
 }

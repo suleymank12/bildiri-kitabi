@@ -3,19 +3,19 @@ import type { Paper } from '../../api/types';
 export interface ViewerTocProps {
   papers: readonly Paper[];
   /** Id of the paper shown on screen, highlighted in the list. */
-  activePaperId: string | undefined;
+  activePaperUid: string | undefined;
   onSelect: (page: number) => void;
 }
 
 /** The papers with their start pages; choosing one opens its first page. */
-export function ViewerToc({ papers, activePaperId, onSelect }: ViewerTocProps) {
+export function ViewerToc({ papers, activePaperUid, onSelect }: ViewerTocProps) {
   return (
     <ol aria-label="İçindekiler" className="flex flex-col">
       {papers.map((paper) => {
-        const active = paper.id === activePaperId;
+        const active = paper.uid === activePaperUid;
         const start = paper.startPage;
         return (
-          <li key={paper.id}>
+          <li key={paper.uid}>
             <button
               type="button"
               disabled={start == null}

@@ -89,9 +89,9 @@ describe('uploadBook', () => {
 
     xhr.progress(25, 100);
     xhr.progress(75, 100);
-    xhr.respond(201, { id: 'kitap-1' });
+    xhr.respond(201, { uid: 'kitap-1' });
 
-    await expect(promise).resolves.toEqual({ id: 'kitap-1' });
+    await expect(promise).resolves.toEqual({ uid: 'kitap-1' });
     expect(progress).toEqual([25, 75, 100]);
   });
 

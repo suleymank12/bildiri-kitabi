@@ -158,14 +158,14 @@ public sealed class QueueSweepServiceTests(SqlServerFixture sql)
 
         public bool Fail { get; init; }
 
-        public ValueTask EnqueueAsync(Guid bookId, CancellationToken cancellationToken = default)
+        public ValueTask EnqueueAsync(Guid bookUid, CancellationToken cancellationToken = default)
         {
             if (Fail)
             {
                 throw new InvalidOperationException("Kuyruk kullanılamıyor.");
             }
 
-            Ids.Add(bookId);
+            Ids.Add(bookUid);
             return ValueTask.CompletedTask;
         }
 

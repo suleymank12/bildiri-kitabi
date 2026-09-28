@@ -19,15 +19,15 @@ export async function createThroughApi(request: APIRequestContext, name: string)
 
   const response = await request.post('/api/books', { multipart: form });
   expect(response.status()).toBe(201);
-  const book = (await response.json()) as { id: string };
-  return book.id;
+  const book = (await response.json()) as { uid: string };
+  return book.uid;
 }
 
-export async function generateThroughApi(request: APIRequestContext, id: string): Promise<void> {
-  const response = await request.post(`/api/books/${id}/generate`);
+export async function generateThroughApi(request: APIRequestContext, uid: string): Promise<void> {
+  const response = await request.post(`/api/books/${uid}/generate`);
   expect(response.status()).toBe(202);
   await expect
-    .poll(async () => ((await (await request.get(`/api/books/${id}`)).json()) as { status: string }).status, {
+    .poll(async () => ((await (await request.get(`/api/books/${uid}`)).json()) as { status: string }).status, {
       timeout: 60_000,
     })
     .toBe('Completed');

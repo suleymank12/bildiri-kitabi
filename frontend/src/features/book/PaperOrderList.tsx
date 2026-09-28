@@ -15,7 +15,7 @@ export interface PaperMove {
 export interface PaperOrderListProps {
   papers: readonly Paper[];
   /** Called with the full new order of paper ids and the paper that moved. */
-  onReorder: (paperIds: string[], move: PaperMove) => void;
+  onReorder: (paperUids: string[], move: PaperMove) => void;
   locked: boolean;
 }
 
@@ -31,17 +31,17 @@ const columns = 'md:grid-cols-[2.5rem_minmax(0,1fr)_6rem_6rem]';
 export function PaperOrderList({ papers, onReorder, locked }: PaperOrderListProps) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   // The button that was pressed; focused again once the list shows the new order.
-  const pendingFocus = useRef<{ paperId: string; direction: Direction }>(undefined);
+  const pendingFocus = useRef<{ paperUid: string; direction: Direction }>(undefined);
 
   useLayoutEffect(() => {
     if (!pendingFocus.current) {
       return;
     }
 
-    const { paperId, direction } = pendingFocus.current;
+    const { paperUid, direction } = pendingFocus.current;
     pendingFocus.current = undefined;
-    const same = buttons.current.get(`${paperId}:${direction}`);
-    const other = buttons.current.get(`${paperId}:${direction === 'up' ? 'down' : 'up'}`);
+    const same = buttons.current.get(`${paperUid}:${direction}`);
+    const other = buttons.current.get(`${paperUid}:${direction === 'up' ? 'down' : 'up'}`);
     (same && !same.disabled ? same : other)?.focus();
   }, [papers]);
 
@@ -52,11 +52,11 @@ export function PaperOrderList({ papers, onReorder, locked }: PaperOrderListProp
       return;
     }
 
-    const ids = papers.map((p) => p.id);
-    ids.splice(index, 1);
-    ids.splice(target, 0, paper.id);
-    pendingFocus.current = { paperId: paper.id, direction };
-    onReorder(ids, { paper, position: target + 1 });
+    const uids = papers.map((p) => p.uid);
+    uids.splice(index, 1);
+    uids.splice(target, 0, paper.uid);
+    pendingFocus.current = { paperUid: paper.uid, direction };
+    onReorder(uids, { paper, position: target + 1 });
   }
 
   const register = (key: string) => (element: HTMLButtonElement | null) => {
@@ -84,7 +84,7 @@ export function PaperOrderList({ papers, onReorder, locked }: PaperOrderListProp
           return (
             // Phones: number and file name, then title, a fallback-title note and size, then the move buttons.
             <li
-              key={paper.id}
+              key={paper.uid}
               className={
                 'grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-x-2 gap-y-2 rounded-(--radius) border border-line bg-surface px-3 py-3 ' +
                 `md:items-center md:gap-x-4 md:rounded-none md:border-0 md:border-b ${columns}`
@@ -118,7 +118,7 @@ export function PaperOrderList({ papers, onReorder, locked }: PaperOrderListProp
               </span>
               <div className="col-span-2 flex justify-end gap-1 border-t border-line pt-2 md:col-span-1 md:border-0 md:pt-0">
                 <Button
-                  ref={register(`${paper.id}:up`)}
+                  ref={register(`${paper.uid}:up`)}
                   variant="ghost"
                   size="sm"
                   className="min-w-11 md:px-0"
@@ -133,7 +133,7 @@ export function PaperOrderList({ papers, onReorder, locked }: PaperOrderListProp
                   <span className="md:sr-only">Yukarı</span>
                 </Button>
                 <Button
-                  ref={register(`${paper.id}:down`)}
+                  ref={register(`${paper.uid}:down`)}
                   variant="ghost"
                   size="sm"
                   className="min-w-11 md:px-0"
