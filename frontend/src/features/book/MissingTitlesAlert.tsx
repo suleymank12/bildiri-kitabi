@@ -4,8 +4,8 @@ import { BreakableFileName } from '../../lib/fileName';
 import { titleEditButtonId } from './PaperTitleEditor';
 
 /**
- * Above "Kitabı Oluştur": the papers whose title was not found, so their file name is used. One line per paper in a
- * list of ten is easy to miss, and a wrong file (or an empty one) often looks exactly like that. Only `FileName`
+ * At the top of the paper list: the papers whose title was not found, so their file name is used. One line per paper
+ * in a list of ten is easy to miss, and a wrong file (or an empty one) often looks exactly like that. Only `FileName`
  * counts; a title from the first bold paragraph is usually right and keeps its own note on its row. The warning
  * does not block generation.
  */

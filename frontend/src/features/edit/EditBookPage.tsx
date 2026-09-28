@@ -289,6 +289,7 @@ function EditView({ book }: { book: BookDetail }) {
             Her değişiklik hemen kaydedilir.
           </p>
         </div>
+        <MissingTitlesAlert papers={book.papers} />
         {orderError && (
           <Alert tone="danger" title="Sıra kaydedilemedi">
             {orderError}
@@ -302,7 +303,6 @@ function EditView({ book }: { book: BookDetail }) {
         />
       </Card>
 
-      <MissingTitlesAlert papers={book.papers} />
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button
           variant="danger"

@@ -41,7 +41,7 @@ const completed = () =>
   });
 
 describe('EditBookPage', () => {
-  it('sums up the papers whose title fell back to the file name, above the buttons at the bottom', async () => {
+  it('sums up the papers whose title fell back to the file name at the top of the paper list', async () => {
     const detail = bookDetail();
     renderEdit({
       ...detail,
@@ -53,8 +53,14 @@ describe('EditBookPage', () => {
     )!;
     expect(alert).toHaveTextContent('1 bildiride başlık bulunamadı');
     expect(within(alert as HTMLElement).getByRole('link', { name: '01_Bildiri.docx' })).toBeInTheDocument();
-    const start = screen.getByRole('button', { name: 'Kitabı Oluştur' });
-    expect(alert.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // At the top of the "Bildiriler" card, before the list.
+    const card = screen
+      .getByRole('heading', { name: 'Bildiriler' })
+      .closest('section, div.flex.flex-col.gap-5')!;
+    expect(card).toContainElement(alert as HTMLElement);
+    const list = screen.getByRole('list', { name: 'Bildiri sırası' });
+    expect(alert.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Kitabı Oluştur' })).toBeEnabled();
   });
 
   it('goes back to Kitaplarım with a secondary button', async () => {

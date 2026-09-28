@@ -191,6 +191,7 @@ function OrderStep({ book, starting, onStart }: OrderStepProps) {
             kaydedilir.
           </p>
         </div>
+        <MissingTitlesAlert papers={book.papers} />
         {reordered && (
           <Alert tone="info" title="Sıra, yükleme sırasından farklı.">
             Kitap bu sırayla oluşturulacak.
@@ -204,7 +205,6 @@ function OrderStep({ book, starting, onStart }: OrderStepProps) {
         />
       </Card>
 
-      <MissingTitlesAlert papers={book.papers} />
       <div className="flex justify-end">
         <Button variant="primary" loading={starting} disabled={locked || reorder.isPending} onClick={onStart}>
           Kitabı Oluştur

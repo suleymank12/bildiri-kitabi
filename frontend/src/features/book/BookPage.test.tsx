@@ -72,7 +72,7 @@ describe('BookPage — order step', () => {
     expect(screen.queryByText(/Kontrol edin\./i)).not.toBeInTheDocument();
   });
 
-  it('sums up the papers whose title fell back to the file name above "Kitabı Oluştur"', async () => {
+  it('sums up the papers whose title fell back to the file name at the top of the paper list', async () => {
     // jsdom has no scrollIntoView; the stub is removed again at the end.
     const scrolled = vi.fn();
     Element.prototype.scrollIntoView = scrolled;
@@ -100,9 +100,18 @@ describe('BookPage — order step', () => {
     );
     // A title from the first bold paragraph keeps only its row note.
     expect(within(alert as HTMLElement).queryByText('03_Bildiri.docx')).not.toBeInTheDocument();
-    // Right above the button, and the button still works: the warning does not block.
+    // At the top of the "Sıra ve kontrol" card: after its description, before the list.
+    const card = screen
+      .getByRole('heading', { name: 'Sıra ve kontrol' })
+      .closest('section, div.flex.flex-col.gap-5')!;
+    const list = screen.getByRole('list', { name: 'Bildiri sırası' });
+    expect(card).toContainElement(alert as HTMLElement);
+    expect(
+      card.querySelector('p')!.compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(alert.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The warning does not block.
     const start = screen.getByRole('button', { name: 'Kitabı Oluştur' });
-    expect(alert.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(start).toBeEnabled();
 
     await user.click(within(alert as HTMLElement).getByRole('link', { name: '02_Bildiri.docx' }));
