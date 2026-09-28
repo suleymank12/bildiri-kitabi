@@ -16,3 +16,6 @@ export function useMediaQuery(query: string): boolean {
 }
 
 export const DESKTOP_QUERY = '(min-width: 1024px)';
+
+/** Tailwind's `sm` breakpoint. */
+export const SM_QUERY = '(min-width: 640px)';
