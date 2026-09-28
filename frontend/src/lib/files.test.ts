@@ -1,6 +1,4 @@
 import {
-  MAX_FILE_BYTES,
-  MAX_TOTAL_BYTES,
   basicIssue,
   bookNameError,
   compareFileNames,
@@ -13,6 +11,7 @@ import {
   checkFileContent,
   type CheckedFile,
 } from './files';
+import { MAX_FILE_BYTES, MAX_TOTAL_BYTES } from './limits';
 
 const file = (name: string, size = 1000, hash?: string): CheckedFile => ({ name, size, hash });
 const ten = (): CheckedFile[] =>

@@ -1,12 +1,17 @@
 /**
- * Client-side checks that mirror the server's upload rules. They only warn early; the server has the final say.
+ * Client-side checks that mirror the server's upload rules (limits in ./limits). They only warn early; the server has
+ * the final say.
  */
 
-export const REQUIRED_PAPER_COUNT = 10;
-export const MAX_FILE_BYTES = 10 * 1024 * 1024;
-export const MAX_TOTAL_BYTES = 60 * 1024 * 1024;
-export const BOOK_NAME_MIN = 3;
-export const BOOK_NAME_MAX = 150;
+import {
+  BOOK_NAME_MAX,
+  BOOK_NAME_MIN,
+  MAX_FILE_BYTES,
+  MAX_FILE_MB,
+  MAX_TOTAL_BYTES,
+  MAX_TOTAL_MB,
+  REQUIRED_PAPER_COUNT,
+} from './limits';
 
 export const DOCX_ACCEPT = '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -108,7 +113,7 @@ export function describeIssue(issue: FileIssue): string {
     case 'empty':
       return 'Dosya boş.';
     case 'tooLarge':
-      return 'Dosya 10 MB sınırını aşıyor.';
+      return `Dosya ${MAX_FILE_MB} MB sınırını aşıyor.`;
     case 'notDocx':
       return 'Geçerli bir Word (.docx) dosyası değil.';
     case 'duplicate':
@@ -123,7 +128,7 @@ export function describeSelectionProblem(problem: SelectionProblem): string {
         ? `Tam olarak ${REQUIRED_PAPER_COUNT} bildiri gerekiyor; ${REQUIRED_PAPER_COUNT - problem.selected} dosya daha seçin.`
         : `Tam olarak ${REQUIRED_PAPER_COUNT} bildiri gerekiyor; ${problem.selected - REQUIRED_PAPER_COUNT} dosyayı kaldırın.`;
     case 'totalTooLarge':
-      return 'Dosyaların toplam boyutu 60 MB sınırını aşıyor.';
+      return `Dosyaların toplam boyutu ${MAX_TOTAL_MB} MB sınırını aşıyor.`;
   }
 }
 

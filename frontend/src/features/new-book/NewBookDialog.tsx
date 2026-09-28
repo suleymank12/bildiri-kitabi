@@ -7,14 +7,13 @@ import { useAnnounce } from '../../app/Announcer';
 import { paths } from '../../app/paths';
 import { Alert, Button, Dialog, ProgressBar, TextField, Tooltip } from '../../components/ui';
 import {
-  BOOK_NAME_MAX,
-  REQUIRED_PAPER_COUNT,
   bookNameError,
   describeSelectionProblem,
   isSelectionReady,
   isSortedByName,
   selectionProblems,
 } from '../../lib/files';
+import { BOOK_NAME_MAX, REQUIRED_PAPER_COUNT } from '../../lib/limits';
 import { possessiveSuffix } from '../../lib/format';
 import { FileDropZone } from './FileDropZone';
 import { SelectedFileList } from './SelectedFileList';

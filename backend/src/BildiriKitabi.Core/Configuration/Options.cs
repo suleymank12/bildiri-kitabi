@@ -7,8 +7,10 @@ public sealed class BookOptions
 {
     public const string SectionName = "Books";
 
+    public const int DefaultRequiredPaperCount = 10;
+
     [Range(1, 100)]
-    public int RequiredPaperCount { get; set; } = 10;
+    public int RequiredPaperCount { get; set; } = DefaultRequiredPaperCount;
 }
 
 /// <summary><c>Upload</c> section: limits applied to every uploaded .docx before it is parsed.</summary>
@@ -16,11 +18,16 @@ public sealed class UploadOptions
 {
     public const string SectionName = "Upload";
 
-    [Range(1, long.MaxValue)]
-    public long MaxFileSizeBytes { get; set; } = 10L * 1024 * 1024;
+    public const long DefaultMaxFileSizeBytes = 10L * 1024 * 1024;
+
+    /// <summary>Also the base of the upload endpoint's request size limit (see <c>BooksController</c>).</summary>
+    public const long DefaultMaxTotalSizeBytes = 60L * 1024 * 1024;
 
     [Range(1, long.MaxValue)]
-    public long MaxTotalSizeBytes { get; set; } = 60L * 1024 * 1024;
+    public long MaxFileSizeBytes { get; set; } = DefaultMaxFileSizeBytes;
+
+    [Range(1, long.MaxValue)]
+    public long MaxTotalSizeBytes { get; set; } = DefaultMaxTotalSizeBytes;
 
     [Range(1, 100_000)]
     public int MaxArchiveEntries { get; set; } = 500;

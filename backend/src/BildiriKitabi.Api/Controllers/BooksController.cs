@@ -4,6 +4,7 @@ using BildiriKitabi.Api.Http;
 using BildiriKitabi.Api.Problems;
 using BildiriKitabi.Core.Application;
 using BildiriKitabi.Core.Books;
+using BildiriKitabi.Core.Configuration;
 using BildiriKitabi.Core.Persistence;
 using BildiriKitabi.Core.Storage;
 using BildiriKitabi.Core.Uploads;
@@ -22,7 +23,9 @@ namespace BildiriKitabi.Api.Controllers;
 [Route("api/books")]
 public sealed class BooksController(IAppDbContext db, IFileStorage storage) : ControllerBase
 {
-    private const long MaxRequestBytes = 70L * 1024 * 1024;
+    // The files may total Upload:MaxTotalSizeBytes; 10 MB more leaves room for the multipart framing and the name, so
+    // an oversized upload gets the Turkish TOTAL_SIZE_TOO_LARGE message instead of a bare 413. nginx.conf has 70m too.
+    private const long MaxRequestBytes = UploadOptions.DefaultMaxTotalSizeBytes + (10L * 1024 * 1024);
 
     /// <summary>Creates a book from its name and exactly ten .docx files (in book order).</summary>
     [HttpPost]

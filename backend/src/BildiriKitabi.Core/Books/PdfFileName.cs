@@ -9,7 +9,6 @@ namespace BildiriKitabi.Core.Books;
 public static class PdfFileName
 {
     private const int MaxSlugLength = 80;
-    private const int MaxNameLength = 150;
     private const string AsciiPrefix = "bildiri-kitabi";
 
     /// <summary>For example <c>bildiri-kitabi-ornek-bilim-kongresi-2026.pdf</c>.</summary>
@@ -30,9 +29,9 @@ public static class PdfFileName
         }
 
         var name = string.Join(' ', builder.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries)).Trim(' ', '.');
-        if (name.Length > MaxNameLength)
+        if (name.Length > Book.NameMaxLength)
         {
-            name = name[..MaxNameLength].TrimEnd(' ', '.');
+            name = name[..Book.NameMaxLength].TrimEnd(' ', '.');
         }
 
         return name.Length == 0 ? Ascii(bookName) : $"{name}.pdf";

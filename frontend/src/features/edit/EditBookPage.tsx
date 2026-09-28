@@ -24,7 +24,8 @@ import {
   TextField,
   buttonClasses,
 } from '../../components/ui';
-import { BOOK_NAME_MAX, bookNameError } from '../../lib/files';
+import { bookNameError } from '../../lib/files';
+import { BOOK_NAME_MAX } from '../../lib/limits';
 import { isBusy } from '../../lib/status';
 import { PaperOrderList, type PaperMove } from '../book/PaperOrderList';
 import type { TitleSaveResult } from '../book/PaperTitleEditor';

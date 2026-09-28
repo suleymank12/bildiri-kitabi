@@ -9,6 +9,10 @@ namespace BildiriKitabi.Core.Books;
 /// </summary>
 public sealed class Book
 {
+    /// <summary>Shortest book name after trimming; the upload and rename checks use it.</summary>
+    public const int NameMinLength = 3;
+
+    /// <summary>Longest book name: the <c>Ad</c> column, the upload and rename checks and the PDF file name.</summary>
     public const int NameMaxLength = 150;
     public const int ErrorCodeMaxLength = 50;
     public const int ErrorMessageMaxLength = 500;

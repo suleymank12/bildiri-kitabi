@@ -3,8 +3,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { ApiError, errorMessage } from '../../api/errors';
 import type { Paper } from '../../api/types';
 import { Button } from '../../components/ui';
-
-export const PAPER_TITLE_MAX = 500;
+import { PAPER_TITLE_MAX } from '../../lib/limits';
 
 /** What the page did with a title: saved, or not saved because the user backed out of a confirmation. */
 export type TitleSaveResult = 'saved' | 'cancelled';

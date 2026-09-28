@@ -8,6 +8,7 @@ import { paths } from '../../app/paths';
 import { usePageTitle } from '../../app/usePageTitle';
 import { Alert, Badge, Button, Card, EmptyState, Skeleton, Tooltip } from '../../components/ui';
 import { formatDateTime, formatInteger } from '../../lib/format';
+import { REQUIRED_PAPER_COUNT } from '../../lib/limits';
 import { isBusy, statusLabel, statusTone } from '../../lib/status';
 import { LIBRARY_TABLE_COLUMNS, NUMERIC_COLUMN } from '../../lib/tableColumns';
 import { NewBookDialog } from '../new-book/NewBookDialog';
@@ -77,7 +78,7 @@ export function LibraryPage() {
               </Button>
             }
           >
-            On bildiri dosyasını yükleyerek ilk kitabınızı oluşturun.
+            {REQUIRED_PAPER_COUNT} bildiri dosyasını yükleyerek ilk kitabınızı oluşturun.
           </EmptyState>
         </Card>
       ) : data ? (

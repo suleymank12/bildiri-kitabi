@@ -1,3 +1,4 @@
+import { BOOK_NAME_MAX, BOOK_NAME_MIN, MAX_FILE_MB, MAX_TOTAL_MB, REQUIRED_PAPER_COUNT } from '../lib/limits';
 import type { Problem, ProblemItem } from './types';
 
 export const NETWORK_MESSAGE = 'Sunucuya ulaşılamıyor. Bağlantınızı kontrol edip tekrar deneyin.';
@@ -52,12 +53,12 @@ export const errorMessages = {
   PAPER_ORDER_INVALID: 'Sıralama geçersiz. Sayfayı yenileyip tekrar deneyin.',
   RATE_LIMITED: 'Kısa sürede çok fazla istek gönderildi. Lütfen biraz bekleyip tekrar deneyin.',
   INTERNAL_ERROR: GENERIC_MESSAGE,
-  BOOK_NAME_INVALID: 'Kitap adı 3–150 karakter olmalı ve satır sonu içermemelidir.',
+  BOOK_NAME_INVALID: `Kitap adı ${BOOK_NAME_MIN}–${BOOK_NAME_MAX} karakter olmalı ve satır sonu içermemelidir.`,
   BOOK_NAME_UNSUPPORTED_CHARACTER: null,
-  PAPER_COUNT_INVALID: 'Tam olarak 10 bildiri dosyası yüklenmelidir.',
-  TOTAL_SIZE_TOO_LARGE: 'Dosyaların toplam boyutu 60 MB sınırını aşıyor.',
+  PAPER_COUNT_INVALID: `Tam olarak ${REQUIRED_PAPER_COUNT} bildiri dosyası yüklenmelidir.`,
+  TOTAL_SIZE_TOO_LARGE: `Dosyaların toplam boyutu ${MAX_TOTAL_MB} MB sınırını aşıyor.`,
   FILE_EXTENSION_INVALID: 'Yalnızca .docx uzantılı Word belgeleri yüklenebilir.',
-  FILE_TOO_LARGE: 'Dosya 10 MB sınırını aşıyor.',
+  FILE_TOO_LARGE: `Dosya ${MAX_FILE_MB} MB sınırını aşıyor.`,
   FILE_EMPTY: 'Dosya boş.',
   FILE_NOT_DOCX: 'Geçerli bir Word (.docx) belgesi değil.',
   FILE_UNSAFE_ARCHIVE: 'Dosyanın iç yapısı güvenli değil. Belgeyi Word’de açıp yeniden kaydedin.',

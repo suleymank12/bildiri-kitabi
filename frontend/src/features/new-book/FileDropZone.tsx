@@ -2,6 +2,7 @@ import { UploadSimpleIcon } from '@phosphor-icons/react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui';
 import { DOCX_ACCEPT } from '../../lib/files';
+import { MAX_FILE_MB } from '../../lib/limits';
 
 export interface FileDropZoneProps {
   onFiles: (files: File[]) => void;
@@ -69,7 +70,7 @@ export function FileDropZone({ onFiles, disabled = false }: FileDropZoneProps) {
       <div className="flex flex-col gap-1">
         <p className="font-medium text-ink">Dosyaları buraya sürükleyin</p>
         <p id={hintId} className="text-sm text-ink-muted">
-          Yalnızca .docx; dosya başına en fazla 10 MB.
+          Yalnızca .docx; dosya başına en fazla {MAX_FILE_MB} MB.
         </p>
       </div>
       <Button
