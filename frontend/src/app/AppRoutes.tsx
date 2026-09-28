@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { BookPage } from '../features/book/BookPage';
+import { DeletedBooksPage } from '../features/deleted/DeletedBooksPage';
 import { EditBookPage } from '../features/edit/EditBookPage';
 import { LibraryPage } from '../features/library/LibraryPage';
 import { Layout } from './Layout';
@@ -15,6 +16,7 @@ export function AppRoutes() {
         <Route path="kitaplar" element={<Navigate to={paths.library} replace />} />
         <Route path="kitaplar/:uid" element={<BookPage />} />
         <Route path="kitaplar/:uid/duzenle" element={<EditBookPage />} />
+        <Route path="silinenler" element={<DeletedBooksPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

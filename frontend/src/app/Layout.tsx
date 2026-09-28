@@ -1,4 +1,4 @@
-import { BooksIcon } from '@phosphor-icons/react';
+import { BooksIcon, TrashIcon } from '@phosphor-icons/react';
 import { useRef, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { AnnouncerProvider } from './Announcer';
@@ -65,6 +65,12 @@ export function Layout() {
                 icon={<BooksIcon size={20} />}
                 label="Kitaplarım"
                 short="Kitaplar"
+              />
+              <NavItem
+                to={paths.deleted}
+                icon={<TrashIcon size={20} />}
+                label="Silinenler"
+                short="Silinenler"
               />
             </nav>
           </div>

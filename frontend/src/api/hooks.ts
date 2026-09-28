@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { isBusy } from '../lib/status';
 import { api, unwrap } from './client';
 import { ApiError } from './errors';
-import type { BookDetail, BookPage } from './types';
+import type { BookDetail, BookPage, DeletedBookPage } from './types';
 import { uploadBook } from './upload';
 
 export const BOOK_POLL_MS = 700;
@@ -14,7 +14,8 @@ export const bookKeys = {
   all: ['books'] as const,
   lists: () => [...bookKeys.all, 'list'] as const,
   list: (page: number) => [...bookKeys.lists(), page] as const,
-  deleted: (page: number) => [...bookKeys.all, 'deleted', page] as const,
+  deletedLists: () => [...bookKeys.all, 'deleted'] as const,
+  deleted: (page: number) => [...bookKeys.deletedLists(), page] as const,
   detail: (uid: string) => [...bookKeys.all, 'detail', uid] as const,
 };
 
@@ -42,6 +43,42 @@ export function useBookList(page: number) {
     refetchInterval: (query) =>
       query.state.data?.items.some((book) => isBusy(book.status)) === true ? LIST_POLL_MS : false,
     placeholderData: (previous) => previous,
+  });
+}
+
+/** A page of deleted books, most recently deleted first. */
+export function useDeletedBooks(page: number) {
+  return useQuery({
+    queryKey: bookKeys.deleted(page),
+    queryFn: ({ signal }) =>
+      unwrap(
+        api.GET('/api/books/deleted', { params: { query: { page, pageSize: LIST_PAGE_SIZE } }, signal }),
+      ) as Promise<DeletedBookPage>,
+    placeholderData: (previous) => previous,
+  });
+}
+
+/** Brings a deleted book back to Kitaplarım. */
+export function useRestoreBook() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (uid: string) => unwrap(api.POST('/api/books/{uid}/restore', { params: { path: { uid } } })),
+    onSuccess: (_result, uid) => {
+      // The row leaves the list at once; the refetch below confirms it.
+      queryClient.setQueriesData<DeletedBookPage>(
+        { queryKey: bookKeys.deletedLists() },
+        (page) =>
+          page && {
+            ...page,
+            items: page.items.filter((book) => book.uid !== uid),
+            totalCount: page.totalCount - 1,
+          },
+      );
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: bookKeys.deletedLists() });
+      void queryClient.invalidateQueries({ queryKey: bookKeys.lists() });
+    },
   });
 }
 
@@ -171,7 +208,7 @@ export function useDeleteBook() {
     onSuccess: (_result, uid) => {
       queryClient.removeQueries({ queryKey: bookKeys.detail(uid) });
       void queryClient.invalidateQueries({ queryKey: bookKeys.lists() });
-      void queryClient.invalidateQueries({ queryKey: [...bookKeys.all, 'deleted'] });
+      void queryClient.invalidateQueries({ queryKey: bookKeys.deletedLists() });
     },
   });
 }

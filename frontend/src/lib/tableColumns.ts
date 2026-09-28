@@ -12,3 +12,6 @@ export const LIBRARY_TABLE_COLUMNS = 'md:grid-cols-[minmax(0,1fr)_7rem_5rem_5rem
 
 /** Short numbers of a fixed shape (counts, sizes): centred under their heading, heading included. */
 export const NUMERIC_COLUMN = 'md:text-center';
+
+/** "Silinenler": book, paper count, status when deleted, deleted at, restore. */
+export const DELETED_TABLE_COLUMNS = 'md:grid-cols-[minmax(0,1fr)_5rem_7rem_10rem_8rem] md:gap-x-6';

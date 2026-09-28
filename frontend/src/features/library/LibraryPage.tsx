@@ -1,15 +1,8 @@
-import {
-  BookOpenIcon,
-  CaretLeftIcon,
-  CaretRightIcon,
-  PencilSimpleIcon,
-  PlusIcon,
-  TrashIcon,
-} from '@phosphor-icons/react';
+import { BookOpenIcon, PencilSimpleIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { errorMessage } from '../../api/errors';
-import { LIST_PAGE_SIZE, useBookList } from '../../api/hooks';
+import { useBookList } from '../../api/hooks';
 import type { BookSummary } from '../../api/types';
 import { paths } from '../../app/paths';
 import { usePageTitle } from '../../app/usePageTitle';
@@ -19,24 +12,19 @@ import { isBusy, statusLabel, statusTone } from '../../lib/status';
 import { LIBRARY_TABLE_COLUMNS, NUMERIC_COLUMN } from '../../lib/tableColumns';
 import { NewBookDialog } from '../new-book/NewBookDialog';
 import { DeleteBookDialog } from './DeleteBookDialog';
+import { Pagination, usePageParam } from './Pagination';
 
 export const EDIT_BLOCKED_REASON = 'Kitap oluşturulurken düzenlenemez.';
 export const DELETE_BLOCKED_REASON = 'Kitap oluşturulurken silinemez.';
 
 export function LibraryPage() {
   usePageTitle('Kitaplarım');
-  const [searchParams, setSearchParams] = useSearchParams();
-  const page = Math.max(1, Number.parseInt(searchParams.get('sayfa') ?? '1', 10) || 1);
+  const [page, goTo] = usePageParam();
   const list = useBookList(page);
   const [pendingDelete, setPendingDelete] = useState<BookSummary>();
   const [creating, setCreating] = useState(false);
 
   const data = list.data;
-  const pageCount = data ? Math.max(1, Math.ceil(data.totalCount / LIST_PAGE_SIZE)) : 1;
-
-  function goTo(target: number) {
-    setSearchParams(target === 1 ? {} : { sayfa: String(target) });
-  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -119,35 +107,7 @@ export function LibraryPage() {
         </Card>
       ) : null}
 
-      {data && pageCount > 1 && (
-        <nav aria-label="Sayfalar" className="flex items-center justify-between gap-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<CaretLeftIcon size={16} aria-hidden="true" />}
-            disabled={page <= 1}
-            onClick={() => {
-              goTo(page - 1);
-            }}
-          >
-            Önceki
-          </Button>
-          <span className="text-sm text-ink-muted">
-            Sayfa <span className="numeric">{page}</span> / <span className="numeric">{pageCount}</span>
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={page >= pageCount}
-            onClick={() => {
-              goTo(page + 1);
-            }}
-          >
-            Sonraki
-            <CaretRightIcon size={16} aria-hidden="true" />
-          </Button>
-        </nav>
-      )}
+      {data && <Pagination page={page} totalCount={data.totalCount} onChange={goTo} />}
 
       <NewBookDialog
         open={creating}
