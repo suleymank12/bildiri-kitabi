@@ -185,7 +185,7 @@ Temizlik sunucuda yapılır. Kurallar:
 - **Dosya listesi:** Masaüstünde tablo, telefonda kart olarak gösterilir.
 - **Bekleme ekranı:** Sunucudaki gerçek aşamayı ve yüzdeyi gösterir.
 - **Hata ekranı:** Kullanıcının anlayabileceği bir mesaj gösterir. Kullanıcı "Tekrar dene" ya da "Sırayı düzenle" seçebilir.
-- **Görüntüleyici:** Masaüstünde iki sayfa yan yana, yanında İçindekiler paneliyle açılır; üstteki araç çubuğundan tek sayfa görünümüne geçilebilir. Yanında İçindekiler paneliyle açılır. Telefonda tek sayfa açılır; yakınlaştırma alttaki araç çubuğuyla veya çift dokunmayla yapılır.
+- **Görüntüleyici:** Masaüstünde iki sayfa yan yana, yanında İçindekiler paneliyle açılır; üstteki araç çubuğundan tek sayfa görünümüne geçilebilir. Telefonda tek sayfa açılır; yakınlaştırma alttaki araç çubuğuyla veya çift dokunmayla yapılır.
 
 ## Kullanılan kütüphaneler
 
