@@ -55,43 +55,33 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
         return CreatedAtAction(nameof(Get), new { uid = book.Uid }, BookDetailDto.From(book));
     }
 
-    /// <summary>Lists books, newest first.</summary>
+    /// <summary>Lists the books that are not deleted, newest first.</summary>
     [HttpGet]
     [ProducesResponseType<PagedResult<BookSummaryDto>>(StatusCodes.Status200OK)]
-    public async Task<PagedResult<BookSummaryDto>> List(
+    public Task<PagedResult<BookSummaryDto>> List(
         [FromQuery, Range(1, int.MaxValue)] int page = 1,
         [FromQuery, Range(1, 50)] int pageSize = 20,
-        CancellationToken cancellationToken = default)
-    {
-        var total = await db.Books.CountAsync(cancellationToken);
-        var books = await db.Books.AsNoTracking()
-            .OrderByDescending(b => b.CreatedAt)
-            .ThenByDescending(b => b.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(b => new
-            {
-                Book = b,
-                PaperCount = b.Papers.Count,
-            })
-            .ToListAsync(cancellationToken);
+        CancellationToken cancellationToken = default) =>
+        PageAsync(
+            db.Books.OrderByDescending(b => b.CreatedAt).ThenByDescending(b => b.Id),
+            page,
+            pageSize,
+            BookSummaryDto.From,
+            cancellationToken);
 
-        var items = books
-            .Select(x => new BookSummaryDto(
-                x.Book.Uid,
-                x.Book.Name,
-                x.Book.Status,
-                x.Book.Stage,
-                x.Book.ProgressPercent,
-                x.PaperCount,
-                x.Book.PageCount,
-                BookDetailDto.ErrorOf(x.Book),
-                x.Book.CreatedAt,
-                x.Book.ProcessingFinishedAt,
-                BookDetailDto.PdfUrlOf(x.Book)))
-            .ToList();
-        return new PagedResult<BookSummaryDto>(items, page, pageSize, total);
-    }
+    /// <summary>Lists the deleted books, most recently deleted first; they can be restored.</summary>
+    [HttpGet("deleted")]
+    [ProducesResponseType<PagedResult<DeletedBookSummaryDto>>(StatusCodes.Status200OK)]
+    public Task<PagedResult<DeletedBookSummaryDto>> ListDeleted(
+        [FromQuery, Range(1, int.MaxValue)] int page = 1,
+        [FromQuery, Range(1, 50)] int pageSize = 20,
+        CancellationToken cancellationToken = default) =>
+        PageAsync(
+            db.Books.Deleted().OrderByDescending(b => b.DeletedAt).ThenByDescending(b => b.Id),
+            page,
+            pageSize,
+            DeletedBookSummaryDto.From,
+            cancellationToken);
 
     /// <summary>Status, progress, detected titles, page ranges and errors of one book.</summary>
     [HttpGet("{uid:guid}")]
@@ -105,6 +95,7 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
 
     /// <summary>Sets the order of the papers; allowed before generation or after a failed one.</summary>
     [HttpPut("{uid:guid}/paper-order")]
+    [EnableRateLimiting(RateLimiting.EditPolicy)]
     [Consumes("application/json")]
     [ProducesResponseType<BookDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status400BadRequest, "application/problem+json")]
@@ -218,8 +209,12 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
         return File(stream, "application/pdf", lastModified, etag, enableRangeProcessing: true);
     }
 
-    /// <summary>Deletes the book, its papers and every stored file; not allowed while it is queued or generating.</summary>
+    /// <summary>
+    /// Deletes the book: it moves to the deleted books and every other endpoint answers 404 for it; its papers and files
+    /// are kept so it can be restored. Not allowed while it is queued or generating.
+    /// </summary>
     [HttpDelete("{uid:guid}")]
+    [EnableRateLimiting(RateLimiting.EditPolicy)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status404NotFound, "application/problem+json")]
     [ProducesResponseType<ProblemResponse>(StatusCodes.Status409Conflict, "application/problem+json")]
@@ -239,6 +234,43 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
                 "Kitap silinemez.",
                 "Kitap kuyrukta veya oluşturuluyor; işlem bitince tekrar deneyin."),
         };
+    }
+
+    /// <summary>Restores a deleted book to the book list, in the state it was deleted in.</summary>
+    [HttpPost("{uid:guid}/restore")]
+    [EnableRateLimiting(RateLimiting.EditPolicy)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemResponse>(StatusCodes.Status404NotFound, "application/problem+json")]
+    public async Task<IActionResult> Restore(Guid uid, [FromServices] BookCommandService commands, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(commands);
+
+        var outcome = await commands.RestoreAsync(uid, cancellationToken);
+        return outcome == RestoreBookOutcome.Restored
+            ? NoContent()
+            : ApiProblem.Create(
+                HttpContext,
+                StatusCodes.Status404NotFound,
+                ApiErrorCodes.DeletedBookNotFound,
+                "Silinmiş kitap bulunamadı.",
+                "Geri alınacak kitap silinenler arasında bulunamadı; zaten geri alınmış olabilir.");
+    }
+
+    /// <summary>One page of <paramref name="books"/> (already ordered) with the paper count of each book.</summary>
+    private static async Task<PagedResult<T>> PageAsync<T>(
+        IQueryable<Book> books,
+        int page,
+        int pageSize,
+        Func<Book, int, T> map,
+        CancellationToken cancellationToken)
+    {
+        var total = await books.CountAsync(cancellationToken);
+        var rows = await books.AsNoTracking()
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(b => new { Book = b, PaperCount = b.Papers.Count })
+            .ToListAsync(cancellationToken);
+        return new PagedResult<T>(rows.Select(x => map(x.Book, x.PaperCount)).ToList(), page, pageSize, total);
     }
 
     private ObjectResult BookNotFound() => ApiProblem.Create(

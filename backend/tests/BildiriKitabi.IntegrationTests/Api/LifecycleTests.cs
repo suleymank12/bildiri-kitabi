@@ -134,39 +134,6 @@ public sealed class LifecycleTests(SqlServerFixture sql) : IAsyncDisposable
     }
 
     [Fact]
-    public async Task Delete_removes_the_book_papers_and_files_but_not_while_it_is_processing()
-    {
-        var api = Host();
-        var book = await api.CreateSampleBookAsync();
-        var other = await api.CreateSampleBookAsync("Kalacak Kitap");
-        using var client = api.Client();
-        var uri = new Uri($"/api/books/{book.Id}", UriKind.Relative);
-
-        await api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Processing' WHERE Uid = @id", ("@id", book.Id));
-        using (var busy = await client.DeleteAsync(uri, TestContext.Current.CancellationToken))
-        {
-            busy.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-        }
-
-        api.StoredFiles(book.Id).Count.ShouldBe(10);
-        await api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Uploaded' WHERE Uid = @id", ("@id", book.Id));
-        using (var deleted = await client.DeleteAsync(uri, TestContext.Current.CancellationToken))
-        {
-            deleted.StatusCode.ShouldBe(HttpStatusCode.NoContent);
-        }
-
-        (await api.QueryAsync("SELECT COUNT(*) FROM Kitaplar WHERE Uid = @id", r => r.GetInt32(0), ("@id", book.Id))).ShouldBe([0]);
-        (await api.QueryAsync("SELECT COUNT(*) FROM Bildiriler WHERE KitapId = (SELECT Id FROM Kitaplar WHERE Uid = @id)", r => r.GetInt32(0), ("@id", book.Id))).ShouldBe([0]);
-        api.StoredFiles(book.Id).ShouldBeEmpty();
-        Directory.Exists(Path.Combine(api.StorageRoot, "books", book.Id.ToString("D"))).ShouldBeFalse();
-        api.StoredFiles(other.Id).Count.ShouldBe(10);
-        (await api.QueryAsync("SELECT COUNT(*) FROM Bildiriler WHERE KitapId = (SELECT Id FROM Kitaplar WHERE Uid = @id)", r => r.GetInt32(0), ("@id", other.Id))).ShouldBe([10]);
-
-        using var again = await client.DeleteAsync(uri, TestContext.Current.CancellationToken);
-        again.StatusCode.ShouldBe(HttpStatusCode.NotFound);
-    }
-
-    [Fact]
     public async Task A_generation_that_exceeds_the_time_limit_fails_with_a_timeout_code()
     {
         var api = Host(

@@ -11,7 +11,7 @@ GO
 BEGIN TRANSACTION;
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260928124303_InitialCreate'
+    WHERE [MigrationId] = N'20260928125204_InitialCreate'
 )
 BEGIN
     CREATE TABLE [Kitaplar] (
@@ -30,18 +30,21 @@ BEGIN
         [IslemBaslangicZamani] datetime2 NULL,
         [KuyrugaAlinmaZamani] datetime2 NULL,
         [IslemBitisZamani] datetime2 NULL,
+        [AktifMi] bit NOT NULL DEFAULT CAST(1 AS bit),
+        [SilinmeZamani] datetime2 NULL,
         [SatirVersiyonu] rowversion NOT NULL,
         CONSTRAINT [PK_Kitaplar] PRIMARY KEY ([Id]),
         CONSTRAINT [CK_Kitaplar_Basarisiz_Mesaj] CHECK ([Durum] <> 'Failed' OR [HataMesaji] IS NOT NULL),
         CONSTRAINT [CK_Kitaplar_Durum] CHECK ([Durum] IN ('Uploaded', 'Queued', 'Processing', 'Completed', 'Failed')),
         CONSTRAINT [CK_Kitaplar_IlerlemeYuzdesi] CHECK ([IlerlemeYuzdesi] BETWEEN 0 AND 100),
+        CONSTRAINT [CK_Kitaplar_Silinme] CHECK (([AktifMi] = 1 AND [SilinmeZamani] IS NULL) OR ([AktifMi] = 0 AND [SilinmeZamani] IS NOT NULL)),
         CONSTRAINT [CK_Kitaplar_Tamamlandi_Pdf] CHECK ([Durum] <> 'Completed' OR [PdfDepolamaAnahtari] IS NOT NULL)
     );
 END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260928124303_InitialCreate'
+    WHERE [MigrationId] = N'20260928125204_InitialCreate'
 )
 BEGIN
     CREATE TABLE [Bildiriler] (
@@ -70,7 +73,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260928124303_InitialCreate'
+    WHERE [MigrationId] = N'20260928125204_InitialCreate'
 )
 BEGIN
     CREATE UNIQUE INDEX [UX_Bildiriler_KitapId_Sha256] ON [Bildiriler] ([KitapId], [Sha256]);
@@ -78,7 +81,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260928124303_InitialCreate'
+    WHERE [MigrationId] = N'20260928125204_InitialCreate'
 )
 BEGIN
     CREATE UNIQUE INDEX [UX_Bildiriler_KitapId_SiraNo] ON [Bildiriler] ([KitapId], [SiraNo]);
@@ -86,7 +89,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260928124303_InitialCreate'
+    WHERE [MigrationId] = N'20260928125204_InitialCreate'
 )
 BEGIN
     CREATE UNIQUE INDEX [UX_Bildiriler_Uid] ON [Bildiriler] ([Uid]);
@@ -94,7 +97,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260928124303_InitialCreate'
+    WHERE [MigrationId] = N'20260928125204_InitialCreate'
 )
 BEGIN
     CREATE INDEX [IX_Kitaplar_Durum] ON [Kitaplar] ([Durum]);
@@ -102,7 +105,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260928124303_InitialCreate'
+    WHERE [MigrationId] = N'20260928125204_InitialCreate'
 )
 BEGIN
     CREATE INDEX [IX_Kitaplar_OlusturulmaZamani] ON [Kitaplar] ([OlusturulmaZamani] DESC);
@@ -110,7 +113,7 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260928124303_InitialCreate'
+    WHERE [MigrationId] = N'20260928125204_InitialCreate'
 )
 BEGIN
     CREATE UNIQUE INDEX [UX_Kitaplar_Uid] ON [Kitaplar] ([Uid]);
@@ -118,11 +121,11 @@ END;
 
 IF NOT EXISTS (
     SELECT * FROM [__EFMigrationsHistory]
-    WHERE [MigrationId] = N'20260928124303_InitialCreate'
+    WHERE [MigrationId] = N'20260928125204_InitialCreate'
 )
 BEGIN
     INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-    VALUES (N'20260928124303_InitialCreate', N'10.0.12');
+    VALUES (N'20260928125204_InitialCreate', N'10.0.12');
 END;
 
 COMMIT;

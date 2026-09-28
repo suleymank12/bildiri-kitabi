@@ -65,6 +65,12 @@ public sealed class IdentityExposureTests(SqlServerFixture sql) : IAsyncLifetime
         await _api.WaitForFinalStatusAsync(uid);
         responses.Add(await client.GetFromJsonAsync<JsonElement>(new Uri($"/api/books/{uid}", UriKind.Relative), TestContext.Current.CancellationToken));
         responses.Add(await client.GetFromJsonAsync<JsonElement>(new Uri("/api/books", UriKind.Relative), TestContext.Current.CancellationToken));
+        using (var deleted = await client.DeleteAsync(new Uri($"/api/books/{uid}", UriKind.Relative), TestContext.Current.CancellationToken))
+        {
+            deleted.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        }
+
+        responses.Add(await client.GetFromJsonAsync<JsonElement>(new Uri("/api/books/deleted", UriKind.Relative), TestContext.Current.CancellationToken));
 
         // A numeric id in the address is not a book address at all.
         using var byNumber = await client.GetAsync(new Uri($"/api/books/{numericId}", UriKind.Relative), TestContext.Current.CancellationToken);

@@ -22,6 +22,7 @@ public sealed class Book
         Name = name;
         Status = BookStatus.Uploaded;
         CreatedAt = createdAtUtc;
+        IsActive = true;
     }
 
     private Book()
@@ -74,6 +75,15 @@ public sealed class Book
 
     /// <summary>True when a run of the current attempt was already interrupted and the book got its one more run.</summary>
     public bool WasInterrupted => Status is BookStatus.Queued or BookStatus.Processing && ProcessingFinishedAt is not null;
+
+    /// <summary>
+    /// False once the user deleted the book (<c>Kitaplar.AktifMi = 0</c>). A deleted book keeps its row and files but is
+    /// hidden by the global query filter <see cref="Persistence.BookQueryFilters.Active"/>.
+    /// </summary>
+    public bool IsActive { get; private set; }
+
+    /// <summary>When the book was deleted; null while it is active.</summary>
+    public DateTime? DeletedAt { get; private set; }
 
     public byte[] RowVersion { get; private set; } = [];
 

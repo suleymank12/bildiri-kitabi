@@ -17,12 +17,17 @@ public sealed class RateLimitingOptions
 
     [Range(1, 100_000)]
     public int GeneratePermitsPerMinute { get; set; } = 20;
+
+    /// <summary>Renaming, reordering, deleting and restoring books.</summary>
+    [Range(1, 100_000)]
+    public int EditPermitsPerMinute { get; set; } = 60;
 }
 
 public static class RateLimiting
 {
     public const string UploadPolicy = "upload";
     public const string GeneratePolicy = "generate";
+    public const string EditPolicy = "edit";
 
     public static IServiceCollection AddApiRateLimiting(this IServiceCollection services)
     {
@@ -30,6 +35,7 @@ public static class RateLimiting
         {
             options.AddPolicy(UploadPolicy, context => PerClient(context, o => o.UploadPermitsPerMinute));
             options.AddPolicy(GeneratePolicy, context => PerClient(context, o => o.GeneratePermitsPerMinute));
+            options.AddPolicy(EditPolicy, context => PerClient(context, o => o.EditPermitsPerMinute));
             options.OnRejected = async (context, _) =>
             {
                 if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))

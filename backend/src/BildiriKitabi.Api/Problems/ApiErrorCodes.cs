@@ -8,6 +8,7 @@ public static class ApiErrorCodes
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string RequestInvalid = "REQUEST_INVALID";
     public const string BookNotFound = "BOOK_NOT_FOUND";
+    public const string DeletedBookNotFound = "DELETED_BOOK_NOT_FOUND";
     public const string NotFound = "NOT_FOUND";
     public const string MethodNotAllowed = "METHOD_NOT_ALLOWED";
     public const string RequestTooLarge = "REQUEST_TOO_LARGE";

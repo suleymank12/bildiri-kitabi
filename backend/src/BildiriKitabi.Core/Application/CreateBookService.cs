@@ -58,11 +58,8 @@ public sealed partial class CreateBookService(
         }
         catch
         {
-            db.Books.Entry(book).State = EntityState.Detached;
-            foreach (var paper in book.Papers)
-            {
-                db.Papers.Entry(paper).State = EntityState.Detached;
-            }
+            // The context belongs to this request and tracks nothing else.
+            db.ChangeTracker.Clear();
 
             await storage.DeletePrefixAsync(StorageKeys.BookPrefix(book.Uid), CancellationToken.None).ConfigureAwait(false);
             throw;

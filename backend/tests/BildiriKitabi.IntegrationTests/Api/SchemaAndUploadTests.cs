@@ -43,6 +43,22 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
 
         var tables = await _api.QueryAsync("SELECT name FROM sys.tables WHERE name <> '__EFMigrationsHistory'", r => r.GetString(0));
         tables.ShouldBe(["Bildiriler", "Kitaplar"], ignoreOrder: true);
+        (await _api.QueryAsync("SELECT MigrationId FROM __EFMigrationsHistory", r => r.GetString(0))).ShouldHaveSingleItem().ShouldEndWith("_InitialCreate");
+
+        // Both tables: int IDENTITY(1,1) primary key on Id, and a Uid column.
+        var primaryKeys = await _api.QueryAsync(
+            """
+            SELECT OBJECT_NAME(i.object_id), COL_NAME(ic.object_id, ic.column_id), c.is_identity, i.type_desc
+            FROM sys.indexes i
+            JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+            JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+            WHERE i.is_primary_key = 1 AND OBJECT_NAME(i.object_id) IN ('Kitaplar', 'Bildiriler')
+            """,
+            r => $"{r.GetString(0)}.{r.GetString(1)} identity={r.GetBoolean(2)} {r.GetString(3)}");
+        primaryKeys.ShouldBe(["Kitaplar.Id identity=True CLUSTERED", "Bildiriler.Id identity=True CLUSTERED"], ignoreOrder: true);
+        (await _api.QueryAsync(
+            "SELECT OBJECT_NAME(object_id), CAST(seed_value AS int), CAST(increment_value AS int) FROM sys.identity_columns WHERE OBJECT_NAME(object_id) IN ('Kitaplar', 'Bildiriler')",
+            r => $"{r.GetString(0)}({r.GetInt32(1)},{r.GetInt32(2)})")).ShouldBe(["Kitaplar(1,1)", "Bildiriler(1,1)"], ignoreOrder: true);
 
         var foreignKeys = await _api.QueryAsync(
             """
@@ -62,6 +78,7 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
             r => $"{r.GetString(0)}({r.GetString(1)})");
         uniqueIndexes.ShouldBe(["UX_Bildiriler_KitapId_Sha256(KitapId,Sha256)", "UX_Bildiriler_KitapId_SiraNo(KitapId,SiraNo)", "UX_Bildiriler_Uid(Uid)"], ignoreOrder: true);
 
+
         var bookIndexes = await _api.QueryAsync(
             """
             SELECT i.name, COL_NAME(ic.object_id, ic.column_id), ic.is_descending_key
@@ -70,28 +87,58 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
             """,
             r => $"{r.GetString(0)}:{r.GetString(1)}:{(r.GetBoolean(2) ? "DESC" : "ASC")}");
         bookIndexes.ShouldBe(["IX_Kitaplar_Durum:Durum:ASC", "IX_Kitaplar_OlusturulmaZamani:OlusturulmaZamani:DESC", "UX_Kitaplar_Uid:Uid:ASC"], ignoreOrder: true);
+        (await _api.QueryAsync("SELECT is_unique FROM sys.indexes WHERE name = 'UX_Kitaplar_Uid'", r => r.GetBoolean(0))).ShouldBe([true]);
 
         var checks = await _api.QueryAsync("SELECT name, definition FROM sys.check_constraints", r => (Name: r.GetString(0), Definition: r.GetString(1)));
         checks.Select(c => c.Name).ShouldBe(
-            ["CK_Bildiriler_SiraNo", "CK_Bildiriler_YuklemeSirasi", "CK_Kitaplar_Basarisiz_Mesaj", "CK_Kitaplar_Durum", "CK_Kitaplar_IlerlemeYuzdesi", "CK_Kitaplar_Tamamlandi_Pdf"],
+            ["CK_Bildiriler_SiraNo", "CK_Bildiriler_YuklemeSirasi", "CK_Kitaplar_Basarisiz_Mesaj", "CK_Kitaplar_Durum", "CK_Kitaplar_IlerlemeYuzdesi", "CK_Kitaplar_Silinme", "CK_Kitaplar_Tamamlandi_Pdf"],
             ignoreOrder: true);
         checks.Single(c => c.Name == "CK_Kitaplar_Durum").Definition.ShouldContain("'Failed'");
 
         var columns = await _api.QueryAsync(
-            "SELECT TABLE_NAME + '.' + COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS",
-            r => (Name: r.GetString(0), Type: r.GetString(1), Length: r.IsDBNull(2) ? (int?)null : r.GetInt32(2)));
-        columns.ShouldContain(("Kitaplar.Id", "int", null));
-        columns.ShouldContain(("Kitaplar.Uid", "uniqueidentifier", null));
-        columns.ShouldContain(("Bildiriler.Id", "int", null));
-        columns.ShouldContain(("Bildiriler.Uid", "uniqueidentifier", null));
-        columns.ShouldContain(("Bildiriler.KitapId", "int", null));
-        columns.ShouldContain(("Kitaplar.Ad", "nvarchar", 150));
-        columns.ShouldContain(("Kitaplar.Durum", "nvarchar", 20));
-        columns.ShouldContain(("Kitaplar.IlerlemeYuzdesi", "tinyint", null));
-        columns.ShouldContain(("Kitaplar.OlusturulmaZamani", "datetime2", null));
-        columns.ShouldContain(("Kitaplar.SatirVersiyonu", "timestamp", null));
-        columns.ShouldContain(("Bildiriler.Sha256", "binary", 32));
-        columns.ShouldContain(("Bildiriler.OrijinalDosyaAdi", "nvarchar", 255));
+            "SELECT TABLE_NAME + '.' + COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS",
+            r => (Name: r.GetString(0), Type: r.GetString(1), Length: r.IsDBNull(2) ? (int?)null : r.GetInt32(2), Nullable: r.GetString(3) == "YES", Default: r.IsDBNull(4) ? null : r.GetString(4)));
+        string Column(string name)
+        {
+            var c = columns.Single(c => c.Name == name);
+            return $"{c.Type}{(c.Length is { } length ? $"({length})" : string.Empty)} {(c.Nullable ? "NULL" : "NOT NULL")}";
+        }
+
+        Column("Kitaplar.Id").ShouldBe("int NOT NULL");
+        Column("Kitaplar.Uid").ShouldBe("uniqueidentifier NOT NULL");
+        Column("Kitaplar.Ad").ShouldBe("nvarchar(150) NOT NULL");
+        Column("Kitaplar.Durum").ShouldBe("nvarchar(20) NOT NULL");
+        Column("Kitaplar.IlerlemeYuzdesi").ShouldBe("tinyint NOT NULL");
+        Column("Kitaplar.OlusturulmaZamani").ShouldBe("datetime2 NOT NULL");
+        Column("Kitaplar.AktifMi").ShouldBe("bit NOT NULL");
+        Column("Kitaplar.SilinmeZamani").ShouldBe("datetime2 NULL");
+        Column("Kitaplar.PdfDepolamaAnahtari").ShouldBe("nvarchar(260) NULL");
+        Column("Kitaplar.SatirVersiyonu").ShouldBe("timestamp NOT NULL");
+        Column("Bildiriler.Id").ShouldBe("int NOT NULL");
+        Column("Bildiriler.Uid").ShouldBe("uniqueidentifier NOT NULL");
+        Column("Bildiriler.KitapId").ShouldBe("int NOT NULL");
+        Column("Bildiriler.Sha256").ShouldBe("binary(32) NOT NULL");
+        Column("Bildiriler.OrijinalDosyaAdi").ShouldBe("nvarchar(255) NOT NULL");
+        Column("Bildiriler.BaslangicSayfasi").ShouldBe("int NULL");
+        columns.Single(c => c.Name == "Kitaplar.AktifMi").Default.ShouldBe("(CONVERT([bit],(1)))");
+        columns.ShouldNotContain(c => c.Name == "Bildiriler.AktifMi");
+    }
+
+    [Fact]
+    public async Task A_row_written_by_hand_is_active_by_default_and_uids_are_unique()
+    {
+        sql.EnsureAvailable();
+        using (_api.Client())
+        {
+            var uid = Guid.NewGuid();
+            const string Insert = "INSERT INTO Kitaplar (Uid, Ad, Durum) VALUES (@uid, N'Elle Eklenen', 'Uploaded')";
+            await _api.ExecuteAsync(Insert, ("@uid", uid));
+
+            (await _api.QueryAsync("SELECT AktifMi, SilinmeZamani FROM Kitaplar WHERE Uid = @uid", r => (r.GetBoolean(0), r.IsDBNull(1)), ("@uid", uid)))
+                .ShouldBe([(true, true)]);
+            var duplicate = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync(Insert, ("@uid", uid)));
+            duplicate.Message.ShouldContain("UX_Kitaplar_Uid");
+        }
     }
 
     [Fact]
@@ -106,6 +153,10 @@ public sealed class SchemaAndUploadTests(SqlServerFixture sql) : IAsyncLifetime
         failed.Message.ShouldContain("CK_Kitaplar_Basarisiz_Mesaj");
         var unknown = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET Durum = 'Done' WHERE Uid = @id", ("@id", book.Id)));
         unknown.Message.ShouldContain("CK_Kitaplar_Durum");
+        var deletedWithoutTime = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET AktifMi = 0 WHERE Uid = @id", ("@id", book.Id)));
+        deletedWithoutTime.Message.ShouldContain("CK_Kitaplar_Silinme");
+        var activeWithTime = await Should.ThrowAsync<SqlException>(() => _api.ExecuteAsync("UPDATE Kitaplar SET SilinmeZamani = SYSUTCDATETIME() WHERE Uid = @id", ("@id", book.Id)));
+        activeWithTime.Message.ShouldContain("CK_Kitaplar_Silinme");
     }
 
     [Fact]

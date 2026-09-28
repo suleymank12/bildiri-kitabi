@@ -86,7 +86,62 @@ public sealed record BookSummaryDto(
     BookErrorDto? Error,
     DateTime CreatedAt,
     DateTime? ProcessingFinishedAt,
-    string? PdfUrl);
+    string? PdfUrl)
+{
+    public static BookSummaryDto From(Book book, int paperCount)
+    {
+        ArgumentNullException.ThrowIfNull(book);
+        return new(
+            book.Uid,
+            book.Name,
+            book.Status,
+            book.Stage,
+            book.ProgressPercent,
+            paperCount,
+            book.PageCount,
+            BookDetailDto.ErrorOf(book),
+            book.CreatedAt,
+            book.ProcessingFinishedAt,
+            BookDetailDto.PdfUrlOf(book));
+    }
+}
+
+/// <summary>
+/// A row of the deleted-books list: the fields of <see cref="BookSummaryDto"/> plus <see cref="DeletedAt"/>.
+/// <see cref="PdfUrl"/> is always null because a deleted book's PDF is not served until it is restored.
+/// </summary>
+public sealed record DeletedBookSummaryDto(
+    Guid Id,
+    string Name,
+    BookStatus Status,
+    GenerationStage? Stage,
+    int ProgressPercent,
+    int PaperCount,
+    int? PageCount,
+    BookErrorDto? Error,
+    DateTime CreatedAt,
+    DateTime? ProcessingFinishedAt,
+    string? PdfUrl,
+    DateTime DeletedAt)
+{
+    public static DeletedBookSummaryDto From(Book book, int paperCount)
+    {
+        ArgumentNullException.ThrowIfNull(book);
+        return new(
+            book.Uid,
+            book.Name,
+            book.Status,
+            book.Stage,
+            book.ProgressPercent,
+            paperCount,
+            book.PageCount,
+            BookDetailDto.ErrorOf(book),
+            book.CreatedAt,
+            book.ProcessingFinishedAt,
+            null,
+            book.DeletedAt ?? throw new InvalidOperationException("A deleted book has a deletion time."));
+    }
+}
 
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int TotalCount);
 

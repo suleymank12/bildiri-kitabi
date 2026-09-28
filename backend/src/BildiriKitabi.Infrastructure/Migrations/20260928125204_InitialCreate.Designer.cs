@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace BildiriKitabi.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260928124303_InitialCreate")]
+    [Migration("20260928125204_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -40,6 +40,10 @@ namespace BildiriKitabi.Infrastructure.Migrations
                         .HasColumnName("OlusturulmaZamani")
                         .HasDefaultValueSql("sysutcdatetime()");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("SilinmeZamani");
+
                     b.Property<string>("ErrorCode")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)")
@@ -49,6 +53,11 @@ namespace BildiriKitabi.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)")
                         .HasColumnName("HataMesaji");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("AktifMi");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -130,6 +139,8 @@ namespace BildiriKitabi.Infrastructure.Migrations
                             t.HasCheckConstraint("CK_Kitaplar_Durum", "[Durum] IN ('Uploaded', 'Queued', 'Processing', 'Completed', 'Failed')");
 
                             t.HasCheckConstraint("CK_Kitaplar_IlerlemeYuzdesi", "[IlerlemeYuzdesi] BETWEEN 0 AND 100");
+
+                            t.HasCheckConstraint("CK_Kitaplar_Silinme", "([AktifMi] = 1 AND [SilinmeZamani] IS NULL) OR ([AktifMi] = 0 AND [SilinmeZamani] IS NOT NULL)");
 
                             t.HasCheckConstraint("CK_Kitaplar_Tamamlandi_Pdf", "[Durum] <> 'Completed' OR [PdfDepolamaAnahtari] IS NOT NULL");
                         });

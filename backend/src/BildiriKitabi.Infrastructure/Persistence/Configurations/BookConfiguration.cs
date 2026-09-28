@@ -1,4 +1,5 @@
 using BildiriKitabi.Core.Books;
+using BildiriKitabi.Core.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.ValueGeneration;
@@ -17,7 +18,13 @@ internal sealed class BookConfiguration : IEntityTypeConfiguration<Book>
             table.HasCheckConstraint("CK_Kitaplar_Durum", $"[Durum] IN ({StatusList})");
             table.HasCheckConstraint("CK_Kitaplar_Tamamlandi_Pdf", "[Durum] <> 'Completed' OR [PdfDepolamaAnahtari] IS NOT NULL");
             table.HasCheckConstraint("CK_Kitaplar_Basarisiz_Mesaj", "[Durum] <> 'Failed' OR [HataMesaji] IS NOT NULL");
+            table.HasCheckConstraint("CK_Kitaplar_Silinme", "([AktifMi] = 1 AND [SilinmeZamani] IS NULL) OR ([AktifMi] = 0 AND [SilinmeZamani] IS NOT NULL)");
         });
+
+        // The single control that keeps deleted books out: every query that starts from Books (and every paper reached
+        // through a book) sees active books only, so no code writes its own AktifMi condition. Only the deleted-books
+        // list and restore step past it, deliberately, through BookQueryFilters.Deleted.
+        builder.HasQueryFilter(BookQueryFilters.Active, b => b.IsActive);
 
         // Two identities: Id (int IDENTITY) is the clustered primary key and the foreign key target, Uid is the only id
         // that leaves the application (API, queue, logs, storage keys). Uid is filled by EF Core's
@@ -41,6 +48,9 @@ internal sealed class BookConfiguration : IEntityTypeConfiguration<Book>
         builder.Property(b => b.ProcessingStartedAt).HasColumnName("IslemBaslangicZamani");
         builder.Property(b => b.QueuedAt).HasColumnName("KuyrugaAlinmaZamani");
         builder.Property(b => b.ProcessingFinishedAt).HasColumnName("IslemBitisZamani");
+        // The default serves rows written by hand; EF Core always sends the value, so false is never mistaken for "unset".
+        builder.Property(b => b.IsActive).HasColumnName("AktifMi").HasDefaultValue(true).ValueGeneratedNever();
+        builder.Property(b => b.DeletedAt).HasColumnName("SilinmeZamani");
         builder.Property(b => b.RowVersion).HasColumnName("SatirVersiyonu").IsRowVersion();
 
         builder.HasMany(b => b.Papers)

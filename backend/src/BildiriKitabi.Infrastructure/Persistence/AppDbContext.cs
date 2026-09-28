@@ -1,6 +1,7 @@
 using BildiriKitabi.Core.Books;
 using BildiriKitabi.Core.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace BildiriKitabi.Infrastructure.Persistence;
@@ -9,7 +10,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 {
     public DbSet<Book> Books => Set<Book>();
 
-    public DbSet<Paper> Papers => Set<Paper>();
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        ArgumentNullException.ThrowIfNull(optionsBuilder);
+
+        // EF Core warns that a paper whose book is filtered out could look orphaned. Papers are only ever reached through
+        // Books (IAppDbContext has no paper set), so the book filter always applies before them.
+        optionsBuilder.ConfigureWarnings(w => w.Ignore(CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning));
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

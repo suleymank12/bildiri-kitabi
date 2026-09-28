@@ -63,6 +63,7 @@ public sealed class ApiHost : WebApplicationFactory<Program>
         builder.UseSetting("HttpsRedirection:Enabled", "false");
         builder.UseSetting("RateLimiting:UploadPermitsPerMinute", "1000");
         builder.UseSetting("RateLimiting:GeneratePermitsPerMinute", "1000");
+        builder.UseSetting("RateLimiting:EditPermitsPerMinute", "1000");
         builder.UseSetting("Logging:LogLevel:Default", "Warning");
         foreach (var (key, value) in _settings)
         {

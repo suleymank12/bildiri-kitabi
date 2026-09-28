@@ -1,7 +1,6 @@
 using System.Linq.Expressions;
 using BildiriKitabi.Core.Books;
 using BildiriKitabi.Core.Persistence;
-using BildiriKitabi.Core.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -30,13 +29,18 @@ public enum DeleteBookOutcome
     InProgress,
 }
 
+public enum RestoreBookOutcome
+{
+    Restored,
+    NotFound,
+}
+
 /// <summary>
 /// State-changing commands on an existing book. Each one is a single conditional SQL statement, so two concurrent
 /// requests can never both succeed.
 /// </summary>
 public sealed partial class BookCommandService(
     IAppDbContext db,
-    IFileStorage storage,
     IBookGenerationQueue queue,
     TimeProvider timeProvider,
     ILogger<BookCommandService> logger)
@@ -44,6 +48,7 @@ public sealed partial class BookCommandService(
     /// <summary>
     /// Sets the order of all papers of a book in one <c>UPDATE … SET SiraNo = CASE Uid …</c>. SQL Server checks the
     /// unique (KitapId, SiraNo) index at the end of the statement, so swapping numbers needs no temporary values.
+    /// The papers are reached through <c>Books</c>, so a deleted book's papers are out of reach like the book.
     /// </summary>
     public async Task<ReorderOutcome> ReorderAsync(Guid bookUid, IReadOnlyList<Guid> paperUids, CancellationToken cancellationToken)
     {
@@ -70,8 +75,9 @@ public sealed partial class BookCommandService(
         }
 
         var newOrder = OrderExpression(paperUids);
-        var updated = await db.Papers
-            .Where(p => p.BookId == book.Id && (p.Book.Status == BookStatus.Uploaded || p.Book.Status == BookStatus.Failed))
+        var updated = await db.Books
+            .Where(b => b.Id == book.Id && (b.Status == BookStatus.Uploaded || b.Status == BookStatus.Failed))
+            .SelectMany(b => b.Papers)
             .ExecuteUpdateAsync(setters => setters.SetProperty(p => p.Order, newOrder), cancellationToken)
             .ConfigureAwait(false);
 
@@ -129,12 +135,20 @@ public sealed partial class BookCommandService(
         return StartGenerationOutcome.Started;
     }
 
-    /// <summary>Deletes the book (papers cascade) and every stored file under <c>books/{id}/</c>.</summary>
+    /// <summary>
+    /// Deletes the book softly: <c>AktifMi = 0</c> and <c>SilinmeZamani</c> are set; the row, its papers and every stored
+    /// file stay, and the global query filter hides the book from then on, so a second delete finds nothing.
+    /// </summary>
     public async Task<DeleteBookOutcome> DeleteAsync(Guid bookUid, CancellationToken cancellationToken)
     {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
         var deleted = await db.Books
             .Where(b => b.Uid == bookUid && b.Status != BookStatus.Queued && b.Status != BookStatus.Processing)
-            .ExecuteDeleteAsync(cancellationToken)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(b => b.IsActive, false)
+                    .SetProperty(b => b.DeletedAt, now),
+                cancellationToken)
             .ConfigureAwait(false);
         if (deleted == 0)
         {
@@ -142,9 +156,28 @@ public sealed partial class BookCommandService(
             return exists ? DeleteBookOutcome.InProgress : DeleteBookOutcome.NotFound;
         }
 
-        await storage.DeletePrefixAsync(StorageKeys.BookPrefix(bookUid), CancellationToken.None).ConfigureAwait(false);
         LogDeleted(logger, bookUid);
         return DeleteBookOutcome.Deleted;
+    }
+
+    /// <summary>Brings a deleted book back as it was when it was deleted; an active or unknown book is not found.</summary>
+    public async Task<RestoreBookOutcome> RestoreAsync(Guid bookUid, CancellationToken cancellationToken)
+    {
+        var restored = await db.Books.Deleted()
+            .Where(b => b.Uid == bookUid)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(b => b.IsActive, true)
+                    .SetProperty(b => b.DeletedAt, (DateTime?)null),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (restored == 0)
+        {
+            return RestoreBookOutcome.NotFound;
+        }
+
+        LogRestored(logger, bookUid);
+        return RestoreBookOutcome.Restored;
     }
 
     /// <summary>Builds <c>p =&gt; p.Uid == uid1 ? 1 : p.Uid == uid2 ? 2 : … : p.Order</c>, translated to a SQL CASE.</summary>
@@ -167,6 +200,9 @@ public sealed partial class BookCommandService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Book {BookUid} could not be enqueued; it stays queued and the queued-book sweeper sends it later")]
     private static partial void LogEnqueueFailed(ILogger logger, Exception exception, Guid bookUid);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookUid} deleted")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookUid} deleted (kept as inactive)")]
     private static partial void LogDeleted(ILogger logger, Guid bookUid);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Book {BookUid} restored")]
+    private static partial void LogRestored(ILogger logger, Guid bookUid);
 }

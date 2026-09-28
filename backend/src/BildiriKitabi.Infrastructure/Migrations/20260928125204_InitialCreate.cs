@@ -31,6 +31,8 @@ namespace BildiriKitabi.Infrastructure.Migrations
                     IslemBaslangicZamani = table.Column<DateTime>(type: "datetime2", nullable: true),
                     KuyrugaAlinmaZamani = table.Column<DateTime>(type: "datetime2", nullable: true),
                     IslemBitisZamani = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    AktifMi = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    SilinmeZamani = table.Column<DateTime>(type: "datetime2", nullable: true),
                     SatirVersiyonu = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
@@ -39,6 +41,7 @@ namespace BildiriKitabi.Infrastructure.Migrations
                     table.CheckConstraint("CK_Kitaplar_Basarisiz_Mesaj", "[Durum] <> 'Failed' OR [HataMesaji] IS NOT NULL");
                     table.CheckConstraint("CK_Kitaplar_Durum", "[Durum] IN ('Uploaded', 'Queued', 'Processing', 'Completed', 'Failed')");
                     table.CheckConstraint("CK_Kitaplar_IlerlemeYuzdesi", "[IlerlemeYuzdesi] BETWEEN 0 AND 100");
+                    table.CheckConstraint("CK_Kitaplar_Silinme", "([AktifMi] = 1 AND [SilinmeZamani] IS NULL) OR ([AktifMi] = 0 AND [SilinmeZamani] IS NOT NULL)");
                     table.CheckConstraint("CK_Kitaplar_Tamamlandi_Pdf", "[Durum] <> 'Completed' OR [PdfDepolamaAnahtari] IS NOT NULL");
                 });
 
