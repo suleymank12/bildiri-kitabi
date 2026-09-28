@@ -36,7 +36,7 @@ cd backend && dotnet run --project src/BildiriKitabi.Api   # API: http://localho
 cd frontend && npm ci && npm run dev                       # arayüz: http://localhost:5173
 ```
 
-http://localhost:5173 adresini açın ve 10 .docx dosyasını yükleyin. Bu modda kuyruk uygulamanın içinde çalışır, RabbitMQ gerekmez.
+http://localhost:5173 adresini açın, "Yeni kitap" düğmesiyle 10 .docx dosyasını yükleyin. Bu modda kuyruk uygulamanın içinde çalışır, RabbitMQ gerekmez.
 
 ### Docker ile
 
@@ -49,7 +49,7 @@ Gereksinim: Docker Desktop. Bu yol SQL Server, RabbitMQ, API ve arayüzü tek ko
    ```sh
    docker compose up --build -d
    ```
-3. http://localhost:8080 adresini açın ve 10 .docx dosyasını yükleyin.
+3. http://localhost:8080 adresini açın, "Yeni kitap" düğmesiyle 10 .docx dosyasını yükleyin.
 
 Durdurmak için `docker compose down` kullanın. `docker compose down -v` veritabanı ve dosyalar dahil her şeyi siler.
 

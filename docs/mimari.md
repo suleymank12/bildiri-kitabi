@@ -35,11 +35,11 @@ Docker'da açılış sırası: `mssql` sağlık kontrolü yalnızca bağlantı k
 
 ## İşleme akışı
 
-1. **Yükleme** — Arayüz kitap adını ve on dosyayı tek bir `multipart/form-data` isteğiyle gönderir; yükleme ilerlemesi gösterilir. Dosyalar önce geçici bir klasöre yazılır.
+1. **Yükleme** — Kitaplarım'daki "Yeni kitap" modalı kitap adını ve on dosyayı tek bir `multipart/form-data` isteğiyle gönderir; yükleme ilerlemesi gösterilir. Dosyalar önce geçici bir klasöre yazılır.
 2. **Doğrulama** — Kitap adı, dosya sayısı, uzantı, ZIP imzası, Word ana parça türü, boyut sınırları, ZIP bombası ve mükerrer içerik (SHA-256) denetlenir. Tüm sorunlar dosya bazında, Türkçe mesajlarla tek seferde döner; hata varsa hiçbir kayıt veya dosya kalmaz.
 3. **Başlık tespiti** — Her bildiri ayrıştırılır ve başlığı bulunur (sıra aşağıda); başlık ve kaynağı yanıtta döner.
 4. **Kayıt** — Kitap ve bildiriler tek transaction'da kaydedilir, dosyalar kalıcı konumlarına taşınır. Kitabın durumu `Uploaded` olur.
-5. **Sıra** — Varsayılan sıra yükleme sırasıdır. İkinci adımda her satırdaki Yukarı / Aşağı düğmeleriyle değiştirilebilir ve her değişiklik hemen kaydedilir; sıra yükleme sırasından farklıysa arayüz bunu belirtir. Ad ve sıra kitap oluştuktan sonra da değiştirilebilir (bkz. [Düzenleme ve silme](#duzenleme-silme)).
+5. **Sıra** — Varsayılan sıra yükleme sırasıdır. İkinci adımda her satırdaki Yukarı / Aşağı düğmeleriyle değiştirilebilir ve her değişiklik hemen kaydedilir; sıra yükleme sırasından farklıysa arayüz bunu belirtir. Başlıklar bu adımda yerinde düzeltilebilir. Ad, sıra ve başlıklar kitap oluştuktan sonra da değiştirilebilir (bkz. [Düzenleme ve silme](#duzenleme-silme)).
 6. **Kuyruk** — "Kitabı Oluştur" isteği kitabı `Queued` yapar ve kuyruğa yalnızca kitabın dış kimliğini (`Uid`) koyar; API hemen `202 Accepted` döner.
 7. **Okuma** — İşleyici kitabı `Processing` olarak sahiplenir, bildirileri sırayla okuyup belge modeline çevirir.
 8. **Temizlik** — Her paragraftan e-posta ve telefon değerleri ile bunlara bağlı etiketler ve ayırıcılar silinir; bildiri başına silinen sayılar kaydedilir.
@@ -144,10 +144,10 @@ bildiri-kitabi/
 │  │  ├─ api/                          Tipli API istemcisi, sorgu kancaları, hata eşleme
 │  │  ├─ app/                          Uygulama iskeleti, yönlendirme, sayfa düzeni
 │  │  ├─ components/ui/                Tasarım sistemi bileşenleri
-│  │  ├─ features/                     Yeni kitap, kitap sayfası ve üretim, görüntüleyici, Kitaplarım
+│  │  ├─ features/                     Kitaplarım ve yeni kitap modalı, kitap sayfası ve üretim, Düzenle, Silinenler, görüntüleyici
 │  │  ├─ lib/                          Biçimlendirme ve yardımcı işlevler
 │  │  └─ styles/                       Tema ve renk belirteçleri
-│  ├─ e2e/                             Playwright testleri ve ekran görüntüsü üretimi
+│  ├─ e2e/                             Playwright uçtan uca testleri
 │  ├─ nginx.conf                       Docker'daki web sunucusu ve API vekili
 │  └─ Dockerfile
 ├─ docker/db-init.sql                  Veritabanını ve uygulama girişini oluşturan betik

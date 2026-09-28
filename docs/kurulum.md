@@ -132,7 +132,7 @@ $env:ConnectionStrings__Default = "<bağlantı dizesi>"
   dotnet ef database update --project src/BildiriKitabi.Infrastructure --startup-project src/BildiriKitabi.Api
   ```
 
-- EF araçları olmadan: [`backend/database/schema.sql`](../backend/database/schema.sql) tüm migration'ları içeren, tekrar çalıştırılabilir (idempotent) bir betiktir; boş bir veritabanında SQL Server Management Studio, Azure Data Studio veya `sqlcmd -i` ile çalıştırılabilir.
+- EF araçları olmadan: [`backend/database/schema.sql`](../backend/database/schema.sql) şemayı kuran tek migration'ı (`InitialCreate`) içeren, tekrar çalıştırılabilir (idempotent) bir betiktir; boş bir veritabanında SQL Server Management Studio, Azure Data Studio veya `sqlcmd -i` ile çalıştırılabilir.
 
 ### Backend ve frontend
 

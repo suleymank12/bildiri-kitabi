@@ -11,7 +11,7 @@ Tablo ve kolon adları Türkçe, C# sınıfları İngilizcedir (`Book` → `Kita
 Her tabloda iki kimlik vardır:
 
 - **`Id`** (`int IDENTITY(1,1)`): kümelenmiş birincil anahtar ve yabancı anahtarların hedefi. Yalnızca veritabanı içinde, anahtar ve birleştirme için kullanılır. Tahmin edilebilir olduğu için uygulamanın dışına hiç çıkmaz.
-- **`Uid`** (`uniqueidentifier`, benzersiz indeksli): dış kimlik. Değerini uygulama, kayıt bağlama eklenirken EF Core'un sıralı GUID üreticisiyle (`SequentialGuidValueGenerator`) verir. API adresleri (`/api/books/{uid}`), istek ve yanıt gövdeleri, kuyruk mesajları, loglar ve dosya deposu anahtarları (`books/{uid}/…`) yalnızca bunu kullanır. API yanıtlarındaki alan adı `id` olarak kaldı, değeri `Uid`'dir.
+- **`Uid`** (`uniqueidentifier`, benzersiz indeksli): dış kimlik. Değerini uygulama, kayıt bağlama eklenirken EF Core'un sıralı GUID üreticisiyle (`SequentialGuidValueGenerator`) verir. API adresleri (`/api/books/{uid}`), istek ve yanıt gövdeleri, kuyruk mesajları, loglar ve dosya deposu anahtarları (`books/{uid}/…`) yalnızca bunu kullanır. API gövdelerinde bu kimliklerin alan adı `uid`'dir (bildiri için `uid`, sıra isteğinde `paperUids`).
 
 Etki alanında da iki ayrı özellik vardır: `Book.Id`/`Paper.Id` (int) ve `Book.Uid`/`Paper.Uid` (Guid). Guid v7 kullanılmadı: SQL Server `uniqueidentifier` değerlerini son altı bayttan başlayarak sıraladığı için v7 değerleri indekse rastgele düşer.
 
@@ -78,7 +78,7 @@ Kısıtlar: `IlerlemeYuzdesi BETWEEN 0 AND 100`; `Durum` yalnızca tanımlı de�
 | Kolon | Tip | Açıklama |
 |---|---|---|
 | `Id` | `int IDENTITY(1,1)` PK | Veritabanı kimliği; dışarı çıkmaz |
-| `Uid` | `uniqueidentifier`, benzersiz | Dış kimlik (API'de bildiri `id`'si, depo anahtarında dosya adı) |
+| `Uid` | `uniqueidentifier`, benzersiz | Dış kimlik (API'de bildirinin `uid`'si, depo anahtarında dosya adı) |
 | `KitapId` | `int` FK → `Kitaplar.Id` | Silmede cascade (kitap satırı yalnızca elle silinirse; uygulama kitabı pasife alır) |
 | `SiraNo` | `int` | Kitaptaki sıra (≥ 1) |
 | `YuklemeSirasi` | `int` | Değişmeyen yükleme sırası (≥ 1) |
