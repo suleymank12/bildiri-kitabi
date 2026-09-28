@@ -28,6 +28,7 @@ describe('status labels', () => {
     ['TitleStyle', undefined],
     ['FirstBoldParagraph', 'Başlık ilk kalın paragraftan alındı, kontrol edin.'],
     ['FileName', 'Başlık bulunamadı, dosya adı kullanıldı. Kontrol edin.'],
+    ['Manual', undefined],
   ])('title source %s → %s', (source, warning) => {
     expect(titleSourceWarning(source)).toBe(warning);
   });
@@ -38,7 +39,7 @@ describe('status labels', () => {
       'Processing',
     ]);
     expect((['Uploaded', 'Queued', 'Processing', 'Completed', 'Failed'] as const).filter(isEditable)).toEqual(
-      ['Uploaded', 'Failed'],
+      ['Uploaded', 'Completed', 'Failed'],
     );
   });
 });

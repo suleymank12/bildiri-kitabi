@@ -44,6 +44,32 @@ describe('BookPage — order step', () => {
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('Sıra ve kontrol');
   });
 
+  it('lets a wrong title be corrected right after the upload; a corrected title needs no note', async () => {
+    let body: unknown;
+    const fallback = paper(3, { titleSource: 'FileName', title: '03 Bildiri' });
+    server.use(
+      http.put('/api/books/:uid/papers/:paperUid/title', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({
+          ...book,
+          papers: [a, b, { ...fallback, title: 'GERÇEK BAŞLIK', titleSource: 'Manual' }],
+        });
+      }),
+    );
+    const { user } = renderBook({ ...book, papers: [a, b, fallback] });
+    expect(await screen.findByText('Başlık bulunamadı, dosya adı kullanıldı. Kontrol edin.')).toBeInTheDocument();
+    // The "Dosyalar" step stays done.
+    expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent('Sıra ve kontrol');
+
+    await user.click(screen.getByRole('button', { name: '03_Bildiri.docx başlığını düzenle' }));
+    await user.clear(screen.getByRole('textbox', { name: '03_Bildiri.docx başlığı' }));
+    await user.keyboard('GERÇEK BAŞLIK{Enter}');
+
+    expect(await screen.findByText('GERÇEK BAŞLIK')).toBeInTheDocument();
+    expect(body).toEqual({ title: 'GERÇEK BAŞLIK' });
+    expect(screen.queryByText(/Kontrol edin\./i)).not.toBeInTheDocument();
+  });
+
   it('"Aşağı" moves the paper and sends the whole new order', async () => {
     let body: unknown;
     server.use(

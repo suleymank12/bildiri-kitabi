@@ -14,6 +14,7 @@ export const bookKeys = {
   all: ['books'] as const,
   lists: () => [...bookKeys.all, 'list'] as const,
   list: (page: number) => [...bookKeys.lists(), page] as const,
+  deleted: (page: number) => [...bookKeys.all, 'deleted', page] as const,
   detail: (uid: string) => [...bookKeys.all, 'detail', uid] as const,
 };
 
@@ -92,12 +93,55 @@ export function useReorderPapers(uid: string) {
         queryClient.setQueryData(key, context.previous);
       }
 
-      if (error instanceof ApiError && error.code === 'PAPER_ORDER_LOCKED') {
-        void queryClient.invalidateQueries({ queryKey: key });
-      }
+      refreshAfterConflict(queryClient, uid, error);
     },
     onSuccess: (book) => {
       queryClient.setQueryData(key, book);
+      void queryClient.invalidateQueries({ queryKey: bookKeys.lists() });
+    },
+  });
+}
+
+/**
+ * After a 409 the book changed on the server (another request edited it, or generation started): the fresh copy is
+ * loaded so the page shows what is really there.
+ */
+function refreshAfterConflict(queryClient: ReturnType<typeof useQueryClient>, uid: string, error: unknown) {
+  if (error instanceof ApiError && error.status === 409) {
+    void queryClient.invalidateQueries({ queryKey: bookKeys.detail(uid) });
+  }
+}
+
+/** Renames the book; a completed book goes back to "Uploaded" on the server. */
+export function useRenameBook(uid: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      unwrap(api.PUT('/api/books/{uid}', { params: { path: { uid } }, body: { name } })) as Promise<BookDetail>,
+    onSuccess: (book) => {
+      queryClient.setQueryData(bookKeys.detail(uid), book);
+      void queryClient.invalidateQueries({ queryKey: bookKeys.lists() });
+    },
+    onError: (error) => {
+      refreshAfterConflict(queryClient, uid, error);
+    },
+  });
+}
+
+/** Replaces the detected title of one paper; a completed book goes back to "Uploaded" on the server. */
+export function useSetPaperTitle(uid: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ paperUid, title }: { paperUid: string; title: string }) =>
+      unwrap(
+        api.PUT('/api/books/{uid}/papers/{paperUid}/title', { params: { path: { uid, paperUid } }, body: { title } }),
+      ) as Promise<BookDetail>,
+    onSuccess: (book) => {
+      queryClient.setQueryData(bookKeys.detail(uid), book);
+      void queryClient.invalidateQueries({ queryKey: bookKeys.lists() });
+    },
+    onError: (error) => {
+      refreshAfterConflict(queryClient, uid, error);
     },
   });
 }
@@ -114,6 +158,7 @@ export function useStartGeneration(uid: string) {
   });
 }
 
+/** Moves the book to "Silinenler"; it can be restored from there. */
 export function useDeleteBook() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -121,6 +166,7 @@ export function useDeleteBook() {
     onSuccess: (_result, uid) => {
       queryClient.removeQueries({ queryKey: bookKeys.detail(uid) });
       void queryClient.invalidateQueries({ queryKey: bookKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: [...bookKeys.all, 'deleted'] });
     },
   });
 }

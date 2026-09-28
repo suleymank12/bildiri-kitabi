@@ -1,8 +1,8 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { ApiError, errorMessage } from '../../api/errors';
-import { useBook, useReorderPapers, useStartGeneration } from '../../api/hooks';
-import type { BookDetail } from '../../api/types';
+import { useBook, useReorderPapers, useSetPaperTitle, useStartGeneration } from '../../api/hooks';
+import type { BookDetail, Paper } from '../../api/types';
 import { useAnnounce } from '../../app/Announcer';
 import { NotFoundState } from '../../app/NotFoundPage';
 import { usePageTitle } from '../../app/usePageTitle';
@@ -14,6 +14,7 @@ import { FailurePanel } from './generation/FailurePanel';
 import { GenerationProgress } from './generation/GenerationProgress';
 import { currentStepLabel } from './generation/stages';
 import { PaperOrderList, type PaperMove } from './PaperOrderList';
+import type { TitleSaveResult } from './PaperTitleEditor';
 import { BOOK_STEPS } from './steps';
 
 // pdf.js is large; it is loaded only when a finished book is opened.
@@ -140,6 +141,7 @@ interface OrderStepProps {
 function OrderStep({ book, starting, onStart }: OrderStepProps) {
   const announce = useAnnounce();
   const reorder = useReorderPapers(book.uid);
+  const setTitle = useSetPaperTitle(book.uid);
   const [orderError, setOrderError] = useState<string>();
   const [locked, setLocked] = useState(false);
   const reordered = book.papers.some((paper) => paper.order !== paper.uploadOrder);
@@ -160,6 +162,12 @@ function OrderStep({ book, starting, onStart }: OrderStepProps) {
     });
   }
 
+  async function saveTitle(paper: Paper, title: string): Promise<TitleSaveResult> {
+    await setTitle.mutateAsync({ paperUid: paper.uid, title });
+    announce(`${paper.fileName} başlığı kaydedildi.`);
+    return 'saved';
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {book.status === 'Failed' && (
@@ -177,8 +185,9 @@ function OrderStep({ book, starting, onStart }: OrderStepProps) {
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl">Sıra ve kontrol</h2>
           <p className="text-sm text-ink-muted">
-            Başlıklar bildirilerden otomatik tespit edildi. Sırayı Yukarı / Aşağı düğmeleriyle
-            değiştirebilirsiniz; her değişiklik hemen kaydedilir.
+            Başlıklar bildirilerden otomatik tespit edildi; yanlış bir başlığı yanındaki kalem düğmesiyle
+            düzeltebilirsiniz. Sırayı Yukarı / Aşağı düğmeleriyle değiştirebilirsiniz. Her değişiklik hemen
+            kaydedilir.
           </p>
         </div>
         {reordered && (
@@ -186,7 +195,12 @@ function OrderStep({ book, starting, onStart }: OrderStepProps) {
             Kitap bu sırayla oluşturulacak.
           </Alert>
         )}
-        <PaperOrderList papers={book.papers} locked={locked || starting} onReorder={saveOrder} />
+        <PaperOrderList
+          papers={book.papers}
+          locked={locked || starting}
+          onReorder={saveOrder}
+          onTitleSave={saveTitle}
+        />
       </Card>
 
       <div className="flex justify-end">

@@ -490,6 +490,76 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/books/{uid}/papers/{paperUid}/title': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: {
+      parameters: {
+        query?: never;
+        header?: never;
+        path: {
+          uid: string;
+          paperUid: string;
+        };
+        cookie?: never;
+      };
+      requestBody: {
+        content: {
+          'application/json': components['schemas']['PaperTitleRequest'];
+          'application/*+json': components['schemas']['PaperTitleRequest'];
+        };
+      };
+      responses: {
+        /** @description OK */
+        200: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/json': components['schemas']['BookDetailDto'];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/problem+json': components['schemas']['ProblemResponse'];
+          };
+        };
+        /** @description Not Found */
+        404: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/problem+json': components['schemas']['ProblemResponse'];
+          };
+        };
+        /** @description Conflict */
+        409: {
+          headers: {
+            [name: string]: unknown;
+          };
+          content: {
+            'application/problem+json': components['schemas']['ProblemResponse'];
+          };
+        };
+      };
+    };
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -614,6 +684,9 @@ export interface components {
     PaperOrderRequest: {
       paperUids: string[];
     };
+    PaperTitleRequest: {
+      title: null | string;
+    };
     ProblemResponse: {
       type?: null | string;
       title: string;
@@ -630,7 +703,7 @@ export interface components {
     /** Format: binary */
     Stream: string;
     /** @enum {unknown} */
-    TitleSource: 'TitleStyle' | 'FirstBoldParagraph' | 'FileName';
+    TitleSource: 'TitleStyle' | 'FirstBoldParagraph' | 'FileName' | 'Manual';
   };
   responses: never;
   parameters: never;

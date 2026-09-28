@@ -1,27 +1,26 @@
-import { BookOpenIcon, CaretLeftIcon, CaretRightIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
-import { useId, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { BookOpenIcon, CaretLeftIcon, CaretRightIcon, PencilSimpleIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
+import { useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { errorMessage } from '../../api/errors';
-import { LIST_PAGE_SIZE, useBookList, useDeleteBook } from '../../api/hooks';
+import { LIST_PAGE_SIZE, useBookList } from '../../api/hooks';
 import type { BookSummary } from '../../api/types';
-import { useAnnounce } from '../../app/Announcer';
 import { paths } from '../../app/paths';
 import { usePageTitle } from '../../app/usePageTitle';
-import { Alert, Badge, Button, Card, Dialog, EmptyState, Skeleton } from '../../components/ui';
+import { Alert, Badge, Button, Card, EmptyState, Skeleton, Tooltip } from '../../components/ui';
 import { formatDateTime, formatInteger } from '../../lib/format';
 import { isBusy, statusLabel, statusTone } from '../../lib/status';
 import { LIBRARY_TABLE_COLUMNS, NUMERIC_COLUMN } from '../../lib/tableColumns';
 import { NewBookDialog } from '../new-book/NewBookDialog';
+import { DeleteBookDialog } from './DeleteBookDialog';
 
-const DELETE_BLOCKED_REASON = 'Kitap hazırlanırken silinemez.';
+export const EDIT_BLOCKED_REASON = 'Kitap oluşturulurken düzenlenemez.';
+export const DELETE_BLOCKED_REASON = 'Kitap oluşturulurken silinemez.';
 
 export function LibraryPage() {
   usePageTitle('Kitaplarım');
-  const announce = useAnnounce();
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Math.max(1, Number.parseInt(searchParams.get('sayfa') ?? '1', 10) || 1);
   const list = useBookList(page);
-  const deleteBook = useDeleteBook();
   const [pendingDelete, setPendingDelete] = useState<BookSummary>();
   const [creating, setCreating] = useState(false);
 
@@ -30,20 +29,6 @@ export function LibraryPage() {
 
   function goTo(target: number) {
     setSearchParams(target === 1 ? {} : { sayfa: String(target) });
-  }
-
-  function confirmDelete() {
-    if (!pendingDelete) {
-      return;
-    }
-
-    const book = pendingDelete;
-    deleteBook.mutate(book.uid, {
-      onSuccess: () => {
-        setPendingDelete(undefined);
-        announce(`“${book.name}” silindi.`);
-      },
-    });
   }
 
   return (
@@ -75,11 +60,6 @@ export function LibraryPage() {
           }
         >
           {errorMessage(list.error)}
-        </Alert>
-      )}
-      {deleteBook.isError && !pendingDelete && (
-        <Alert tone="danger" title="Kitap silinemedi">
-          {errorMessage(deleteBook.error)}
         </Alert>
       )}
 
@@ -124,7 +104,6 @@ export function LibraryPage() {
                 key={book.uid}
                 book={book}
                 onDelete={() => {
-                  deleteBook.reset();
                   setPendingDelete(book);
                 }}
               />
@@ -170,45 +149,22 @@ export function LibraryPage() {
         }}
       />
 
-      <Dialog
-        open={pendingDelete !== undefined}
-        title="Kitabı sil"
+      <DeleteBookDialog
+        book={pendingDelete}
         onClose={() => {
           setPendingDelete(undefined);
         }}
-        actions={
-          <>
-            <Button
-              variant="secondary"
-              disabled={deleteBook.isPending}
-              onClick={() => {
-                setPendingDelete(undefined);
-              }}
-            >
-              Vazgeç
-            </Button>
-            <Button variant="danger" loading={deleteBook.isPending} onClick={confirmDelete}>
-              Sil
-            </Button>
-          </>
-        }
-      >
-        <p>
-          “{pendingDelete?.name}” kitabı, bildirileri ve PDF’i kalıcı olarak silinecek. Bu işlem geri
-          alınamaz.
-        </p>
-        {deleteBook.isError && <p className="mt-3 text-sm text-danger">{errorMessage(deleteBook.error)}</p>}
-      </Dialog>
+      />
     </div>
   );
 }
 
 function BookRow({ book, onDelete }: { book: BookSummary; onDelete: () => void }) {
   const busy = isBusy(book.status);
-  const reasonId = useId();
+  const navigate = useNavigate();
   return (
     <li
-      className={`relative grid grid-cols-[minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2 border-b border-line px-5 py-4 last:border-b-0 hover:bg-surface-muted md:items-center ${LIBRARY_TABLE_COLUMNS}`}
+      className={`relative grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 border-b border-line px-5 py-4 last:border-b-0 hover:bg-surface-muted md:items-center ${LIBRARY_TABLE_COLUMNS}`}
     >
       <Link
         to={paths.book(book.uid)}
@@ -216,26 +172,42 @@ function BookRow({ book, onDelete }: { book: BookSummary; onDelete: () => void }
       >
         {book.name}
       </Link>
-      <div className="relative z-10 row-span-2 self-start md:order-last md:row-span-1 md:self-center">
-        {/* Stays focusable while the book is being prepared, so the reason can be read. */}
-        <Button
-          variant="danger-quiet"
-          size="sm"
-          className="w-11 px-0 md:w-auto md:px-3"
-          icon={<TrashIcon size={18} aria-hidden="true" />}
-          softDisabled={busy}
-          aria-label={`${book.name} kitabını sil`}
-          aria-describedby={busy ? reasonId : undefined}
-          title={busy ? DELETE_BLOCKED_REASON : undefined}
-          onClick={onDelete}
-        >
-          <span className="hidden md:inline">Sil</span>
-        </Button>
-        {busy && (
-          <span id={reasonId} className="sr-only">
-            {DELETE_BLOCKED_REASON}
-          </span>
-        )}
+      {/* Both stay focusable while the book is being generated, so the reason in the tooltip can be read. */}
+      <div className="relative z-10 row-span-2 flex items-center gap-1 self-start md:order-last md:row-span-1 md:justify-end md:self-center">
+        <Tooltip align="end" content={busy ? EDIT_BLOCKED_REASON : undefined}>
+          {(tooltip) => (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-11 px-0 md:w-auto md:px-3"
+              icon={<PencilSimpleIcon size={18} aria-hidden="true" />}
+              softDisabled={busy}
+              aria-label={`${book.name} kitabını düzenle`}
+              {...tooltip}
+              onClick={() => {
+                void navigate(paths.editBook(book.uid));
+              }}
+            >
+              <span className="hidden md:inline">Düzenle</span>
+            </Button>
+          )}
+        </Tooltip>
+        <Tooltip align="end" content={busy ? DELETE_BLOCKED_REASON : undefined}>
+          {(tooltip) => (
+            <Button
+              variant="danger-quiet"
+              size="sm"
+              className="w-11 px-0 md:w-auto md:px-3"
+              icon={<TrashIcon size={18} aria-hidden="true" />}
+              softDisabled={busy}
+              aria-label={`${book.name} kitabını sil`}
+              {...tooltip}
+              onClick={onDelete}
+            >
+              <span className="hidden md:inline">Sil</span>
+            </Button>
+          )}
+        </Tooltip>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted md:contents">
         <span>

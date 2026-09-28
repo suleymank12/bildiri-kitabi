@@ -5,6 +5,7 @@ import { Button } from '../../components/ui';
 import { BreakableFileName } from '../../lib/fileName';
 import { formatBytes } from '../../lib/format';
 import { titleSourceWarning } from '../../lib/status';
+import { PaperTitleEditor, type TitleSaveResult } from './PaperTitleEditor';
 
 export interface PaperMove {
   paper: Paper;
@@ -17,6 +18,8 @@ export interface PaperOrderListProps {
   /** Called with the full new order of paper ids and the paper that moved. */
   onReorder: (paperUids: string[], move: PaperMove) => void;
   locked: boolean;
+  /** Makes every title editable in place (see {@link PaperTitleEditor}); without it titles are plain text. */
+  onTitleSave?: ((paper: Paper, title: string) => Promise<TitleSaveResult>) | undefined;
 }
 
 type Direction = 'up' | 'down';
@@ -28,7 +31,7 @@ const columns = 'md:grid-cols-[2.5rem_minmax(0,1fr)_6rem_6rem]';
  * The papers in book order. The order changes only with each row's Yukarı / Aşağı buttons; after a move the focus
  * stays on the same paper's button (or its other button once the moved paper reaches the top or the bottom).
  */
-export function PaperOrderList({ papers, onReorder, locked }: PaperOrderListProps) {
+export function PaperOrderList({ papers, onReorder, locked, onTitleSave }: PaperOrderListProps) {
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   // The button that was pressed; focused again once the list shows the new order.
   const pendingFocus = useRef<{ paperUid: string; direction: Direction }>(undefined);
@@ -97,7 +100,15 @@ export function PaperOrderList({ papers, onReorder, locked }: PaperOrderListProp
                 <span className="font-medium wrap-break-word text-ink">
                   <BreakableFileName name={paper.fileName} />
                 </span>
-                <span className="font-serif text-[0.9375rem] leading-snug text-ink-muted">{paper.title}</span>
+                {onTitleSave ? (
+                  <PaperTitleEditor
+                    paper={paper}
+                    disabled={locked}
+                    onSave={(title) => onTitleSave(paper, title)}
+                  />
+                ) : (
+                  <span className="font-serif text-[0.9375rem] leading-snug text-ink-muted">{paper.title}</span>
+                )}
                 {warning && (
                   <p className="flex items-start gap-1.5 text-sm leading-snug text-warning">
                     <WarningCircleIcon

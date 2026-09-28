@@ -39,9 +39,11 @@ export const GENERATION_STAGES: readonly GenerationStage[] = [
   'Saving',
 ];
 
-// Only a title found by a fallback method needs a second look; one from the title style needs no note.
+// Only a title found by a fallback method needs a second look; one from the title style or typed by the user
+// needs no note.
 const titleSourceWarnings: Record<TitleSource, string | undefined> = {
   TitleStyle: undefined,
+  Manual: undefined,
   FirstBoldParagraph: 'Başlık ilk kalın paragraftan alındı, kontrol edin.',
   FileName: 'Başlık bulunamadı, dosya adı kullanıldı. Kontrol edin.',
 };
@@ -68,7 +70,7 @@ export function isBusy(status: BookStatus): boolean {
   return status === 'Queued' || status === 'Processing';
 }
 
-/** True while the paper order may change and generation may start. */
+/** True while the name, the order and the titles may change: in every state but queued and being generated. */
 export function isEditable(status: BookStatus): boolean {
-  return status === 'Uploaded' || status === 'Failed';
+  return !isBusy(status);
 }

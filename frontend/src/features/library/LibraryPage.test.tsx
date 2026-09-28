@@ -75,13 +75,14 @@ describe('LibraryPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Örnek Bilim Kongresi 2026 kitabını sil' }));
 
     const dialog = screen.getByRole('dialog', { name: 'Kitabı sil' });
-    expect(dialog).toHaveTextContent('kalıcı olarak silinecek');
+    expect(dialog).toHaveTextContent('Kitap Silinenler’e taşınacak. Oradan geri alabilirsiniz.');
     expect(deleted).toBeUndefined();
     await user.click(within(dialog).getByRole('button', { name: 'Sil' }));
 
     await waitFor(() => {
       expect(deleted).toBe(bookSummary().uid);
     });
+    expect(await screen.findByText('“Örnek Bilim Kongresi 2026” Silinenler’e taşındı.')).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Henüz kitap oluşturmadınız.' })).toBeInTheDocument();
   });
 
@@ -122,11 +123,29 @@ describe('LibraryPage', () => {
     const { user } = renderPage(<LibraryPage />, { path: '/', route: '/' });
 
     const button = await screen.findByRole('button', { name: 'Örnek Bilim Kongresi 2026 kitabını sil' });
+    const edit = screen.getByRole('button', { name: 'Örnek Bilim Kongresi 2026 kitabını düzenle' });
 
     expect(button).toHaveAttribute('aria-disabled', 'true');
-    expect(button).toHaveAttribute('title', 'Kitap hazırlanırken silinemez.');
-    expect(button).toHaveAccessibleDescription('Kitap hazırlanırken silinemez.');
+    expect(button).toHaveAccessibleDescription('Kitap oluşturulurken silinemez.');
     await user.click(button);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    expect(edit).toHaveAttribute('aria-disabled', 'true');
+    await user.hover(edit);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Kitap oluşturulurken düzenlenemez.');
+    await user.click(edit);
+    expect(screen.queryByText('Başka sayfa')).not.toBeInTheDocument();
+  });
+
+  it('puts "Düzenle" right before "Sil" and opens the edit page', async () => {
+    server.use(http.get('/api/books', () => HttpResponse.json(listOf([bookSummary()]))));
+    const { user } = renderPage(<LibraryPage />, { path: '/', route: '/' });
+
+    const edit = await screen.findByRole('button', { name: 'Örnek Bilim Kongresi 2026 kitabını düzenle' });
+    const remove = screen.getByRole('button', { name: 'Örnek Bilim Kongresi 2026 kitabını sil' });
+    expect(edit.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await user.click(edit);
+    expect(await screen.findByText('Başka sayfa')).toBeInTheDocument();
   });
 });
