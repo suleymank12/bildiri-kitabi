@@ -4,7 +4,7 @@ import { ApiError } from '../../api/errors';
 import { uploadBook } from '../../api/upload';
 import { bookDetail, docx } from '../../test/fixtures';
 import { renderPage } from '../../test/render';
-import { DISCARD_QUESTION, NewBookDialog } from './NewBookDialog';
+import { DISCARD_QUESTION, MIN_STATUS_MS, NewBookDialog } from './NewBookDialog';
 
 // The upload is a single XMLHttpRequest (tested in api/upload.test.ts); jsdom cannot send File parts through it.
 vi.mock('../../api/upload', () => ({ uploadBook: vi.fn() }));
@@ -337,6 +337,78 @@ describe('NewBookDialog', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
+  it('shows the upload in the body, in place of the form, and keeps what was entered', async () => {
+    upload.mockImplementation((_name, _files, onProgress) => {
+      onProgress(40);
+      return new Promise(() => undefined);
+    });
+    const { user, input, submit } = await setup();
+    await user.type(screen.getByLabelText('Kitap adı'), 'Örnek Bilim Kongresi 2026');
+    await user.upload(
+      input,
+      names(10).map((name) => docx(name)),
+    );
+    await waitUntilChecked();
+
+    await user.click(submit());
+
+    const body = dialog().querySelector('[data-dialog-body]')!;
+    expect(within(body as HTMLElement).getByRole('status')).toHaveTextContent('Dosyalar yükleniyor… %40');
+    expect(
+      within(body as HTMLElement).getByRole('progressbar', { name: 'Yükleme ilerlemesi' }),
+    ).toHaveAttribute('aria-valuenow', '40');
+    // The form is only hidden, so the name and the files are still there if the upload fails.
+    expect(screen.getByLabelText('Kitap adı')).not.toBeVisible();
+    expect(screen.getByLabelText('Kitap adı')).toHaveValue('Örnek Bilim Kongresi 2026');
+    expect(screen.getByRole('button', { name: 'Yükleniyor' })).toBeDisabled();
+  });
+
+  it('keeps the status panel on screen for at least 600 ms before the book page opens', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let answer: (book: ReturnType<typeof bookDetail>) => void = () => undefined;
+      upload.mockImplementation((_name, _files, onProgress) => {
+        onProgress(100);
+        return new Promise((resolve) => {
+          answer = resolve;
+        });
+      });
+      const { user, input, submit } = await setup();
+      await user.type(screen.getByLabelText('Kitap adı'), 'Örnek Bilim Kongresi 2026');
+      await user.upload(
+        input,
+        names(10).map((name) => docx(name)),
+      );
+      await waitUntilChecked();
+
+      vi.setSystemTime(new Date(2026, 8, 29, 7, 0, 0, 0));
+      await user.click(submit());
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…',
+      );
+
+      // The server answers after 100 ms: the panel stays for the rest of the 600 ms.
+      vi.setSystemTime(new Date(2026, 8, 29, 7, 0, 0, 100));
+      await act(async () => {
+        answer(bookDetail());
+        await Promise.resolve();
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(MIN_STATUS_MS - 150);
+      });
+      expect(screen.getByRole('dialog', { name: 'Yeni kitap' })).toBeInTheDocument();
+      expect(screen.queryByText('Başka sayfa')).not.toBeInTheDocument();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+      expect(screen.getByText('Başka sayfa')).toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shows the server check as a second stage once the upload reached 100 %', async () => {
     upload.mockImplementation((_name, _files, onProgress) => {
       onProgress(100);
@@ -417,8 +489,12 @@ describe('NewBookDialog', () => {
 
     await user.click(submit());
 
+    // The status panel steps aside and the form comes back with the messages.
+    expect(await screen.findByText('Geçerli bir Word (.docx) belgesi değil.')).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Kitap adı')).toHaveValue('Kongre 😀');
     const row = rows()[2]!;
-    expect(await within(row).findByText('Geçerli bir Word (.docx) belgesi değil.')).toBeInTheDocument();
+    expect(within(row).getByText('Geçerli bir Word (.docx) belgesi değil.')).toBeInTheDocument();
     expect(within(row).getByText('Reddedildi')).toBeInTheDocument();
     expect(dialog()).toContainElement(row);
     expect(screen.getByLabelText('Kitap adı')).toHaveAccessibleDescription(

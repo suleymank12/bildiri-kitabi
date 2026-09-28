@@ -20,8 +20,6 @@ export interface DialogProps {
   size?: 'sm' | 'lg';
   /** `lg` only: turns the "X" button off, for example while an upload runs. */
   closeDisabled?: boolean;
-  /** `lg` only: content above the buttons that stays in place while the body scrolls (a progress bar). */
-  footerExtra?: ReactNode;
 }
 
 const focusableSelector =
@@ -41,7 +39,6 @@ export function Dialog({
   placement = 'center',
   size = 'sm',
   closeDisabled = false,
-  footerExtra,
 }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -167,9 +164,8 @@ export function Dialog({
           <div data-dialog-body="" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
             {children}
           </div>
-          <footer className="flex flex-col gap-3 border-t border-line px-5 py-4 sm:px-6">
-            {footerExtra}
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">{actions}</div>
+          <footer className="flex flex-col-reverse gap-2 border-t border-line px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+            {actions}
           </footer>
         </>
       ) : (

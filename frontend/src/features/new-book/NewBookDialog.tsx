@@ -1,5 +1,5 @@
-import { SortAscendingIcon } from '@phosphor-icons/react';
-import { useEffect, useId, useState, type SubmitEvent } from 'react';
+import { SortAscendingIcon, UploadSimpleIcon } from '@phosphor-icons/react';
+import { useEffect, useId, useRef, useState, type SubmitEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { mapUploadErrors, type UploadErrors } from '../../api/errors';
 import { useCreateBook } from '../../api/hooks';
@@ -23,6 +23,14 @@ const noServerErrors: UploadErrors = { files: new Map(), general: [] };
 
 /** How long the "sorted" confirmation stays on screen. */
 const SORT_NOTICE_MS = 2500;
+
+/** Once shown, the upload status stays at least this long, so a fast local upload does not just flicker. */
+export const MIN_STATUS_MS = 600;
+
+/** Wall-clock time for the status panel's minimum; read only from event handlers. */
+function now(): number {
+  return Date.now();
+}
 
 export const DISCARD_QUESTION = 'Seçtiğiniz dosyalar ve yazdığınız ad silinecek. Kapatılsın mı?';
 
@@ -51,6 +59,17 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
   const [serverErrors, setServerErrors] = useState<UploadErrors>(noServerErrors);
   const [sortNotice, setSortNotice] = useState(false);
   const [confirmingClose, setConfirmingClose] = useState(false);
+  // The status panel replaces the form from "Yükle ve devam et" until the result has been shown long enough.
+  const [showingStatus, setShowingStatus] = useState(false);
+  const statusShownAt = useRef(0);
+  const statusTimer = useRef<number>(undefined);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(statusTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!sortNotice) {
@@ -76,10 +95,10 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
   const ready =
     nameError === undefined &&
     isSelectionReady(files.map((f) => ({ name: f.file.name, size: f.file.size, hash: f.hash, zip: f.zip })));
-  const uploading = createBook.isPending;
+  const uploading = createBook.isPending || showingStatus;
   const sortedByName = isSortedByName(files.map((f) => f.file.name));
   // The upload reports 100 % once the last byte is sent; the server still has to check the files.
-  const checking = uploading && createBook.progress >= 100;
+  const checking = uploading && (!createBook.isPending || createBook.progress >= 100);
   const dirty = name.trim() !== '' || count > 0;
 
   function requestClose() {
@@ -108,20 +127,33 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
     }
 
     clearServerErrors();
+    setShowingStatus(true);
+    statusShownAt.current = now();
     createBook.mutate(
       { name: name.trim(), files: files.map((f) => f.file) },
       {
         onSuccess: (book) => {
-          announce('Dosyalar yüklendi. Sıra ve kontrol adımına geçildi.');
-          onClose();
-          void navigate(paths.book(book.uid));
+          afterMinimumStatusTime(() => {
+            announce('Dosyalar yüklendi. Sıra ve kontrol adımına geçildi.');
+            onClose();
+            void navigate(paths.book(book.uid));
+          });
         },
         onError: (error) => {
-          setServerErrors(mapUploadErrors(error));
-          announce('Yükleme tamamlanamadı.');
+          afterMinimumStatusTime(() => {
+            // The form comes back as it was, with the server's messages on its fields and rows.
+            setServerErrors(mapUploadErrors(error));
+            setShowingStatus(false);
+            announce('Yükleme tamamlanamadı.');
+          });
         },
       },
     );
+  }
+
+  function afterMinimumStatusTime(action: () => void) {
+    const wait = Math.max(0, MIN_STATUS_MS - (now() - statusShownAt.current));
+    statusTimer.current = window.setTimeout(action, wait);
   }
 
   return (
@@ -132,25 +164,6 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
         title="Yeni kitap"
         closeDisabled={uploading}
         onClose={requestClose}
-        footerExtra={
-          uploading && (
-            // Two stages: the bytes going up, then the server checking the files and finding the titles.
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-baseline justify-between gap-3 text-sm text-ink-muted">
-                <p role="status">
-                  {checking
-                    ? 'Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…'
-                    : 'Dosyalar yükleniyor…'}
-                </p>
-                {!checking && <span className="numeric">%{createBook.progress}</span>}
-              </div>
-              <ProgressBar
-                value={checking ? undefined : createBook.progress}
-                label={checking ? 'Dosyalar kontrol ediliyor' : 'Yükleme ilerlemesi'}
-              />
-            </div>
-          )
-        }
         actions={
           <>
             <Button variant="secondary" disabled={uploading} onClick={requestClose}>
@@ -162,7 +175,8 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
           </>
         }
       >
-        <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-6">
+        {showingStatus && <UploadStatus checking={checking} progress={createBook.progress} />}
+        <form id={formId} onSubmit={submit} noValidate hidden={showingStatus} className="flex flex-col gap-6">
           <p className="text-ink-muted">
             Kitap adını yazın ve {REQUIRED_PAPER_COUNT} bildiri dosyasını seçin. Sonraki adımda sırayı ve
             tespit edilen başlıkları kontrol edebilirsiniz. E-posta adresleri ve telefon numaraları kitaba
@@ -315,5 +329,34 @@ function NewBookForm({ onClose }: { onClose: () => void }) {
         <p>{DISCARD_QUESTION}</p>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * Two stages: the bytes going up (with the percentage), then the server checking the files and finding the titles
+ * (no percentage is known, so the bar moves on its own).
+ */
+function UploadStatus({ checking, progress }: { checking: boolean; progress: number }) {
+  return (
+    <div className="flex min-h-64 flex-col items-center justify-center gap-4 py-8 text-center">
+      <span aria-hidden="true" className="text-accent">
+        <UploadSimpleIcon size={40} />
+      </span>
+      <p role="status" className="text-lg text-ink">
+        {checking ? (
+          'Dosyalar kontrol ediliyor ve başlıklar tespit ediliyor…'
+        ) : (
+          <>
+            Dosyalar yükleniyor… <span className="numeric">%{progress}</span>
+          </>
+        )}
+      </p>
+      <div className="w-full max-w-md">
+        <ProgressBar
+          value={checking ? undefined : progress}
+          label={checking ? 'Dosyalar kontrol ediliyor' : 'Yükleme ilerlemesi'}
+        />
+      </div>
+    </div>
   );
 }
