@@ -13,6 +13,7 @@ import { CleanupInfo } from './CleanupInfo';
 import { FailurePanel } from './generation/FailurePanel';
 import { GenerationProgress } from './generation/GenerationProgress';
 import { currentStepLabel } from './generation/stages';
+import { MissingTitlesAlert } from './MissingTitlesAlert';
 import { PaperOrderList, type PaperMove } from './PaperOrderList';
 import type { TitleSaveResult } from './PaperTitleEditor';
 import { BOOK_STEPS } from './steps';
@@ -203,6 +204,7 @@ function OrderStep({ book, starting, onStart }: OrderStepProps) {
         />
       </Card>
 
+      <MissingTitlesAlert papers={book.papers} />
       <div className="flex justify-end">
         <Button variant="primary" loading={starting} disabled={locked || reorder.isPending} onClick={onStart}>
           Kitabı Oluştur

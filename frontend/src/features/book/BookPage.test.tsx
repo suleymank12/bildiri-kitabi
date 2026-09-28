@@ -72,6 +72,58 @@ describe('BookPage — order step', () => {
     expect(screen.queryByText(/Kontrol edin\./i)).not.toBeInTheDocument();
   });
 
+  it('sums up the papers whose title fell back to the file name above "Kitabı Oluştur"', async () => {
+    // jsdom has no scrollIntoView; the stub is removed again at the end.
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    onTestFinished(() => {
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+    });
+    const fileName = paper(2, { titleSource: 'FileName', title: '02 Bildiri' });
+    const bold = paper(3, { titleSource: 'FirstBoldParagraph' });
+    server.use(
+      http.put('/api/books/:uid/papers/:paperUid/title', () =>
+        HttpResponse.json({
+          ...book,
+          papers: [a, { ...fileName, title: 'DOĞRU BAŞLIK', titleSource: 'Manual' }, bold],
+        }),
+      ),
+    );
+    const { user } = renderBook({ ...book, papers: [a, fileName, bold] });
+
+    const alert = (await screen.findByText('Başlığı bulunamayan bildiriler var')).closest(
+      'div.flex.flex-col',
+    )!;
+    expect(alert).toHaveTextContent('1 bildiride başlık bulunamadı ve dosya adı kullanıldı:');
+    expect(alert).toHaveTextContent(
+      'Doğru dosyayı yüklediğinizi kontrol edin veya başlığı kalem düğmesiyle düzeltin.',
+    );
+    // A title from the first bold paragraph keeps only its row note.
+    expect(within(alert as HTMLElement).queryByText('03_Bildiri.docx')).not.toBeInTheDocument();
+    // Right above the button, and the button still works: the warning does not block.
+    const start = screen.getByRole('button', { name: 'Kitabı Oluştur' });
+    expect(alert.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(start).toBeEnabled();
+
+    await user.click(within(alert as HTMLElement).getByRole('link', { name: '02_Bildiri.docx' }));
+    const pencil = screen.getByRole('button', { name: '02_Bildiri.docx başlığını düzenle' });
+    expect(pencil).toHaveFocus();
+    expect(scrolled).toHaveBeenCalled();
+
+    await user.click(pencil);
+    await user.clear(screen.getByRole('textbox', { name: '02_Bildiri.docx başlığı' }));
+    await user.keyboard('DOĞRU BAŞLIK{Enter}');
+    expect(await screen.findByText('DOĞRU BAŞLIK')).toBeInTheDocument();
+    expect(screen.queryByText('Başlığı bulunamayan bildiriler var')).not.toBeInTheDocument();
+  });
+
+  it('shows no summary when every title was found', async () => {
+    renderBook({ ...book, papers: [a, b, paper(3, { titleSource: 'FirstBoldParagraph' })] });
+
+    expect(await screen.findByRole('button', { name: 'Kitabı Oluştur' })).toBeInTheDocument();
+    expect(screen.queryByText('Başlığı bulunamayan bildiriler var')).not.toBeInTheDocument();
+  });
+
   it('"Aşağı" moves the paper and sends the whole new order', async () => {
     let body: unknown;
     server.use(

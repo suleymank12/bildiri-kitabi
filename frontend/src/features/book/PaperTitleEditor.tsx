@@ -15,6 +15,11 @@ export interface PaperTitleEditorProps {
   disabled?: boolean;
 }
 
+/** Id of a paper's "Başlığı düzenle" button, so other parts of the page can bring it into view. */
+export function titleEditButtonId(paperUid: string): string {
+  return `baslik-duzenle-${paperUid}`;
+}
+
 /** The same rules as the server, so an obvious mistake is shown before a request. */
 function paperTitleError(title: string): string | undefined {
   const trimmed = title.replace(/\r\n|[\r\n]/g, ' ').trim();
@@ -109,6 +114,7 @@ export function PaperTitleEditor({ paper, onSave, disabled = false }: PaperTitle
         </span>
         <Button
           ref={editButton}
+          id={titleEditButtonId(paper.uid)}
           variant="ghost"
           size="sm"
           className="w-11 shrink-0 px-0"

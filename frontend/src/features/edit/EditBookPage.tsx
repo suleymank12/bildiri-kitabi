@@ -27,6 +27,7 @@ import {
 import { bookNameError } from '../../lib/files';
 import { BOOK_NAME_MAX } from '../../lib/limits';
 import { isBusy } from '../../lib/status';
+import { MissingTitlesAlert } from '../book/MissingTitlesAlert';
 import { PaperOrderList, type PaperMove } from '../book/PaperOrderList';
 import type { TitleSaveResult } from '../book/PaperTitleEditor';
 import { DeleteBookDialog } from '../library/DeleteBookDialog';
@@ -301,6 +302,7 @@ function EditView({ book }: { book: BookDetail }) {
         />
       </Card>
 
+      <MissingTitlesAlert papers={book.papers} />
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button
           variant="danger"

@@ -41,6 +41,22 @@ const completed = () =>
   });
 
 describe('EditBookPage', () => {
+  it('sums up the papers whose title fell back to the file name, above the buttons at the bottom', async () => {
+    const detail = bookDetail();
+    renderEdit({
+      ...detail,
+      papers: detail.papers.map((p, i) => (i === 0 ? { ...p, titleSource: 'FileName' } : p)),
+    });
+
+    const alert = (await screen.findByText('Başlığı bulunamayan bildiriler var')).closest(
+      'div.flex.flex-col',
+    )!;
+    expect(alert).toHaveTextContent('1 bildiride başlık bulunamadı');
+    expect(within(alert as HTMLElement).getByRole('link', { name: '01_Bildiri.docx' })).toBeInTheDocument();
+    const start = screen.getByRole('button', { name: 'Kitabı Oluştur' });
+    expect(alert.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('goes back to Kitaplarım with a secondary button', async () => {
     renderEdit(bookDetail());
 
