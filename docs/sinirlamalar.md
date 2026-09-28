@@ -11,9 +11,10 @@
 - **Dosya adları:** kullanıcının dosya adı hiçbir zaman yol olarak kullanılmaz; gösterim için yalnızca son parça, kontrol karakterleri atılarak tutulur.
 - **Konteynerler:** API `chiseled-extra` imajında (kabuk ve paket yöneticisi yok) root olmayan `app` kullanıcısıyla, nginx `nginx-unprivileged` imajında root olmayan kullanıcıyla çalışır. Yalnızca 8080 ve 15672 portları, yalnızca `127.0.0.1` üzerinde yayımlanır.
 - **Gizli bilgiler:** parolalar yalnızca git dışındaki `.env` dosyasındadır; depoda yalnızca yer tutucular içeren `.env.example` bulunur. API veritabanına `sa` ile değil, yalnızca bu veritabanının sahibi olan `bildiri_app` girişiyle bağlanır. RabbitMQ'da `guest` hesabı kullanılmaz, uygulama bu hesabı reddeder.
-- **Rate limiting:** yükleme ve üretim uçlarında istemci başına sınır; `X-Forwarded-For` yalnızca tanımlı vekil ağından geldiğinde dikkate alınır.
+- **Rate limiting:** yükleme, üretim ve düzenleme (ad, sıra, silme, geri alma) uçlarında istemci başına sınır; `X-Forwarded-For` yalnızca tanımlı vekil ağından geldiğinde dikkate alınır.
 - **HTTP başlıkları:** nginx arayüz için `Content-Security-Policy` (`default-src 'self'`, satır içi betik yok, `object-src 'none'`, `frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY` gönderir. API yanıtları `default-src 'none'` CSP'si ve aynı başlıkları taşır. CORS yalnızca yapılandırılmış kaynaklara izin verir.
-- **Kişisel veri:** loglara dosya içeriği, iletişim bilgisi veya kitap adı yazılmaz; loglar kitap kimliği ve hata kodu gibi teknik bilgilerle sınırlıdır. Kaynak belgelerin üst verisi PDF'e taşınmaz.
+- **Kimlikler:** veritabanındaki sayısal `Id` (tahmin edilebilir, ardışık) hiçbir API yanıtında, adreste, kuyruk mesajında, logda veya dosya yolunda kullanılmaz; dışarıya yalnızca rastgele görünen `Uid` açılır.
+- **Kişisel veri:** loglara dosya içeriği, iletişim bilgisi veya kitap adı yazılmaz; loglar kitabın `Uid`'si ve hata kodu gibi teknik bilgilerle sınırlıdır. Kaynak belgelerin üst verisi PDF'e taşınmaz.
 - **Hata yanıtları:** istemciye yığın izi veya iç ayrıntı verilmez; beklenmeyen hatalar `INTERNAL_ERROR` koduyla genel bir mesaj döner.
 
 <a id="bilinen-eksikler"></a>
@@ -33,4 +34,5 @@ Case'in zorunlu maddelerinin tamamı karşılanmıştır (bkz. [Kabul kriterleri
 - **Erişilebilir PDF:** üretilen PDF etiketli (tagged PDF) veya PDF/A uyumlu değildir.
 - **Örnek bildiriler depoda yok:** Case ile gönderilen örnek bildiriler şirkete ait olduğu ve üst verilerinde kişisel veri bulunduğu için depoya eklenmemiştir. Testler ve E2E senaryoları onları `testdata/bildiriler/` klasöründe arar.
 - **Kitap adındaki iletişim bilgisi:** kitap adına yazılan iletişim bilgisi temizlenmez, çünkü kural Word içeriği içindir (bkz. [İletişim bilgisi temizliği](iletisim-temizligi.md)).
-- **Oluşturulmayan kitaplar:** yüklenip hiç oluşturulmayan kitapların dosyaları otomatik silinmez; kullanıcı Kitaplarım'daki "Sil" düğmesiyle kaldırabilir.
+- **Silinen kitapların dosyaları diskte kalır; kalıcı silme yoktur.** "Sil" kitabı yalnızca pasife alır (`AktifMi = 0`): kayıt, bildiriler, kaynak .docx dosyaları ve PDF depoda durur ve kitap geri alınabilir. Kayıtları ve dosyaları gerçekten kaldıran bir uç veya otomatik temizlik yoktur; disk ve veritabanı kullanımı silinen kitaplarla birlikte büyür.
+- **Oluşturulmayan kitaplar:** yüklenip hiç oluşturulmayan kitapların dosyaları otomatik silinmez; "Sil" onları da yalnızca pasife alır.
