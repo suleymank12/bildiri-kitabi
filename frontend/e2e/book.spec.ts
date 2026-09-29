@@ -454,6 +454,40 @@ test('görüntüleyici: varsayılan açılış, ortalanmış kapak, yakınlaşt�
   }
 });
 
+test('görüntüleyici: PDF yükleme hatasından sonra tekrar dene, pencere daralınca sayfa da daralır', async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(isPhone(page), 'Pencere boyutu masaüstünde değiştirilir.');
+  const uid = await createThroughApi(request, `Tekrar Dene Denemesi ${testInfo.project.name} ${run}`);
+  await generateThroughApi(request, uid);
+
+  // The first PDF request fails; the ones after it reach the server.
+  let failed = false;
+  await page.route(`**/api/books/${uid}/pdf`, async (route) => {
+    if (failed) {
+      await route.continue();
+      return;
+    }
+    failed = true;
+    await route.fulfill({ status: 500, body: '' });
+  });
+
+  await page.goto(`/kitaplar/${uid}`);
+  const alert = page.getByRole('alert');
+  await expect(alert).toContainText('PDF görüntülenemedi');
+  await alert.getByRole('button', { name: 'Tekrar dene' }).click();
+
+  const cover = page.locator('[data-page-slot="1"]');
+  await expect(cover.locator('canvas')).toBeVisible();
+  const width = async () => (await cover.boundingBox())?.width ?? 0;
+  const before = await width();
+
+  // Fit width: the page follows the area when the window gets narrower.
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await expect.poll(width).toBeLessThan(before - 50);
+});
+
 test('yeni kitap modalı: içeriğe göre boyut, tek kaydırma, arka sayfa kaymaz', async ({ page }) => {
   const dialog = await openNewBookDialog(page);
   const box = () =>

@@ -64,12 +64,19 @@ interface ZoomAnchor {
   clientY: number;
 }
 
-/** Width and height of an element, kept up to date. */
+/**
+ * Width and height of an element, kept up to date. The ref is a callback, so an element that is replaced (the area
+ * comes back after a load error) is observed too; the returned ref object gives direct access to the element.
+ */
 function useElementSize<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
+  const elementRef = useRef<T | null>(null);
+  const [element, setElement] = useState<T | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const ref = useCallback((node: T | null) => {
+    elementRef.current = node;
+    setElement(node);
+  }, []);
   useEffect(() => {
-    const element = ref.current;
     if (!element || typeof ResizeObserver === 'undefined') {
       return;
     }
@@ -83,8 +90,8 @@ function useElementSize<T extends HTMLElement>() {
     return () => {
       observer.disconnect();
     };
-  }, []);
-  return [ref, size] as const;
+  }, [element]);
+  return [ref, size, elementRef] as const;
 }
 
 function clampPercent(percent: number): number {
@@ -124,7 +131,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
   const [reloadKey, setReloadKey] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const viewerRef = useRef<HTMLDivElement>(null);
-  const [areaRef, area] = useElementSize<HTMLDivElement>();
+  const [areaRef, area, areaElementRef] = useElementSize<HTMLDivElement>();
 
   const mode: ViewMode = desktop ? preferredMode : 'single';
   const padding = desktop ? AREA_PADDING.desktop : AREA_PADDING.phone;
@@ -258,7 +265,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
 
   /** Remembers which point of the content is at the given screen position, to keep it there after a zoom. */
   function captureAnchor(clientX?: number, clientY?: number) {
-    const area = areaRef.current;
+    const area = areaElementRef.current;
     if (!area) {
       return;
     }
@@ -289,7 +296,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
   // After a zoom the remembered point goes to the middle of the visible area (the page shown stays the same).
   // `zoom` is a dependency too, so a zoom that keeps the page width does not leave a stale point behind.
   useLayoutEffect(() => {
-    const area = areaRef.current;
+    const area = areaElementRef.current;
     const kept = anchor.current;
     anchor.current = undefined;
     if (!area || !kept) {
@@ -303,7 +310,7 @@ export function PdfViewer({ book }: { book: BookDetail }) {
       const rect = area.getBoundingClientRect();
       window.scrollBy({ top: rect.top + kept.fy * area.scrollHeight - window.innerHeight / 2 });
     }
-  }, [areaRef, pageWidth, zoom]);
+  }, [areaElementRef, pageWidth, zoom]);
 
   /** Phones: a double tap switches between "fit width" and 200 %, around the tapped point. */
   function onPointerUp(event: React.PointerEvent<HTMLDivElement>) {

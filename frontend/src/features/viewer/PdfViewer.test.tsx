@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { useEffect, type ReactNode } from 'react';
 import type { BookDetail } from '../../api/types';
 import { bookDetail, paper } from '../../test/fixtures';
@@ -275,6 +275,75 @@ describe('PdfViewer on a wide screen', () => {
     pdfState.fail = false;
     await user.click(within(alert).getByRole('button', { name: 'Tekrar dene' }));
     expect(await screen.findByDisplayValue('1')).toBe(pageBox());
+  });
+});
+
+/** A ResizeObserver whose size reports the test sends by hand (jsdom has no layout). */
+class FakeResizeObserver {
+  static readonly live = new Set<FakeResizeObserver>();
+  readonly observed = new Set<Element>();
+  private readonly callback: ResizeObserverCallback;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    FakeResizeObserver.live.add(this);
+  }
+
+  observe(element: Element) {
+    this.observed.add(element);
+  }
+
+  unobserve(element: Element) {
+    this.observed.delete(element);
+  }
+
+  disconnect() {
+    this.observed.clear();
+    FakeResizeObserver.live.delete(this);
+  }
+
+  static watching(element: Element): number {
+    return [...FakeResizeObserver.live].filter((observer) => observer.observed.has(element)).length;
+  }
+
+  static resize(element: Element, width: number, height: number) {
+    for (const observer of FakeResizeObserver.live) {
+      if (observer.observed.has(element)) {
+        const entry = { target: element, contentRect: { width, height } } as unknown as ResizeObserverEntry;
+        act(() => {
+          observer.callback([entry], observer as unknown as ResizeObserver);
+        });
+      }
+    }
+  }
+}
+
+describe('PdfViewer size tracking', () => {
+  beforeEach(() => {
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    FakeResizeObserver.live.clear();
+  });
+
+  it('follows the size of the page area that comes back after "Tekrar dene"', async () => {
+    pdfState.fail = true;
+    const { user } = renderViewer('?sayfa=3');
+    const alert = await screen.findByRole('alert');
+
+    pdfState.fail = false;
+    await user.click(within(alert).getByRole('button', { name: 'Tekrar dene' }));
+    await screen.findByDisplayValue('3');
+
+    const area = screen.getByTestId('page-area');
+    expect(FakeResizeObserver.watching(area)).toBe(1);
+    // Fit width in facing pages: each page takes half of the area.
+    FakeResizeObserver.resize(area, 600, 700);
+    expect(document.querySelector<HTMLElement>('[data-page-slot="3"]')).toHaveStyle({ width: '300px' });
+    FakeResizeObserver.resize(area, 400, 700);
+    expect(document.querySelector<HTMLElement>('[data-page-slot="3"]')).toHaveStyle({ width: '200px' });
   });
 });
 
