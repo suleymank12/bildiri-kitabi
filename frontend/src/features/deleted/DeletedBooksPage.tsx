@@ -8,7 +8,7 @@ import { Alert, Badge, Button, Card, EmptyState, Skeleton } from '../../componen
 import { formatDateTime, formatInteger } from '../../lib/format';
 import { statusLabel, statusTone } from '../../lib/status';
 import { DELETED_TABLE_COLUMNS, NUMERIC_COLUMN } from '../../lib/tableColumns';
-import { Pagination, usePageParam } from '../library/Pagination';
+import { Pagination, usePageOutOfRange, usePageParam } from '../library/Pagination';
 
 export const RESTORED_MESSAGE = 'Kitap Kitaplarım’a geri alındı.';
 
@@ -21,6 +21,7 @@ export function DeletedBooksPage() {
   const announce = useAnnounce();
   const [page, goTo] = usePageParam();
   const list = useDeletedBooks(page);
+  const outOfRange = usePageOutOfRange(page, list);
   const restore = useRestoreBook();
   const data = list.data;
 
@@ -61,7 +62,7 @@ export function DeletedBooksPage() {
         </Alert>
       )}
 
-      {list.isPending ? (
+      {list.isPending || outOfRange ? (
         <Card className="flex flex-col gap-3 p-5" aria-busy="true">
           <span className="sr-only">Silinen kitaplar yükleniyor</span>
           {Array.from({ length: 3 }, (_, index) => (
@@ -128,7 +129,7 @@ export function DeletedBooksPage() {
         </Card>
       ) : null}
 
-      {data && <Pagination page={page} totalCount={data.totalCount} onChange={goTo} />}
+      {data && !outOfRange && <Pagination page={page} totalCount={data.totalCount} onChange={goTo} />}
     </div>
   );
 }

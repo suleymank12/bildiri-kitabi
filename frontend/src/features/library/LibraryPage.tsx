@@ -14,7 +14,7 @@ import { isBusy, statusLabel, statusTone } from '../../lib/status';
 import { LIBRARY_TABLE_COLUMNS, NUMERIC_COLUMN } from '../../lib/tableColumns';
 import { NewBookDialog } from '../new-book/NewBookDialog';
 import { DeleteBookDialog } from './DeleteBookDialog';
-import { Pagination, usePageParam } from './Pagination';
+import { Pagination, usePageOutOfRange, usePageParam } from './Pagination';
 
 const EDIT_BLOCKED_REASON = 'Kitap oluşturulurken düzenlenemez.';
 const DELETE_BLOCKED_REASON = 'Kitap oluşturulurken silinemez.';
@@ -23,6 +23,7 @@ export function LibraryPage() {
   usePageTitle('Kitaplarım');
   const [page, goTo] = usePageParam();
   const list = useBookList(page);
+  const outOfRange = usePageOutOfRange(page, list);
   const [pendingDelete, setPendingDelete] = useState<BookSummary>();
   const [creating, setCreating] = useState(false);
   const wide = useMediaQuery(SM_QUERY);
@@ -61,7 +62,7 @@ export function LibraryPage() {
         </Alert>
       )}
 
-      {list.isPending ? (
+      {list.isPending || outOfRange ? (
         <ListSkeleton />
       ) : data && data.items.length === 0 && page === 1 ? (
         <Card>
@@ -99,7 +100,7 @@ export function LibraryPage() {
         </Card>
       ) : null}
 
-      {data && <Pagination page={page} totalCount={data.totalCount} onChange={goTo} />}
+      {data && !outOfRange && <Pagination page={page} totalCount={data.totalCount} onChange={goTo} />}
 
       <NewBookDialog
         open={creating}

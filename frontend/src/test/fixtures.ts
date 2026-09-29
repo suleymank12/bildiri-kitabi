@@ -54,6 +54,26 @@ export function bookSummary(overrides: Partial<BookSummary> = {}): BookSummary {
   };
 }
 
+/** `count` distinct books, newest first ("Kitap 1" … "Kitap n"). */
+export function manyBooks(count: number): BookSummary[] {
+  return Array.from({ length: count }, (_, index) =>
+    bookSummary({ uid: `kitap-${String(index + 1)}`, name: `Kitap ${String(index + 1)}` }),
+  );
+}
+
+/** The page of `items` a list request (`?page=&pageSize=`) asks for, as the API answers it: empty past the end. */
+export function pageOf<T>(items: readonly T[], requestUrl: string) {
+  const query = new URL(requestUrl).searchParams;
+  const page = Number(query.get('page') ?? '1');
+  const pageSize = Number(query.get('pageSize') ?? '20');
+  return {
+    items: items.slice((page - 1) * pageSize, page * pageSize),
+    page,
+    pageSize,
+    totalCount: items.length,
+  };
+}
+
 /** The ZIP signature every real .docx starts with. */
 const ZIP_SIGNATURE = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
 

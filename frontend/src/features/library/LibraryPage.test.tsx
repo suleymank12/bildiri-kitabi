@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw';
 import type { BookSummary } from '../../api/types';
 import { LIBRARY_TABLE_COLUMNS, NUMERIC_COLUMN } from '../../lib/tableColumns';
 import { setViewportWidth } from '../../test/media';
-import { bookSummary } from '../../test/fixtures';
+import { bookSummary, manyBooks, pageOf } from '../../test/fixtures';
 import { renderPage } from '../../test/render';
 import { server } from '../../test/server';
 import { LibraryPage } from './LibraryPage';
@@ -167,5 +167,101 @@ describe('LibraryPage', () => {
 
     await user.click(edit);
     expect(await screen.findByText('Başka sayfa')).toBeInTheDocument();
+  });
+
+  describe('a page past the end', () => {
+    /** The books on the server, served page by page; the requested page numbers are recorded. */
+    function serve(initial: BookSummary[]) {
+      const state = { items: initial, requested: [] as number[] };
+      server.use(
+        http.get('/api/books', ({ request }) => {
+          const body = pageOf(state.items, request.url);
+          state.requested.push(body.page);
+          return HttpResponse.json(body);
+        }),
+        http.delete('/api/books/:uid', ({ params }) => {
+          state.items = state.items.filter((book) => book.uid !== params.uid);
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      return state;
+    }
+
+    it('goes back to page 1 when the only book of page 2 is deleted (21 → 20)', async () => {
+      const state = serve(manyBooks(21));
+      const { user } = renderPage(<LibraryPage />, { path: '/', route: '/?sayfa=2' });
+
+      await user.click(await screen.findByRole('button', { name: 'Kitap 21 kitabını sil' }));
+      await user.click(
+        within(screen.getByRole('dialog', { name: 'Kitabı sil' })).getByRole('button', { name: 'Sil' }),
+      );
+
+      expect(await screen.findByRole('link', { name: 'Kitap 1' })).toBeInTheDocument();
+      expect(within(screen.getByRole('list', { name: 'Kitaplar' })).getAllByRole('listitem')).toHaveLength(
+        20,
+      );
+      // Everything fits on one page again: no page navigation.
+      expect(screen.queryByRole('navigation', { name: 'Sayfalar' })).not.toBeInTheDocument();
+      expect(state.requested.at(-1)).toBe(1);
+    });
+
+    it('opens the last page that exists for a page number typed into the address', async () => {
+      const state = serve(manyBooks(45));
+      renderPage(<LibraryPage />, { path: '/', route: '/?sayfa=99' });
+
+      expect(await screen.findByRole('link', { name: 'Kitap 41' })).toBeInTheDocument();
+      expect(within(screen.getByRole('list', { name: 'Kitaplar' })).getAllByRole('listitem')).toHaveLength(5);
+      expect(screen.getByRole('navigation', { name: 'Sayfalar' })).toHaveTextContent('Sayfa 3 / 3');
+      expect(state.requested).toEqual([99, 3]);
+    });
+
+    it('shows the empty state when the last book is deleted', async () => {
+      const state = serve(manyBooks(21));
+      const { user } = renderPage(<LibraryPage />, { path: '/', route: '/?sayfa=2' });
+      await user.click(await screen.findByRole('button', { name: 'Kitap 21 kitabını sil' }));
+
+      // The other twenty were deleted in another tab in the meantime.
+      state.items = state.items.slice(20);
+      await user.click(
+        within(screen.getByRole('dialog', { name: 'Kitabı sil' })).getByRole('button', { name: 'Sil' }),
+      );
+
+      expect(await screen.findByRole('heading', { name: 'Henüz kitap oluşturmadınız.' })).toBeInTheDocument();
+      expect(state.requested.at(-1)).toBe(1);
+    });
+
+    it('keeps the loading view while the page it moves to loads and does not act on the stale page', async () => {
+      let release: () => void = () => undefined;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const books = manyBooks(21);
+      const requested: number[] = [];
+      server.use(
+        http.get('/api/books', async ({ request }) => {
+          const body = pageOf(books, request.url);
+          requested.push(body.page);
+          if (body.page === 2) {
+            await held;
+          }
+          return HttpResponse.json(body);
+        }),
+      );
+      renderPage(<LibraryPage />, { path: '/', route: '/?sayfa=99' });
+
+      // Page 2 is on its way; meanwhile the empty page 99 stands in for it (placeholder data).
+      await waitFor(() => {
+        expect(requested).toEqual([99, 2]);
+      });
+      expect(screen.getByText('Kitaplar yükleniyor')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Henüz kitap oluşturmadınız.' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('list', { name: 'Kitaplar' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('navigation', { name: 'Sayfalar' })).not.toBeInTheDocument();
+
+      release();
+      expect(await screen.findByRole('link', { name: 'Kitap 21' })).toBeInTheDocument();
+      expect(screen.getByRole('navigation', { name: 'Sayfalar' })).toHaveTextContent('Sayfa 2 / 2');
+      expect(requested).toEqual([99, 2]);
+    });
   });
 });
