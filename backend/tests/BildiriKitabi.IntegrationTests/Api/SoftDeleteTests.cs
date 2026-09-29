@@ -107,6 +107,35 @@ public sealed class SoftDeleteTests(SqlServerFixture sql) : IAsyncDisposable
     }
 
     [Fact]
+    public async Task A_page_far_past_the_end_is_empty_in_both_lists_even_at_the_largest_page_number()
+    {
+        var api = Host();
+        var book = await api.CreateSampleBookAsync("Silinecek Kitap");
+        await api.CreateSampleBookAsync("Kalacak Kitap");
+        using var client = api.Client();
+        using (var deleted = await client.DeleteAsync(BookUri(book.Uid), TestContext.Current.CancellationToken))
+        {
+            deleted.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        }
+
+        // (page - 1) * pageSize does not fit in an int for the largest page; it answers like any page past the end.
+        foreach (var list in new[] { "/api/books", "/api/books/deleted" })
+        {
+            foreach (var page in new[] { 999, int.MaxValue })
+            {
+                using var response = await client.GetAsync(new Uri($"{list}?page={page}&pageSize=20", UriKind.Relative), TestContext.Current.CancellationToken);
+                var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+                response.StatusCode.ShouldBe(HttpStatusCode.OK, $"{list}?page={page}: {body}");
+                var result = JsonSerializer.Deserialize<PagedResult<JsonElement>>(body, ApiHost.Json)!;
+                result.Items.ShouldBeEmpty();
+                result.Page.ShouldBe(page);
+                result.PageSize.ShouldBe(20);
+                result.TotalCount.ShouldBe(1);
+            }
+        }
+    }
+
+    [Fact]
     public async Task Every_endpoint_of_a_deleted_book_answers_404_and_changes_nothing()
     {
         var api = Host();
