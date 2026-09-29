@@ -48,7 +48,7 @@ cd bildiri-kitabi
 
    `Now listening on: http://localhost:5080` satırını bekleyin. API ilk açılışta veritabanını ve tabloları migration'larla kendisi kurar; elle bir komut çalıştırmanız gerekmez.
 
-2. **Arayüzü başlatın.** Depo klasöründe ikinci bir terminal açın:
+2. **Arayüzü başlatın.** İkinci bir terminal açın. Yeni terminal depo klasöründe açılmaz; önce depoyu klonladığınız `bildiri-kitabi` klasörüne geçin, sonra:
 
 ```sh
    cd frontend
