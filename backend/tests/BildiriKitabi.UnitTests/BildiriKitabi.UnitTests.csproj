@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\BildiriKitabi.Infrastructure\BildiriKitabi.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\BildiriKitabi.Api\BildiriKitabi.Api.csproj" />
   </ItemGroup>
 
 </Project>

@@ -23,9 +23,11 @@ public sealed partial class GlobalExceptionHandler(ILogger<GlobalExceptionHandle
             return true;
         }
 
-        if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
+        if (httpContext.RequestAborted.IsCancellationRequested)
         {
-            // The client went away; there is nobody to answer.
+            // The client went away; there is nobody to answer. Whatever the exception: SqlClient reports a query
+            // cancelled with the request as a SqlException ("Operation cancelled by user"), not as a cancellation.
+            LogClientGone(logger, httpContext.Request.Method, httpContext.Request.Path);
             return true;
         }
 
@@ -41,4 +43,7 @@ public sealed partial class GlobalExceptionHandler(ILogger<GlobalExceptionHandle
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Unhandled exception for {Method} {Path}")]
     private static partial void LogUnhandled(ILogger logger, Exception exception, string method, PathString path);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Request cancelled by the client: {Method} {Path}")]
+    private static partial void LogClientGone(ILogger logger, string method, PathString path);
 }
