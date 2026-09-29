@@ -1,13 +1,17 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import type { DeletedBookSummary } from '../../api/types';
-import { bookSummary } from '../../test/fixtures';
+import { bookSummary, manyBooks, pageOf } from '../../test/fixtures';
 import { renderPage } from '../../test/render';
 import { server } from '../../test/server';
 import { DeletedBooksPage, RESTORED_MESSAGE } from './DeletedBooksPage';
 
 function deleted(overrides: Partial<DeletedBookSummary> = {}): DeletedBookSummary {
   return { ...bookSummary(), pdfUrl: null, deletedAt: '2026-09-30T08:15:00Z', ...overrides };
+}
+
+function manyDeleted(count: number): DeletedBookSummary[] {
+  return manyBooks(count).map((book) => deleted(book));
 }
 
 function listOf(items: DeletedBookSummary[]) {
@@ -102,5 +106,102 @@ describe('DeletedBooksPage', () => {
     expect(
       await screen.findByText('Kitap silinenler arasında bulunamadı; zaten geri alınmış olabilir.'),
     ).toBeInTheDocument();
+  });
+
+  describe('a page past the end', () => {
+    /** The deleted books on the server, served page by page; the requested page numbers are recorded. */
+    function serve(initial: DeletedBookSummary[]) {
+      const state = { items: initial, requested: [] as number[] };
+      server.use(
+        http.get('/api/books/deleted', ({ request }) => {
+          const body = pageOf(state.items, request.url);
+          state.requested.push(body.page);
+          return HttpResponse.json(body);
+        }),
+        http.post('/api/books/:uid/restore', ({ params }) => {
+          state.items = state.items.filter((book) => book.uid !== params.uid);
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      return state;
+    }
+
+    it('goes back to page 1 when the only book of page 2 is restored (21 → 20)', async () => {
+      const state = serve(manyDeleted(21));
+      const { user } = renderPage(<DeletedBooksPage />, {
+        path: '/silinenler',
+        route: '/silinenler?sayfa=2',
+      });
+
+      await user.click(await screen.findByRole('button', { name: 'Kitap 21 kitabını geri al' }));
+
+      expect(await screen.findByText('Kitap 1')).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('list', { name: 'Silinen kitaplar' })).getAllByRole('listitem'),
+      ).toHaveLength(20);
+      expect(screen.queryByRole('navigation', { name: 'Sayfalar' })).not.toBeInTheDocument();
+      expect(state.requested.at(-1)).toBe(1);
+    });
+
+    it('opens the last page that exists for a page number typed into the address', async () => {
+      const state = serve(manyDeleted(45));
+      renderPage(<DeletedBooksPage />, { path: '/silinenler', route: '/silinenler?sayfa=99' });
+
+      expect(await screen.findByText('Kitap 41')).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('list', { name: 'Silinen kitaplar' })).getAllByRole('listitem'),
+      ).toHaveLength(5);
+      expect(screen.getByRole('navigation', { name: 'Sayfalar' })).toHaveTextContent('Sayfa 3 / 3');
+      expect(state.requested).toEqual([99, 3]);
+    });
+
+    it('shows the empty state when the last deleted book is restored', async () => {
+      const state = serve(manyDeleted(21));
+      const { user } = renderPage(<DeletedBooksPage />, {
+        path: '/silinenler',
+        route: '/silinenler?sayfa=2',
+      });
+      const restore = await screen.findByRole('button', { name: 'Kitap 21 kitabını geri al' });
+
+      // The other twenty were restored in another tab in the meantime.
+      state.items = state.items.slice(20);
+      await user.click(restore);
+
+      expect(await screen.findByRole('heading', { name: 'Silinmiş kitap yok.' })).toBeInTheDocument();
+      expect(state.requested.at(-1)).toBe(1);
+    });
+
+    it('keeps the loading view while the page it moves to loads and does not act on the stale page', async () => {
+      let release: () => void = () => undefined;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const books = manyDeleted(21);
+      const requested: number[] = [];
+      server.use(
+        http.get('/api/books/deleted', async ({ request }) => {
+          const body = pageOf(books, request.url);
+          requested.push(body.page);
+          if (body.page === 2) {
+            await held;
+          }
+          return HttpResponse.json(body);
+        }),
+      );
+      renderPage(<DeletedBooksPage />, { path: '/silinenler', route: '/silinenler?sayfa=99' });
+
+      await waitFor(() => {
+        expect(requested).toEqual([99, 2]);
+      });
+      expect(screen.getByText('Silinen kitaplar yükleniyor')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Silinmiş kitap yok.' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('list', { name: 'Silinen kitaplar' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('navigation', { name: 'Sayfalar' })).not.toBeInTheDocument();
+
+      release();
+      expect(await screen.findByText('Kitap 21')).toBeInTheDocument();
+      expect(screen.getByRole('navigation', { name: 'Sayfalar' })).toHaveTextContent('Sayfa 2 / 2');
+      expect(requested).toEqual([99, 2]);
+    });
   });
 });

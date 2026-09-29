@@ -377,8 +377,15 @@ public sealed class BooksController(IAppDbContext db, IFileStorage storage) : Co
         CancellationToken cancellationToken)
     {
         var total = await books.CountAsync(cancellationToken);
+        // As a long: (page - 1) * pageSize overflows an int for very large pages. A page past the end is empty.
+        var skip = (long)(page - 1) * pageSize;
+        if (skip >= total)
+        {
+            return new PagedResult<T>([], page, pageSize, total);
+        }
+
         var rows = await books.AsNoTracking()
-            .Skip((page - 1) * pageSize)
+            .Skip((int)skip)
             .Take(pageSize)
             .Select(b => new { Book = b, PaperCount = b.Papers.Count })
             .ToListAsync(cancellationToken);
